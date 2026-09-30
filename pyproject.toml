@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rl_tokamak"
+version = "0.1.0"
+description = "RL baselines and literature review for tokamak current ramp-up on Gym-TORAX"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Leander Grech", email = "grechleander@gmail.com" }]
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  # Benchmark stack of the Gym-TORAX paper (arXiv 2510.11283, Table "expected return").
+  "gymtorax==1.0.0",
+  "torax==1.0.3",
+  "jax==0.11.2",
+  "jaxlib==0.11.2",
+  "gymnasium>=1.2,<2",
+  "numpy>=2.0,<3",
+  "torch>=2.2",
+  "stable-baselines3>=2.4,<3",
+  "pandas>=2.0",
+  "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "nbformat>=5.9",
+  "nbclient>=0.10",
+  "ipykernel>=6",
+  "mkdocs-material>=9.5",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+rl_tokamak = ["*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
