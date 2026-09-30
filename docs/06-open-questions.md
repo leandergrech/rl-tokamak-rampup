@@ -11,14 +11,14 @@ quadrantChart
     quadrant-2 Do first
     quadrant-3 Side projects
     quadrant-4 Later
-    1 Audit the benchmark reward: [0.15, 0.85]
+    1 Audit the benchmark reward: [0.22, 0.86]
     2 First RL baseline done properly: [0.3, 0.68]
     3 Does feedback matter: [0.6, 0.92]
     4 Constrained ramp-up: [0.45, 0.78]
-    5 Model-based data efficiency: [0.7, 0.62]
+    5 Model-based data efficiency: [0.72, 0.64]
     6 Offline to online: [0.35, 0.5]
     7 Realistic observations: [0.5, 0.58]
-    8 Transfer across versions: [0.66, 0.42]
+    8 Transfer across versions: [0.7, 0.4]
 ```
 
 Positions are this repo's judgement, not measurements; the effort estimates under each opening are the basis for the x-axis.

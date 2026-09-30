@@ -32,8 +32,7 @@ flowchart TD
     B --> E["gated fusion term (Q/10)/50 per second,<br/>uncapped"]
     D --> E
     E --> F["benchmark return 8.85 and 18.42<br/>(PI controller: 3.79)"]
-    C --> G["P_SOL / P_LH falls to about 0.2:<br/>a real plasma drops back to L-mode"]
-    G -. "not modelled: the pedestal is prescribed" .-> A
+    C --> G["P_SOL / P_LH falls to about 0.2:<br/>a real plasma would drop back to L-mode,<br/>but the prescribed pedestal cannot"]
 ```
 
 ![How the Q loophole plays out in time](figures/exploit.png)

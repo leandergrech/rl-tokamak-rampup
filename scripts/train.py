@@ -24,6 +24,19 @@ from pathlib import Path
 from rl_tokamak.env import EnvConfig, RampupEnv, gymtorax_version, set_single_thread
 
 
+def _host_info() -> dict:
+    import os
+    import platform
+
+    cpu = platform.processor()
+    try:
+        with open("/proc/cpuinfo") as f:
+            cpu = next((ln.split(":", 1)[1].strip() for ln in f if ln.startswith("model name")), cpu)
+    except OSError:
+        pass
+    return {"hostname": platform.node(), "cpu": cpu, "logical_cpus": os.cpu_count()}
+
+
 def parse(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--algo", required=True, choices=["ppo", "sac", "mbpo", "td3bc", "bc", "mopo"])
@@ -64,7 +77,8 @@ def main(argv=None) -> dict:
         log_f.flush()
 
     meta = {"algo": args.algo, "seed": args.seed, "env_config": asdict(env_cfg), "args": vars(args),
-            "gymtorax": gymtorax_version(), "started": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+            "gymtorax": gymtorax_version(), "started": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "host": _host_info()}
     t0 = time.time()
     if args.algo in ("ppo", "sac"):
         from rl_tokamak.agents.sb3_runner import SB3Config, train_sb3

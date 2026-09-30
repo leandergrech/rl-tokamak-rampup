@@ -26,17 +26,17 @@ quadrantChart
     quadrant-2 Learned model, on hardware
     quadrant-3 Learned model, simulation only
     quadrant-4 Physics simulator, simulation only
-    TCV magnetic 2022: [0.9, 0.93]
-    TCV magnetic 2023: [0.82, 0.86]
-    DIII-D tearing 2024: [0.14, 0.88]
+    TCV magnetic 2022: [0.76, 0.93]
+    TCV magnetic 2023: [0.7, 0.83]
+    DIII-D tearing 2024: [0.2, 0.9]
     TCV ramp-down 2025: [0.26, 0.76]
-    HL-3 current 2025: [0.1, 0.68]
-    DIII-D offline MBRL 2023: [0.2, 0.58]
+    HL-3 current 2025: [0.17, 0.67]
+    DIII-D offline MBRL 2023: [0.26, 0.57]
     SPARC ramp-down 2025: [0.3, 0.25]
-    RL4F offline 2026: [0.08, 0.14]
-    JT-60SA q and beta 2023: [0.72, 0.3]
+    RL4F offline 2026: [0.17, 0.14]
+    JT-60SA q and beta 2023: [0.72, 0.32]
     DEMO ramp-up 2019: [0.64, 0.12]
-    Gym-TORAX this repo: [0.92, 0.07]
+    Gym-TORAX this repo: [0.74, 0.07]
 ```
 
 Placement is qualitative (from the table above and [the timeline](03-timeline.md)): the x-axis is what the policy was trained against, the y-axis whether a learned policy ran on a real machine. WEST and EAST are left out because the opened pages did not settle whether their policies ran on hardware.
@@ -95,7 +95,7 @@ All learned policies see the wrapper defaults unless an ablation says otherwise:
 How the MBPO baseline spends simulator steps:
 
 ```mermaid
-flowchart LR
+flowchart TB
     ENV["TORAX via RampupEnv<br/>151 steps per episode"] -- "real transitions" --> RB[("real buffer")]
     RB -- "refit after every episode<br/>Gaussian NLL, bootstrap, hold-out" --> ENS["ensemble of 5 MLPs<br/>(x, a) → (Δx, r)"]
     RB -- "1,000 start states<br/>every 50 real steps" --> ROLL["branched rollouts<br/>k = 1 → 5 steps<br/>time feature advanced exactly"]
@@ -109,7 +109,7 @@ flowchart LR
 And how the offline experiment is built:
 
 ```mermaid
-flowchart LR
+flowchart TB
     PI["PI controller<br/>k_p 0.700, k_i 34.257"] --> D0["pi_det<br/>1 episode, 151 transitions"]
     PI --> N1["+ Gaussian action noise σ 0.1<br/>20 episodes"] --> D1["pi_noisy_0.1<br/>3,020 transitions"]
     PI --> N3["+ noise σ 0.3<br/>20 episodes"] --> D3["pi_noisy_0.3<br/>3,020 transitions"]
@@ -125,10 +125,25 @@ Offline datasets (`scripts/make_datasets.py`, summary in `data/offline/datasets.
 
 "Return" is the benchmark score of the final policy (one deterministic episode). "Best during training" is the highest deterministic evaluation seen during training; with a deterministic environment and no held-out test set, it is selected on the benchmark itself and should be read as an optimistic anytime number. "Sim. steps to beat PI" is the number of simulator steps used for training when a deterministic evaluation first exceeded 3.7919. Wall times were measured on a 16-thread laptop CPU that was **shared with two other heavy workloads** for most of the session (load average 20–40); on an idle machine the same runs are 3–10× faster, so the step counts, not the minutes, are the comparable quantity.
 
+![Where each policy's return comes from, with its audited score](figures/reward_components.png)
+
 ![Learning curves](figures/learning_curves.png)
 
 ![Trajectories](figures/trajectories.png)
 
 ![Offline RL](figures/offline.png)
 
-<!--RESULTS_DISCUSSION-->
+### What the numbers say
+
+**1. Within a < 1 h CPU budget, model-free RL does not reach the PI controller.** PPO (14,128 simulator steps) and SAC (11,192) end at 2.99 and 2.92, below even the random policy (3.23). Both keep I_p near 3–4 MA: that collects the q_min and q95 terms in full (2.0) and about 0.95 from the H98 term once the scheduled pedestal heats the core, but almost none of the fusion term, which needs about 60 s of sustained ramping before it pays after t = 100 s (reward breakdown in the figure above). The same plateau appears with the I_p floor at 1 MA (SAC 2.99).
+
+**2. MBPO finds high benchmark returns quickly, and for the wrong reason.** Across four MBPO runs with the default training reward, final returns were 2.98, 18.42, 2.08 (best during training 2.97) and 3.15 (best 3.95, first protocol). The 3.95 policy beat PI after 1,364 simulator steps, about 9 episodes. The 18.42 policy is the loophole of [Limitations](05-limitations.md#the-q-loophole-found-by-rl): heat hard before the pedestal, then cut auxiliary power to under 1 MW so that Q = P_fus/P_aux climbs to 123–210. The ablation trained on the raw benchmark reward found the same trick by its fourth episode (8.85, 594 simulator steps). Under the audited score both drop to about 1.9–2.0, below the open-loop reference.
+
+**3. Offline RL from PI logs: coverage decides.** Behaviour cloning reproduces whichever data it gets (3.79, 3.85, 3.99 on the three datasets, against behaviour means 3.79, 3.85, 4.01). TD3+BC fails outright on the single deterministic trajectory (−998: it drifts off the data and ends the episode) and matches the behaviour policy on the noisy data (3.79 and 4.01). MOPO beats PI on the single trajectory (3.94) by cutting flat-top heating to about 19 MW, which lowers P_aux and so raises Q, and collapses to the low-current plateau on the noisy data (2.88, 2.01). The only learned policies that stay above PI **after the audit** are the imitation learners on the σ = 0.3 data (audited 3.56 against PI's 3.50): they copy a behaviour policy that already beat PI because its noise switches some heating on early.
+
+**4. Ablations (MBPO, 15 simulator episodes, one seed each).** The `scalars` observation run ended in a −1000 failure (best 3.04 during training); `full` (1,739 inputs) reached 3.12 in the 735 steps its larger model allowed within the time cap; the `qmin_safe` reward kept q_min above 1 throughout and ended at 3.00. With one seed each and returns inside the MBPO seed spread above, none of these differences is significant; the ablation that matters is the reward one: the raw benchmark reward led to the exploit in 594 steps.
+
+<!--RESULTS_BATCH4-->
+
+**What longer training would likely change.** For PPO and SAC, mainly whether they leave the low-current plateau: 10–100× more steps, or an action space in which a full ramp is one decision, would probably get them to the PI level, and then into the same loophole MBPO found, since nothing in the benchmark reward stops it. For MBPO, more seeds and episodes would sharpen the data-efficiency estimate; this repo's runs say "a few hundred to a few thousand simulator steps" to exceed 3.79, and that the first thing found is often the exploit.
+

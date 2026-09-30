@@ -53,7 +53,7 @@ The last point is the key to the ramp-up for an RL person. **Your I_p action is 
 The whole chain from actuators to reward, as the environment implements it:
 
 ```mermaid
-flowchart LR
+flowchart TB
     IP["I_p set-point<br/>(≤ 0.2 MA/s)"] --> BC["ψ edge boundary condition"]
     BC --> DIFF["current diffusion inward<br/>rate ∝ 1/σ∥, σ∥ rises with T_e"]
     NBI["NBI power"] --> TE["T_e, T_i profiles<br/>(QLKNN turbulent transport)"]

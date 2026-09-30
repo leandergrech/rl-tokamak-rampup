@@ -7,7 +7,7 @@ This page states the Gym-TORAX ITER hybrid ramp-up task as an MDP, exactly as th
 A plasma is started at 3 MA in an ITER-sized tokamak (R = 6.2 m, a = 2.0 m, B₀ = 5.3 T; [R3](07-references.md#r3)). Over 150 simulated seconds, one decision per second, the controller chooses the plasma-current set-point and the power (and optionally deposition location and width) of two heating systems: neutral-beam injection (NBI, up to 33 MW, which also drives current) and electron-cyclotron heating (ECRH, up to 20 MW). TORAX integrates four coupled 1D transport PDEs between decisions. The reward pays for fusion gain and confinement quality once the core is hot enough to count as H-mode, and pays a small amount every second for keeping the safety factor above 1 in the core and above 3 at the edge. A numerical failure or a state outside the environment's bounds file ends the episode with −1000. The benchmark score is the undiscounted return of one episode.
 
 ```mermaid
-flowchart LR
+flowchart TB
     A["Agent π(a | x)<br/>PPO · SAC · MBPO · offline"] -- "a ∈ [-1, 1]³<br/>I_p ramp rate, P_NBI, P_ECRH" --> W1["RampupEnv.step<br/>I_p ← I_p + 0.2 MA · a₀ (floor 3 MA)<br/>P ← (a + 1)/2 · P_max"]
     W1 -- "action dict<br/>Ip · NBI[3] · ECRH[3]" --> G["gymtorax.IterHybridEnv 1.0.0<br/>(unmodified)"]
     G -- "update config, run 1 s" --> T["TORAX 1.0.3<br/>4 coupled 1D PDEs<br/>T_i, T_e, n_e, ψ on 25 cells"]
