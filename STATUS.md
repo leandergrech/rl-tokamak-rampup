@@ -16,3 +16,13 @@ log:
 - 2026-09-30T19:09:54Z step 4: PPO 2.99 (14.1k steps), SAC 2.92 (11.2k), MBPO final-protocol s0 2.98 (1.8k); first-protocol MBPO peaked 3.95 at 1,364 steps; MOPO on 1 PI trajectory 3.94 (cuts flat-top heating: Q-term loophole); BC 3.79/3.85; TD3+BC -998 (pi_det) / 3.79 (noisy); pytest 15 passed; CI + Pages workflows green; site live (drafts)
 - 2026-09-30T21:35:02Z FINDING: benchmark reward is exploitable. MBPO reached 8.85 (raw reward) and 18.42 (seed 1) by cutting aux heating after the scheduled pedestal -> uncapped Q=P_fus/P_aux up to 210, P_SOL/P_LH~0.2. Added audited score (Q capped at 10, H-mode gate needs P_SOL>=P_LH): PI 3.50, exploits ~2.0, best learned TD3+BC(noisy PI) 3.56
 - 2026-09-30T21:35:02Z vast.ai: rented instance 53588773 (approved offer 47588726, $0.21/h); image pull stalled ~20 min, destroyed; ~$0.003 spent; offer no longer listed, jobs moved back to the laptop. Diagrams + 10 figures added; 3 theme options sent for review
+
+## Fork task
+repo: not yet created (target: fork of antoine-mouchamps/gymtorax under leandergrech, branch fix/audited-iter-hybrid-reward)
+step: 0
+state: running
+updated: 2026-09-30T22:41:19Z
+blockers: none
+next: step 1, gh repo fork into /home/leander/code/gymtorax, branch, upstream remote, fresh .venv with the repo's dev dependencies
+log:
+- 2026-09-30T22:41:19Z step 0: fork task started; rl-tokamak-rampup runs still going (vast.ai instance 53597337, 12 jobs, until ~01:20 CEST)
