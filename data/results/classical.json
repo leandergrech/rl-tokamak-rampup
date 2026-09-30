@@ -1,0 +1,182 @@
+{
+  "pi": {
+    "benchmark_return": 3.79192295529996,
+    "failed": false,
+    "steps": 151,
+    "paper": 3.79,
+    "reward_components": {
+      "r_fusion_gain": 1.19219772593386,
+      "r_h98": 0.9042197478272026,
+      "r_q_min": 0.6888388148722313,
+      "r_q95": 1.0066666666666668
+    },
+    "Ip_final_MA": 15.0,
+    "Q_final": 14.599746549954899,
+    "H98_final": 0.9137818047039845,
+    "q_min_final": 0.4112845144242415,
+    "q95_final": 3.311371850353236,
+    "fGW_max": 1.1945204624627441,
+    "q_min_lowest": 0.4112845144242415,
+    "t_q_min_below_1_s": 101.0,
+    "first_hmode_proxy_s": 102.0,
+    "E_aux_GJ": 2.756
+  },
+  "open_loop": {
+    "benchmark_return": 3.4086073726730857,
+    "failed": false,
+    "steps": 151,
+    "paper": 3.4,
+    "reward_components": {
+      "r_fusion_gain": 0.6034239598849263,
+      "r_h98": 0.9641685144175964,
+      "r_q_min": 0.8343482317038977,
+      "r_q95": 1.0066666666666668
+    },
+    "Ip_final_MA": 12.5,
+    "Q_final": 7.676961865520365,
+    "H98_final": 0.9866094544244937,
+    "q_min_final": 0.6255527769789982,
+    "q95_final": 4.0868382538290575,
+    "fGW_max": 1.1859975381235954,
+    "q_min_lowest": 0.6194596118036402,
+    "t_q_min_below_1_s": 83.0,
+    "first_hmode_proxy_s": 102.0,
+    "E_aux_GJ": 2.756
+  },
+  "pi_gymtorax_agent": {
+    "benchmark_return": 3.79192295529996,
+    "paper": 3.79
+  },
+  "random": {
+    "n_episodes": 20,
+    "mean_return": 3.229325716946877,
+    "std_return": 0.05978965935025799,
+    "median_return": 3.2286717583605657,
+    "min_return": 3.104551889572174,
+    "max_return": 3.3331407018078654,
+    "failure_rate": 0.0,
+    "paper": -10.79,
+    "episodes": [
+      {
+        "seed": 0,
+        "benchmark_return": 3.23135544299973,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 1,
+        "benchmark_return": 3.2090786971064493,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 2,
+        "benchmark_return": 3.22307854775032,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 3,
+        "benchmark_return": 3.290249034574503,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 4,
+        "benchmark_return": 3.2448613015539483,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 5,
+        "benchmark_return": 3.3331407018078654,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 6,
+        "benchmark_return": 3.2717875799093012,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 7,
+        "benchmark_return": 3.1665637868713503,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 8,
+        "benchmark_return": 3.3106195483093477,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 9,
+        "benchmark_return": 3.228719894109648,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 10,
+        "benchmark_return": 3.1872242764377123,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 11,
+        "benchmark_return": 3.281870869654329,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 12,
+        "benchmark_return": 3.221791520676077,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 13,
+        "benchmark_return": 3.1460598040295498,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 14,
+        "benchmark_return": 3.1364480847648983,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 15,
+        "benchmark_return": 3.104551889572174,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 16,
+        "benchmark_return": 3.306674933594009,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 17,
+        "benchmark_return": 3.228623622611483,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 18,
+        "benchmark_return": 3.2654209137729255,
+        "failed": false,
+        "steps": 151
+      },
+      {
+        "seed": 19,
+        "benchmark_return": 3.1983938888319265,
+        "failed": false,
+        "steps": 151
+      }
+    ]
+  }
+}

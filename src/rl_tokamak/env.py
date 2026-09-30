@@ -72,7 +72,8 @@ class EnvConfig:
     obs_set: str = "profiles"
     action_set: str = "powers"  # "powers": [Ip, P_NBI, P_ECRH]; "full": + deposition loc/width
     ip_mode: str = "delta"  # "delta" (rate command) or "absolute" (set-point)
-    ip_min: float = 1.0e6  # A, lower clip for the current command
+    ip_min: float = 3.0e6  # A, floor of the current command (= the initial 3 MA; below ~4 MA the bounds file
+    # rejects edge q > 100 and Gym-TORAX ends the episode with -1000)
     reward_mode: str = "scaled"
     reward_scale: float = 100.0  # used by "scaled" and "qmin_safe"
     failure_penalty: float = -100.0  # replaces -1000 in the *training* reward (scaled units)
@@ -264,7 +265,8 @@ class RampupEnv(gym.Env):
                "P_ECRH_MW": self._applied[2] / 1e6, "r_bench": r_bench, **comps}
         if not failed:
             s, p = obs["scalars"], obs["profiles"]
-            row.update({k: _scalar(s, k) for k in ("Q_fusion", "H98", "q_min", "q95", "beta_N", "li3", "fgw_n_e_line_avg", "P_LH", "P_SOL_total")})
+            row.update({k: _scalar(s, k) for k in ("Q_fusion", "H98", "q_min", "q95", "beta_N", "li3", "fgw_n_e_line_avg", "P_LH", "P_SOL_total",
+                                          "P_alpha_total", "P_ohmic_e", "P_aux_total")})
             row.update({"T_e0": float(p["T_e"][0]), "T_i0": float(p["T_i"][0]), "j0_MA_m2": float(p["j_total"][0]) / 1e6})
         self._episode.append(row)
         reward = self.training_reward(r_bench, None if failed else obs)

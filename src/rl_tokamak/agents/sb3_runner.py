@@ -48,8 +48,10 @@ def _env_fn(cfg_dict: dict, seed: int):
 
 
 class BudgetCallback(BaseCallback):
-    def __init__(self, max_minutes: float, eval_every_minutes: float, eval_env: RampupEnv, log=print):
+    def __init__(self, max_minutes: float, eval_every_minutes: float, eval_env: RampupEnv, log=print,
+                 best_path=None):
         super().__init__()
+        self.best_path = best_path
         self.max_s, self.eval_s = max_minutes * 60, eval_every_minutes * 60
         self.eval_env, self.log_fn = eval_env, log
         self.t0 = self.last_eval = time.time()
@@ -67,7 +69,9 @@ class BudgetCallback(BaseCallback):
         self.curve.append(row)
         self.log_fn(row)
         if ev["benchmark_return"] > self.best[0]:
-            self.best = (ev["benchmark_return"], {k: v.detach().clone() for k, v in self.model.policy.state_dict().items()})
+            self.best = (ev["benchmark_return"], None)
+            if self.best_path is not None:
+                self.model.save(self.best_path)
         self.last_eval = time.time()
 
     def _on_step(self) -> bool:
@@ -80,7 +84,7 @@ class BudgetCallback(BaseCallback):
         return time.time() - self.t0 < self.max_s
 
 
-def train_sb3(env_cfg: EnvConfig, cfg: SB3Config, log=print) -> dict:
+def train_sb3(env_cfg: EnvConfig, cfg: SB3Config, log=print, best_path=None) -> dict:
     cfg_dict = asdict(env_cfg)
     cfg_dict["log_dir"] = None
     fns = [_env_fn(cfg_dict, cfg.seed * 1000 + i) for i in range(cfg.n_envs)]
@@ -96,7 +100,7 @@ def train_sb3(env_cfg: EnvConfig, cfg: SB3Config, log=print) -> dict:
                     policy_kwargs={"net_arch": list(cfg.net_arch)}, **cfg.sac)
     else:
         raise ValueError(cfg.algo)
-    cb = BudgetCallback(cfg.max_minutes, cfg.eval_every_minutes, eval_env, log)
+    cb = BudgetCallback(cfg.max_minutes, cfg.eval_every_minutes, eval_env, log, best_path=best_path)
     model.learn(total_timesteps=10**9, callback=cb)
     cb._evaluate()  # final deterministic evaluation
     venv.close()

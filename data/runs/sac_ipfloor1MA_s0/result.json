@@ -1,0 +1,20 @@
+{
+  "run": "sac_ipfloor1MA_s0",
+  "algo": "sac",
+  "seed": 0,
+  "benchmark_return": 2.993372485959895,
+  "failed": false,
+  "env_steps_used": 10712,
+  "train_minutes": 49.43448042869568,
+  "Ip_final_MA": 3.068557870388031,
+  "Q_final": 0.17146540355969705,
+  "H98_final": 1.715500352298005,
+  "q_min_final": 3.671353360879408,
+  "q95_final": 19.947008261973615,
+  "fGW_max": 1.3199624193266535,
+  "q_min_lowest": 2.9355016195330683,
+  "t_q_min_below_1_s": 0.0,
+  "first_hmode_proxy_s": 104.0,
+  "E_aux_GJ": 4.763802813321352,
+  "total_minutes": 51.02962540785472
+}

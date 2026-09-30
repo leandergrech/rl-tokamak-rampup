@@ -1,0 +1,20 @@
+{
+  "run": "mbpo_ipfloor1MA_s0",
+  "algo": "mbpo",
+  "seed": 0,
+  "benchmark_return": 3.1546740324732157,
+  "failed": false,
+  "env_steps_used": 2119,
+  "train_minutes": 55.29793211221695,
+  "Ip_final_MA": 6.933521248353645,
+  "Q_final": 1.6104593394285278,
+  "H98_final": 1.4527253714486839,
+  "q_min_final": 1.277736695666088,
+  "q95_final": 7.480896255602235,
+  "fGW_max": 1.0492532308405411,
+  "q_min_lowest": 1.27538719211763,
+  "t_q_min_below_1_s": 0.0,
+  "first_hmode_proxy_s": 103.0,
+  "E_aux_GJ": 5.995071323629468,
+  "total_minutes": 55.79311756292979
+}

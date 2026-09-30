@@ -76,7 +76,7 @@ def k_for_episode(cfg: MBPOConfig, ep: int) -> int:
 
 
 def train_mbpo(env: RampupEnv, cfg: MBPOConfig, log=print, eval_env: RampupEnv | None = None,
-               penalty_lambda: float = 0.0) -> dict:
+               penalty_lambda: float = 0.0, on_best=None) -> dict:
     rng = np.random.default_rng(cfg.seed)
     torch.manual_seed(cfg.seed)
     eval_env = eval_env or env
@@ -89,6 +89,7 @@ def train_mbpo(env: RampupEnv, cfg: MBPOConfig, log=print, eval_env: RampupEnv |
     advance = TimeAdvance(env)
     t0 = time.time()
     curve, real_steps, model_fitted = [], 0, False
+    best_eval = -np.inf
     train_returns = []
     for ep in range(cfg.real_episodes):
         x, _ = env.reset()
@@ -121,6 +122,10 @@ def train_mbpo(env: RampupEnv, cfg: MBPOConfig, log=print, eval_env: RampupEnv |
         if (ep + 1) % cfg.eval_every_episodes == 0 or ep == cfg.real_episodes - 1 or minutes > cfg.max_minutes:
             ev = run_policy(eval_env, lambda o: agent.act(o, deterministic=True))
             row.update({"eval_return": ev["benchmark_return"], "eval_failed": ev["failed"]})
+            if ev["benchmark_return"] > best_eval:
+                best_eval = ev["benchmark_return"]
+                if on_best is not None:
+                    on_best(agent)
         curve.append(row)
         log(row)
         if minutes > cfg.max_minutes:

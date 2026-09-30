@@ -40,6 +40,7 @@ def parse(argv=None):
     p.add_argument("--dataset", help="offline .npz (td3bc, bc, mopo)")
     p.add_argument("--steps", type=int, default=60_000, help="offline gradient steps")
     p.add_argument("--penalty-lambda", type=float, default=1.0, help="MOPO uncertainty penalty")
+    p.add_argument("--ip-min-ma", type=float, default=3.0, help="floor of the I_p command [MA]")
     p.add_argument("--max-steps", type=int, default=None, help=argparse.SUPPRESS)  # smoke tests only
     return p.parse_args(argv)
 
@@ -53,7 +54,7 @@ def main(argv=None) -> dict:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     env_cfg = EnvConfig(obs_set=args.obs_set, action_set=args.action_set, ip_mode=args.ip_mode,
-                        reward_mode=args.reward_mode, max_steps=args.max_steps)
+                        reward_mode=args.reward_mode, max_steps=args.max_steps, ip_min=args.ip_min_ma * 1e6)
     log_f = open(out / "train.log", "a")
 
     def log(row):
@@ -71,7 +72,7 @@ def main(argv=None) -> dict:
         cfg = SB3Config(algo=args.algo, max_minutes=args.minutes, seed=args.seed,
                         n_envs=args.n_envs or (12 if args.algo == "ppo" else 8),
                         net_arch=(64, 64) if args.algo == "ppo" else (256, 256))
-        res = train_sb3(env_cfg, cfg, log)
+        res = train_sb3(env_cfg, cfg, log, best_path=out / "policy_best.zip")
         res["model"].save(out / "policy.zip")
         curve = {"eval": res["callback"].curve, "train_episodes": res["callback"].train_episodes}
         meta["algo_config"] = res["config"]
@@ -83,10 +84,11 @@ def main(argv=None) -> dict:
 
         env = RampupEnv(env_cfg)
         cfg = MBPOConfig(real_episodes=args.real_episodes, max_minutes=args.minutes, seed=args.seed, utd=args.utd)
-        res = train_mbpo(env, cfg, log)
+        od, ad = env.observation_space.shape[0], env.action_space.shape[0]
+        res = train_mbpo(env, cfg, log, on_best=lambda ag: save_torch_actor(out / "policy_best.pt", "sac_actor",
+                                                                            ag.actor, od, ad, cfg.hidden))
         a = res["agent"]
-        save_torch_actor(out / "policy.pt", "sac_actor", a.actor, env.observation_space.shape[0],
-                         env.action_space.shape[0], cfg.hidden)
+        save_torch_actor(out / "policy.pt", "sac_actor", a.actor, od, ad, cfg.hidden)
         curve = {"eval": res["curve"]}
         meta["algo_config"] = res["config"]
         meta["env_steps"] = res["real_steps"]

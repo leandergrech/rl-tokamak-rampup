@@ -110,21 +110,21 @@ def summary() -> None:
     for key, label in [("pi", "PI controller (paper gains)"), ("open_loop", "Open-loop reference")]:
         if key in cl:
             rows.append({"policy": label, "group": "classical", "return": cl[key]["benchmark_return"],
-                         "paper": PAPER[key], "env_steps": 0, "minutes": 0.0, "failed": cl[key]["failed"],
+                         "paper": PAPER[key], "env_steps": None, "minutes": None, "failed": cl[key]["failed"],
                          "q_min_final": cl[key].get("q_min_final"), "fGW_max": cl[key].get("fGW_max"),
-                         "Q_final": cl[key].get("Q_final")})
+                         "Q_final": cl[key].get("Q_final"), "Ip_final_MA": cl[key].get("Ip_final_MA"),
+                         "t_q_min_below_1_s": cl[key].get("t_q_min_below_1_s")})
     if "random" in cl:
         r = cl["random"]
         rows.append({"policy": f"Random (mean of {r['n_episodes']})", "group": "classical", "return": r["mean_return"],
-                     "return_std": r["std_return"], "paper": PAPER["random"], "env_steps": 0, "minutes": 0.0,
+                     "return_std": r["std_return"], "paper": PAPER["random"], "env_steps": None, "minutes": None,
                      "failed": r["failure_rate"]})
     for res_path in sorted(Path("data/runs").glob("*/result.json")):
         res = json.loads(res_path.read_text())
         cfg = json.loads((res_path.parent / "config.json").read_text())
-        group = "offline" if cfg["algo"] in ("bc", "td3bc", "mopo") else "online"
-        tag = ""
-        if cfg.get("dataset"):
-            tag = f" on {Path(cfg['dataset']).stem}"
+        offline = cfg["algo"] in ("bc", "td3bc", "mopo")
+        group = "offline" if offline else "online"
+        tag = f" on {Path(cfg['dataset']).stem}" if cfg.get("dataset") else ""
         ec = cfg["env_config"]
         variant = []
         if ec["obs_set"] != "profiles":
@@ -133,25 +133,58 @@ def summary() -> None:
             variant.append(f"reward={ec['reward_mode']}")
         if ec["ip_mode"] != "delta":
             variant.append(f"ip={ec['ip_mode']}")
+        if not offline and abs(ec.get("ip_min", 3e6) - 3e6) > 1:
+            variant.append(f"I_p floor {ec['ip_min'] / 1e6:.0f} MA")
         if variant:
             group = "ablation"
             tag += " [" + ", ".join(variant) + "]"
+        best, beat_pi = None, None
+        curve_path = res_path.parent / "curve.json"
+        if curve_path.exists():
+            ev = [r for r in json.loads(curve_path.read_text())["eval"] if "eval_return" in r]
+            if ev:
+                best = max(r["eval_return"] for r in ev)
+                xk = "env_steps" if "env_steps" in ev[0] else "real_steps" if "real_steps" in ev[0] else None
+                if xk:
+                    pi_ret = cl["pi"]["benchmark_return"] if "pi" in cl else PAPER["pi"]
+                    beat_pi = next((r[xk] for r in ev if r["eval_return"] > pi_ret), None)
         rows.append({"policy": LABELS.get(cfg["algo"], cfg["algo"]) + tag + f" (seed {cfg['seed']})", "group": group,
                      "run": res_path.parent.name, "return": res["benchmark_return"], "paper": None,
-                     "env_steps": cfg.get("env_steps"), "minutes": res.get("total_minutes", cfg.get("train_minutes")),
+                     "best_during_training": best, "steps_to_beat_pi": beat_pi,
+                     "env_steps": cfg.get("env_steps"), "dataset_transitions": cfg.get("dataset_transitions"),
+                     "minutes": res.get("total_minutes", cfg.get("train_minutes")),
                      "failed": res["failed"], "q_min_final": res.get("q_min_final"), "fGW_max": res.get("fGW_max"),
-                     "Q_final": res.get("Q_final"), "first_hmode_proxy_s": res.get("first_hmode_proxy_s")})
+                     "Q_final": res.get("Q_final"), "Ip_final_MA": res.get("Ip_final_MA"),
+                     "t_q_min_below_1_s": res.get("t_q_min_below_1_s"),
+                     "first_hmode_proxy_s": res.get("first_hmode_proxy_s")})
+    cem = RESULTS / "cem_open_loop.json"
+    if cem.exists():
+        c = json.loads(cem.read_text())
+        rows.append({"policy": "CEM open-loop schedule search (9 parameters)", "group": "reference",
+                     "return": c["best_rescored"], "paper": None, "env_steps": c["episodes"] * 151,
+                     "minutes": c["minutes"], "failed": False, "q_min_final": c.get("q_min_final"),
+                     "fGW_max": c.get("fGW_max"), "Q_final": c.get("Q_final"), "Ip_final_MA": c.get("Ip_final_MA"),
+                     "t_q_min_below_1_s": c.get("t_q_min_below_1_s")})
     (RESULTS / "summary.json").write_text(json.dumps(rows, indent=2, default=float))
 
     def f(x, nd=2):
         return "" if x is None or (isinstance(x, float) and np.isnan(x)) else f"{x:.{nd}f}"
 
-    lines = ["| Policy | Group | Benchmark return | Paper | Sim. steps used | Wall time (min) | q_min at end | max f_GW | Q at end |",
-             "|---|---|---|---|---|---|---|---|---|"]
+    def n(x):
+        return "" if x is None else f"{int(x):,}"
+
+    lines = ["| Policy | Group | Return (final policy) | Best during training | Sim. steps to beat PI | Sim. steps used "
+             "| Wall time (min) | I_p end (MA) | q_min end | s with q_min<1 | max f_GW | Q end |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         ret = f(r["return"]) + (f" ± {f(r['return_std'])}" if "return_std" in r else "")
-        lines.append(f"| {r['policy']} | {r['group']} | {ret} | {f(r['paper'])} | {r['env_steps'] or 0:,} | "
-                     f"{f(r['minutes'], 1)} | {f(r.get('q_min_final'))} | {f(r.get('fGW_max'))} | {f(r.get('Q_final'), 1)} |")
+        if r.get("paper") is not None:
+            ret += f" (paper {f(r['paper'])})"
+        used = n(r.get("env_steps")) if not r.get("dataset_transitions") else f"0 online, {n(r['dataset_transitions'])} logged"
+        lines.append(f"| {r['policy']} | {r['group']} | {ret} | {f(r.get('best_during_training'))} | "
+                     f"{n(r.get('steps_to_beat_pi'))} | {used} | {f(r['minutes'], 1)} | {f(r.get('Ip_final_MA'), 1)} | "
+                     f"{f(r.get('q_min_final'))} | {n(r.get('t_q_min_below_1_s'))} | {f(r.get('fGW_max'))} | "
+                     f"{f(r.get('Q_final'), 1)} |")
     (RESULTS / "summary.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
 
