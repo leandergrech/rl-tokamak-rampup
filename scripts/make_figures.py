@@ -12,6 +12,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 OUT = Path("docs/figures")
@@ -139,11 +140,260 @@ def offline() -> None:
     plt.close(fig)
 
 
+def _audit(csv_path) -> float:
+    from rl_tokamak.evaluate import audited_return
+
+    return audited_return(pd.read_csv(csv_path).to_dict("records"))
+
+
+def classical() -> None:
+    """Dot plot: paper value (hollow) vs this repo (filled) for the three published baselines."""
+    cl = json.loads(Path("data/results/classical.json").read_text())
+    rows = [("PI controller", 3.79, cl["pi"]["benchmark_return"]),
+            ("open-loop reference", 3.40, cl["open_loop"]["benchmark_return"]),
+            ("random policy", -10.79, cl["random"]["mean_return"])]
+    fig, ax = plt.subplots(figsize=(8, 2.8))
+    for i, (name, paper, ours) in enumerate(rows):
+        y = len(rows) - 1 - i
+        if paper > 2.5:
+            ax.plot(paper, y, "o", ms=11, mfc=SURFACE, mec=MUTED, mew=2, label="paper (Gym-TORAX 1.0)" if i == 0 else None)
+        else:
+            ax.annotate(f"paper: {paper:.2f}", xy=(2.95, y), xytext=(3.08, y + 0.28), color=MUTED, fontsize=9,
+                        arrowprops=dict(arrowstyle="->", color=MUTED))
+        ax.plot(ours, y, "o", ms=8, color=SERIES[0], label="this repo (gymtorax 1.0.0)" if i == 0 else None)
+        ax.text(ours, y - 0.32, f"{ours:.2f}", ha="center", fontsize=9, color=INK)
+    ax.set_yticks(range(len(rows)))
+    ax.set_yticklabels([r[0] for r in rows][::-1])
+    ax.set_xlim(2.9, 3.95)
+    ax.set_ylim(-0.7, len(rows) - 0.3)
+    ax.set_xlabel("benchmark return (undiscounted, one episode)")
+    ax.legend(loc="lower right", fontsize=8)
+    fig.tight_layout()
+    fig.savefig(OUT / "classical.png", dpi=110)
+    plt.close(fig)
+
+
+POLICIES = [  # (label, episode csv)
+    ("PI controller", "data/trajectories/pi.csv"),
+    ("open-loop reference", "data/trajectories/open_loop.csv"),
+    ("BC on noisy PI (σ 0.3)", "data/runs/bc_pi_noisy_0.3_s0/final_episode.csv"),
+    ("TD3+BC on noisy PI (σ 0.3)", "data/runs/td3bc_pi_noisy_0.3_s0/final_episode.csv"),
+    ("MOPO on one PI episode", "data/runs/mopo_pi_det_s0/final_episode.csv"),
+    ("PPO", "data/runs/ppo_s0/final_episode.csv"),
+    ("SAC", "data/runs/sac_s0/final_episode.csv"),
+    ("MBPO, raw reward (best)", "data/trajectories/mbpo_raw_reward_best.csv"),
+    ("MBPO seed 1", "data/runs/mbpo_s1/final_episode.csv"),
+]
+for tag, lab in (("", "CEM schedule (benchmark)"), ("_audited", "CEM schedule (audited)")):
+    POLICIES.append((lab, f"data/trajectories/cem_best{tag}.csv"))
+
+
+def reward_components() -> None:
+    """Stacked bars: where each policy's benchmark return comes from, with its audited score marked."""
+    comps = [("r_fusion_gain", "fusion gain Q (gated)"), ("r_h98", "H98 (gated)"), ("r_q_min", "q_min"), ("r_q95", "q95")]
+    rows = [(lab, pd.read_csv(f)) for lab, f in POLICIES if Path(f).exists()]
+    rows = [(lab, d) for lab, d in rows if "r_q_min" in d and not d["r_bench"].lt(-100).any()]
+    fig, ax = plt.subplots(figsize=(9, 0.5 * len(rows) + 1.4))
+    for i, (lab, d) in enumerate(rows[::-1]):
+        left = 0.0
+        for j, (c, name) in enumerate(comps):
+            v = float(d[c].sum())
+            ax.barh(i, v, left=left, color=SERIES[j], edgecolor=SURFACE, linewidth=2, height=0.62,
+                    label=name if i == 0 else None)
+            left += v
+        a = _audit(Path(dict(POLICIES)[lab]))
+        ax.plot(a, i, marker="|", ms=18, mew=2.5, color=INK, label="audited score" if i == 0 else None)
+        ax.text(left + 0.1, i, f"{left:.2f}  (audited {a:.2f})", va="center", fontsize=8, color=INK)
+    ax.set_yticks(range(len(rows)))
+    ax.set_yticklabels([r[0] for r in rows][::-1])
+    ax.set_xlabel("benchmark return, split into its four reward terms")
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), fontsize=8, ncol=5)
+    ax.set_xlim(0, max(float(d["r_bench"].sum()) for _, d in rows) * 1.3)
+    fig.tight_layout()
+    fig.savefig(OUT / "reward_components.png", dpi=110)
+    plt.close(fig)
+
+
+def audit_scatter() -> None:
+    """Benchmark return vs audited score for every non-failing final policy and classical baseline."""
+    from matplotlib.ticker import FixedLocator, NullLocator, ScalarFormatter
+
+    pts = []
+    for lab, f in (("PI controller", "data/trajectories/pi.csv"), ("open-loop", "data/trajectories/open_loop.csv")):
+        d = pd.read_csv(f)
+        pts.append((lab, float(d["r_bench"].sum()), _audit(f), "classical"))
+    for p in sorted(Path("data/runs").glob("*/final_episode.csv")):
+        d = pd.read_csv(p)
+        if d["r_bench"].lt(-100).any():
+            continue
+        algo = json.loads((p.parent / "config.json").read_text())["algo"]
+        grp = "offline" if algo in ("bc", "td3bc", "mopo") else "online"
+        pts.append((p.parent.name, float(d["r_bench"].sum()), _audit(p), grp))
+    f = "data/trajectories/mbpo_raw_reward_best.csv"
+    if Path(f).exists():
+        pts.append(("mbpo_raw_reward_best", float(pd.read_csv(f)["r_bench"].sum()), _audit(f), "online"))
+    for tag, lab in (("", "cem_benchmark"), ("_audited", "cem_audited")):
+        fc = Path(f"data/trajectories/cem_best{tag}.csv")
+        if fc.exists():
+            pts.append((lab, float(pd.read_csv(fc)["r_bench"].sum()), _audit(fc), "reference"))
+    names = {"PI controller": ("PI controller", (8, -12)), "open-loop": ("open-loop", (8, -4)),
+             "td3bc_pi_noisy_0.3_s0": ("TD3+BC, noisy PI σ 0.3", (8, 6)),
+             "mopo_pi_det_s0": ("MOPO, one PI episode", (8, -4)),
+             "mbpo_raw_reward_best": ("MBPO raw reward (best)", (-40, 10)), "mbpo_s1": ("MBPO seed 1", (-30, 10)),
+             "cem_benchmark": ("CEM, benchmark objective", (8, 4)), "cem_audited": ("CEM, audited objective", (8, 4))}
+    fig, ax = plt.subplots(figsize=(8.5, 5))
+    groups = {"classical": (SERIES[0], "o", 70), "online": (SERIES[1], "s", 45), "offline": (SERIES[2], "^", 50),
+              "reference": (SERIES[3], "D", 55)}
+    for g, (c, m, size) in groups.items():
+        xs = [p[1] for p in pts if p[3] == g]
+        ys = [p[2] for p in pts if p[3] == g]
+        if xs:
+            ax.scatter(xs, ys, s=size, color=c, marker=m, edgecolor=SURFACE, linewidth=1.2, label=g,
+                       zorder=4 if g == "classical" else 3)
+    for lab, x, y, g in pts:
+        if lab in names:
+            text, off = names[lab]
+            ax.annotate(text, (x, y), xytext=off, textcoords="offset points", fontsize=8, color=INK)
+    ax.plot([1.9, 4.3], [1.9, 4.3], color=MUTED, lw=1, ls="--")
+    ax.text(2.05, 2.25, "audited = benchmark", fontsize=8, color=MUTED, rotation=38)
+    ax.set_xscale("log")
+    ticks = [2, 3, 4, 6, 10, 20]
+    ax.xaxis.set_major_locator(FixedLocator(ticks))
+    ax.xaxis.set_minor_locator(NullLocator())
+    ax.xaxis.set_major_formatter(ScalarFormatter())
+    ax.set_xlim(1.9, max(p[1] for p in pts) * 1.15)
+    ax.set_xlabel("benchmark return (log scale)")
+    ax.set_ylabel("audited score\n(Q capped at 10, H-mode needs P_SOL ≥ P_LH)")
+    ax.legend(loc="upper right", fontsize=8)
+    fig.tight_layout()
+    fig.savefig(OUT / "audit_scatter.png", dpi=110)
+    plt.close(fig)
+
+
+def exploit() -> None:
+    """How the Q loophole works: auxiliary power, Q, P_SOL/P_LH and core temperature, exploit vs PI."""
+    eps = {"PI controller": "data/trajectories/pi.csv", "MBPO raw reward, best (8.85)": "data/trajectories/mbpo_raw_reward_best.csv",
+           "MBPO seed 1 (18.42)": "data/runs/mbpo_s1/final_episode.csv"}
+    dfs = {k: pd.read_csv(v) for k, v in eps.items() if Path(v).exists()}
+    panels = [("P_aux", "auxiliary heating P_NBI + P_ECRH [MW]"), ("Q_fusion", "fusion gain Q (reward term uncapped)"),
+              ("psol_plh", "P_SOL / P_LH (H-mode needs ≥ 1)"), ("T_e0", "T_e(0) [keV] (reward's H-mode test: > 10)")]
+    fig, axes = plt.subplots(2, 2, figsize=(11, 6.5), sharex=True)
+    for ax, (col, title) in zip(axes.flat, panels):
+        for i, (name, d) in enumerate(dfs.items()):
+            if col == "P_aux":
+                y = d["P_NBI_MW"] + d["P_ECRH_MW"]
+            elif col == "psol_plh":
+                if "P_SOL_total" not in d:
+                    continue
+                y = d["P_SOL_total"] / d["P_LH"]
+            else:
+                y = d[col]
+            ax.plot(d["t"], y, color=SERIES[i], ls=STYLES[i], label=name)
+        ax.set_title(title, fontsize=10, loc="left", color=INK)
+        ax.axvspan(100, 105, color=GRID, alpha=0.8, lw=0)
+        if col == "psol_plh":
+            ax.axhline(1.0, color=MUTED, ls="--", lw=1)
+        if col == "T_e0":
+            ax.axhline(10.0, color=MUTED, ls="--", lw=1)
+    for ax in axes[-1]:
+        ax.set_xlabel("time [s] (shaded: scheduled pedestal rise, 100–105 s)")
+    h, l = axes[0, 0].get_legend_handles_labels()
+    fig.legend(h, l, loc="lower center", ncol=3, fontsize=9)
+    fig.tight_layout(rect=(0, 0.06, 1, 1))
+    fig.savefig(OUT / "exploit.png", dpi=110)
+    plt.close(fig)
+
+
+def profiles() -> None:
+    """Current density and safety factor profiles over time: current diffuses in from the edge."""
+    f = Path("data/trajectories/profiles.npz")
+    if not f.exists():
+        return
+    z = np.load(f)
+    times = z["times"]
+    ramp = plt.get_cmap("Blues")(np.linspace(0.35, 1.0, len(times)))  # sequential: one hue, light -> dark = later
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+    for k, (key, title) in enumerate((("j_total", "current density j [MA/m²]"), ("q", "safety factor q"))):
+        ax = axes[k]
+        for i, t in enumerate(times):
+            y = z[f"pi_{key}"][i] / (1e6 if key == "j_total" else 1)
+            ax.plot(np.linspace(0, 1, len(y)), y, color=ramp[i], label=f"t = {t} s")
+        ax.set_title(f"PI controller: {title}", fontsize=10, loc="left", color=INK)
+        ax.set_xlabel("normalised radius ρ̂ (0 = axis, 1 = edge)")
+        if key == "q":
+            ax.axhline(1.0, color=MUTED, ls="--", lw=1)
+            ax.set_ylim(0, 8)
+    axes[0].legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(OUT / "profiles.png", dpi=110)
+    plt.close(fig)
+
+
+def reward_timeline() -> None:
+    """Reward per second of the PI episode, stacked by term, with the scenario phases shaded."""
+    d = pd.read_csv("data/trajectories/pi.csv")
+    comps = [("r_q95", "q95"), ("r_q_min", "q_min"), ("r_h98", "H98 (gated)"), ("r_fusion_gain", "fusion gain Q (gated)")]
+    colors = [SERIES[3], SERIES[2], SERIES[1], SERIES[0]]
+    fig, ax = plt.subplots(figsize=(9, 3.6))
+    ax.stackplot(d["t"], *[d[c] for c, _ in comps], labels=[n for _, n in comps], colors=colors,
+                 edgecolor=SURFACE, linewidth=0.6)
+    ax.axvspan(100, 105, color=GRID, alpha=0.9, lw=0)
+    ax.text(50, ax.get_ylim()[1] * 0.92, "current ramp-up (L-mode)", ha="center", fontsize=9, color=MUTED)
+    ax.text(127, ax.get_ylim()[1] * 0.92, "flat-top after the scheduled pedestal", ha="center", fontsize=9, color=MUTED)
+    ax.set_xlabel("time [s]")
+    ax.set_ylabel("benchmark reward per second")
+    ax.set_xlim(0, 151)
+    h, l = ax.get_legend_handles_labels()
+    ax.legend(h[::-1], l[::-1], loc="upper left", bbox_to_anchor=(0.0, 0.85), fontsize=8)
+    fig.tight_layout()
+    fig.savefig(OUT / "reward_timeline.png", dpi=110)
+    plt.close(fig)
+
+
+def physics_audit() -> None:
+    """Per policy: seconds with q_min < 1, peak Greenwald fraction, flat-top P_SOL/P_LH."""
+    rows = []
+    for lab, f in POLICIES:
+        if not Path(f).exists():
+            continue
+        d = pd.read_csv(f)
+        if d["r_bench"].lt(-100).any() or "P_SOL_total" not in d:
+            continue
+        ft = d[d["t"] > 110]
+        rows.append((lab, float((d["q_min"] < 1).sum()), float(d["fgw_n_e_line_avg"].max()),
+                     float((ft["P_SOL_total"] / ft["P_LH"]).mean())))
+    fig, axes = plt.subplots(1, 3, figsize=(12, 0.45 * len(rows) + 1.6), sharey=True)
+    specs = [("seconds with q_min < 1", 1, 0.0, "0 in a hybrid scenario"), ("peak Greenwald fraction", 2, 1.0, "limit 1"),
+             ("flat-top P_SOL / P_LH", 3, 1.0, "H-mode needs ≥ 1")]
+    y = np.arange(len(rows))[::-1]
+    for ax, (title, k, ref, note) in zip(axes, specs):
+        vals = [r[k] for r in rows]
+        ax.barh(y, vals, color=SERIES[0], height=0.6, edgecolor=SURFACE)
+        for yi, v in zip(y, vals):
+            ax.text(v, yi, f" {v:.0f}" if k == 1 else f" {v:.2f}", va="center", fontsize=8, color=INK)
+        if ref > 0:
+            ax.axvline(ref, color=INK, ls="--", lw=1)
+        ax.set_title(f"{title}\n({note})", fontsize=9, loc="left", color=INK)
+        ax.set_xlim(0, max(vals) * 1.25 + (0.1 if k > 1 else 5))
+    axes[0].set_yticks(y)
+    axes[0].set_yticklabels([r[0] for r in rows])
+    fig.tight_layout()
+    fig.savefig(OUT / "physics_audit.png", dpi=110)
+    plt.close(fig)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     trajectories()
     learning_curves()
     offline()
+    classical()
+    reward_components()
+    audit_scatter()
+    exploit()
+    profiles()
+    reward_timeline()
+    physics_audit()
     print("wrote", sorted(str(p) for p in OUT.glob("*.png")))
 
 

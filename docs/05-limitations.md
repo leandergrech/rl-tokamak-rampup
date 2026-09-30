@@ -15,9 +15,40 @@ The PI controller that sets the published bar (3.79) produces this plasma (`data
 | peak Greenwald fraction | 1.19 | 1.19 | < 1 ([R28](07-references.md#r28)) |
 | Q at the end | 14.6 | 7.7 | ITER design goals: Q ≥ 10 at 15 MA, Q = 5 in the hybrid scenario ([R26](07-references.md#r26), [R27](07-references.md#r27)) |
 
+![Physics audit of the classical and learned policies](figures/physics_audit.png)
+
 Why the reward allows it: the q_min term is worth at most 1/150 per second, so running the whole episode at q_min = 0.41 costs (1 − 0.41) × 151/150 ≈ 0.59 of return, while the extra current buys more fusion gain (the PI episode collects 1.19 from the Q term against 0.60 for the open-loop reference; `data/results/classical.json`). Nothing in the reward sees density. Nothing ends the episode at q < 1 or f_GW > 1, because the simulator has no sawtooth or disruption model enabled ([R4b](07-references.md#r4b)).
 
 The **H-mode test is a temperature threshold**, T_e(0) > 10 keV and T_i(0) > 10 keV ([R3](07-references.md#r3)), while the pedestal (the actual H-mode) is scheduled in time at 100–105 s. A policy can collect the gated reward terms before t = 100 s by heating the core in L-mode. The behaviour data already show the incentive: adding Gaussian noise to the PI actions, which clips to positive heating power during the ramp, raises the mean return from 3.79 to 3.85 (σ = 0.1) and 4.01 (σ = 0.3) over 20 episodes each (`data/offline/datasets.json`).
+
+### The Q loophole, found by RL
+
+The fusion-gain term pays (Q/10)/50 per second with no cap, and Q = P_fus / P_aux has the auxiliary heating power in its denominator. Because the pedestal is scheduled in time rather than predicted from the heating power, the core stays above the 10 keV "H-mode" test after the heating is switched off. MBPO found this within 600–1,500 simulator steps in two of the runs in this repo:
+
+```mermaid
+flowchart TD
+    A["t = 100–105 s: the schedule raises the pedestal<br/>to 3 keV whatever the heating power"] --> B["core stays above 10 keV:<br/>the reward's H-mode test passes"]
+    C["policy heats hard before the pedestal,<br/>then cuts P_NBI + P_ECRH to below 1 MW"] --> D["Q = P_fus / P_aux rises to 58–210"]
+    B --> E["gated fusion term (Q/10)/50 per second,<br/>uncapped"]
+    D --> E
+    E --> F["benchmark return 8.85 and 18.42<br/>(PI controller: 3.79)"]
+    C --> G["P_SOL / P_LH falls to about 0.2:<br/>a real plasma drops back to L-mode"]
+    G -. "not modelled: the pedestal is prescribed" .-> A
+```
+
+![How the Q loophole plays out in time](figures/exploit.png)
+
+| Policy | Benchmark return | Flat-top P_aux | Q at end | Flat-top P_SOL / P_LH | Audited score |
+|---|---|---|---|---|---|
+| PI controller | 3.79 | 53 MW | 14.6 | 2.00 | 3.50 |
+| MBPO, raw benchmark reward, best checkpoint (`data/trajectories/mbpo_raw_reward_best.csv`) | 8.85 | 0.6 MW | 58.2 | 0.24 | 2.01 |
+| MBPO seed 1, default training reward (`data/runs/mbpo_s1/`) | 18.42 | < 1 MW | 123.2 | 0.19 | 1.89 |
+
+The **audited score** used throughout this repo (`rl_tokamak.evaluate.audited_return`) closes both holes with two changes and nothing else: Q is capped at 10 (ITER's design goal, [R26](07-references.md#r26)) and the H-mode gate also requires P_SOL ≥ P_LH, using the L-H threshold TORAX itself reports. It leaves the PI controller at 3.50 and the open-loop reference unchanged at 3.41, and sends both exploits below the open-loop reference.
+
+![Benchmark return against audited score for every policy](figures/audit_scatter.png)
+
+### Other benchmark caveats
 
 **The environment is deterministic with a fixed initial state.** Any deterministic policy has one return; "expected return" in the paper's table is only an expectation for the random policy. A learned policy that beats PI has found a better trajectory, not a better feedback law.
 

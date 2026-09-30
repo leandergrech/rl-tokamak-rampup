@@ -23,6 +23,30 @@ You know the RL side: PPO, SAC and TD3 in SB3, Gymnasium plumbing, sample-effici
 
 ## Two-week plan
 
+
+```mermaid
+gantt
+    title Two-week plan (days are working days)
+    dateFormat YYYY-MM-DD
+    axisFormat %d %b
+    section Domain
+    Primer, Gym-TORAX paper, reproduce PI        :d1, 2026-10-05, 1d
+    TORAX PDEs, current-diffusion experiment      :d2, after d1, 1d
+    Degrave 2022, read the wrapper                :d3, after d2, 1d
+    Learned-model control on DIII-D, ensemble     :d4, after d3, 1d
+    Hybrid scenario, physics audit of policies    :d5, after d4, 1d
+    section Baselines
+    MBPO seeds                                    :d6, after d5, 1d
+    Offline, TD3+BC alpha sweep                   :d7, after d6, 1d
+    Constrained or audited-reward runs            :d8, after d7, 1d
+    Observation ablation                          :d9, after d8, 1d
+    Port to gymtorax 1.1.1                        :d10, after d9, 1d
+    section First experiment
+    Randomised environment, PI vs CEM vs MBPO     :d11, after d10, 2d
+    Write up                                      :d13, after d11, 1d
+    Paper framing, contact authors                :d14, after d13, 1d
+```
+
 Each day is about 2 hours of reading and 2–4 hours of coding. Commands assume you are in the repo with `.venv-v10` (Python 3.12, `pip install -e .[dev]`) active.
 
 | Day | Read | Do |

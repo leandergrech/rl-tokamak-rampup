@@ -50,7 +50,36 @@ What the symbols mean for you:
 
 The last point is the key to the ramp-up for an RL person. **Your I_p action is a Neumann boundary condition on a diffusion equation whose diffusivity is 1/σ_∥.** Current appears at the edge and diffuses inward on the resistive time, which is long when the plasma is hot (high σ_∥) and short when it is cold. Heating early "freezes" the current profile in place (slower penetration, broader or hollow current, higher central q); ramping fast relative to diffusion gives a hollow current profile; ramping slowly in a cold plasma lets current pile up in the centre (peaked current, low central q). Shaping q(ρ̂) during the ramp is the real control objective of a ramp-up, and the actuators act on it only through this diffusion.
 
+The whole chain from actuators to reward, as the environment implements it:
+
+```mermaid
+flowchart LR
+    IP["I_p set-point<br/>(≤ 0.2 MA/s)"] --> BC["ψ edge boundary condition"]
+    BC --> DIFF["current diffusion inward<br/>rate ∝ 1/σ∥, σ∥ rises with T_e"]
+    NBI["NBI power"] --> TE["T_e, T_i profiles<br/>(QLKNN turbulent transport)"]
+    ECRH["ECRH power"] --> TE
+    NBI --> JNI["non-inductive current<br/>(NBI drive + bootstrap)"]
+    TE -- "hotter core: slower diffusion" --> DIFF
+    TE --> JNI
+    DIFF --> JQ["j(ρ̂), q(ρ̂)"]
+    JNI --> JQ
+    PED["pedestal schedule<br/>0.5 keV → 3 keV at 100–105 s"] --> TE
+    JQ --> RQ["q_min, q95 terms"]
+    TE --> HT["'H-mode' test<br/>T_e(0), T_i(0) > 10 keV"]
+    TE --> QF["Q = P_fus / P_aux"]
+    NBI -. "denominator" .-> QF
+    ECRH -. "denominator" .-> QF
+    HT --> RG["gated Q and H98 terms"]
+    QF --> RG
+```
+
+The dotted arrows are the loophole [Limitations](05-limitations.md#1-the-benchmark-rewards-plasmas-that-would-not-be-operated) documents: auxiliary power sits in the denominator of the rewarded Q.
+
 You can see the diffusion in this repo's PI rollout (`data/trajectories/pi.csv`): I_p goes from 3 MA to its 15 MA ceiling by t = 60 s at the maximum ramp rate, but the central current density keeps rising for another 90 s, from 0.41 MA/m² at t = 1 s to 3.0 MA/m² at t = 100 s and 3.1 MA/m² at t = 150 s.
+
+![Current density and q profiles of the PI episode at six times](figures/profiles.png)
+
+The current profile peaks on axis as the ramp proceeds, and q on axis falls below 1 between t = 40 s and t = 60 s (data in `data/trajectories/profiles.npz`, from `scripts/profile_snapshots.py`).
 
 ## 3. The quantities in the reward, with the equations that matter
 

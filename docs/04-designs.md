@@ -16,6 +16,31 @@ Two parts: the published RL/ML control designs side by side, then this repo's ba
 | Reported result | shape RMSE 0.53–1.6 cm on hardware; up to 65 % more accurate and ≥ 3× faster training in the follow-up | tearing avoided in DIII-D discharges; "proof-of-concept" | SPARC simulation study; on TCV, a predict-first ramp-down raised I_p 20 % (140 → 170 kA) | model-based offline RL best on average; MOPO most robust; no single winner | PI 3.79 > open-loop 3.40 > random −10.79 |
 | What transferred to hardware | yes, zero-shot from simulator | yes, from learned model | TCV experiments for the NSSM + RL design; SPARC not built | no (evaluated on a learned simulator) | no (simulation only) |
 
+
+```mermaid
+quadrantChart
+    title Where published RL and ML controllers sit
+    x-axis Learned dynamics model --> Physics simulator
+    y-axis Simulation only --> Ran on a tokamak
+    quadrant-1 Physics simulator, on hardware
+    quadrant-2 Learned model, on hardware
+    quadrant-3 Learned model, simulation only
+    quadrant-4 Physics simulator, simulation only
+    TCV magnetic 2022: [0.9, 0.93]
+    TCV magnetic 2023: [0.82, 0.86]
+    DIII-D tearing 2024: [0.14, 0.88]
+    TCV ramp-down 2025: [0.26, 0.76]
+    HL-3 current 2025: [0.1, 0.68]
+    DIII-D offline MBRL 2023: [0.2, 0.58]
+    SPARC ramp-down 2025: [0.3, 0.25]
+    RL4F offline 2026: [0.08, 0.14]
+    JT-60SA q and beta 2023: [0.72, 0.3]
+    DEMO ramp-up 2019: [0.64, 0.12]
+    Gym-TORAX this repo: [0.92, 0.07]
+```
+
+Placement is qualitative (from the table above and [the timeline](03-timeline.md)): the x-axis is what the policy was trained against, the y-axis whether a learned policy ran on a real machine. WEST and EAST are left out because the opened pages did not settle whether their policies ran on hardware.
+
 Three design patterns stand out.
 
 1. **Where a trustworthy simulator exists, model-free RL with massive parallelism works.** TCV's FGE is a free-boundary equilibrium code whose magnetic dynamics are close enough to reality for zero-shot transfer, and DeepMind paid for it with 5,000 actors.
@@ -50,6 +75,8 @@ Where the PI controller's advantage over the open-loop reference comes from (sum
 
 The PI policy wins entirely on fusion gain, by reaching 15 MA at t = 60 s, and pays for it with q_min (0.41 at the end).
 
+![Paper versus this repo for the three published baselines](figures/classical.png)
+
 ### Baseline designs
 
 All learned policies see the wrapper defaults unless an ablation says otherwise: 60-dimensional `profiles` observation with fixed normalisation, action [I_p ramp rate, P_NBI, P_ECRH] ∈ [−1, 1]³ (deposition fixed at the reference), I_p floor 3 MA, training reward 100 × benchmark reward with failure → −100, γ = 0.995.
@@ -63,6 +90,32 @@ All learned policies see the wrapper defaults unless an ablation says otherwise:
 | TD3+BC | `rl_tokamak.agents.offline` | 256-256 actor and twin critics | α = 2.5, policy noise 0.2, delay 2, dataset state normalisation ([R21](07-references.md#r21)) | same |
 | MOPO | `rl_tokamak.agents.offline` | MBPO's ensemble and SAC | penalty λ = 1 on max-member predictive σ norm, horizon 5, 5 % real data ([R20](07-references.md#r20)) | same |
 | CEM open-loop search | `rl_tokamak.agents.cem` | none | 9-parameter schedule (two ramp rates and switch time, I_p ceiling, pre-heating power and start, flat-top powers), population 12, 4 elites | 45 min, 4 workers |
+
+
+How the MBPO baseline spends simulator steps:
+
+```mermaid
+flowchart LR
+    ENV["TORAX via RampupEnv<br/>151 steps per episode"] -- "real transitions" --> RB[("real buffer")]
+    RB -- "refit after every episode<br/>Gaussian NLL, bootstrap, hold-out" --> ENS["ensemble of 5 MLPs<br/>(x, a) → (Δx, r)"]
+    RB -- "1,000 start states<br/>every 50 real steps" --> ROLL["branched rollouts<br/>k = 1 → 5 steps<br/>time feature advanced exactly"]
+    ENS --> ROLL
+    ROLL --> MB[("model buffer")]
+    MB -- "90 % of each batch" --> SAC["SAC: 10 updates<br/>per real step"]
+    RB -- "10 %" --> SAC
+    SAC -- "acts in TORAX" --> ENV
+```
+
+And how the offline experiment is built:
+
+```mermaid
+flowchart LR
+    PI["PI controller<br/>k_p 0.700, k_i 34.257"] --> D0["pi_det<br/>1 episode, 151 transitions"]
+    PI --> N1["+ Gaussian action noise σ 0.1<br/>20 episodes"] --> D1["pi_noisy_0.1<br/>3,020 transitions"]
+    PI --> N3["+ noise σ 0.3<br/>20 episodes"] --> D3["pi_noisy_0.3<br/>3,020 transitions"]
+    D0 & D1 & D3 --> BC["BC"] & TD["TD3+BC"] & MO["MOPO<br/>ensemble + penalised SAC"]
+    BC & TD & MO --> EV["one deterministic TORAX episode<br/>benchmark return + audited score"]
+```
 
 Offline datasets (`scripts/make_datasets.py`, summary in `data/offline/datasets.json`): `pi_det` is one deterministic PI episode (151 transitions; more episodes would be identical); `pi_noisy_0.1` and `pi_noisy_0.3` are 20 PI episodes each with Gaussian action noise of 0.1 or 0.3 (I_p noise in units of the 0.2 MA/s ramp limit, power noise in units of the maximum power), 3,020 transitions each. Their behaviour returns are 3.79, 3.85 ± 0.01 and 4.01 ± 0.03.
 

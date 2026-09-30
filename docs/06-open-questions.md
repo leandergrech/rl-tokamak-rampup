@@ -2,15 +2,44 @@
 
 Ranked by (value of a first paper) × (probability you can deliver it on a laptop CPU in 2–3 months), for someone with your background. Effort assumes the code in this repo as the starting point. Numbers quoted from this repo come from `data/results/summary.json` and are explained in [Designs and results](04-designs.md).
 
-## 1. The first RL baseline on Gym-TORAX, done properly
+```mermaid
+quadrantChart
+    title Openings: value of a first paper against effort
+    x-axis Less effort --> More effort
+    y-axis Less value --> More value
+    quadrant-1 Worth the investment
+    quadrant-2 Do first
+    quadrant-3 Side projects
+    quadrant-4 Later
+    1 Audit the benchmark reward: [0.15, 0.85]
+    2 First RL baseline done properly: [0.3, 0.68]
+    3 Does feedback matter: [0.6, 0.92]
+    4 Constrained ramp-up: [0.45, 0.78]
+    5 Model-based data efficiency: [0.7, 0.62]
+    6 Offline to online: [0.35, 0.5]
+    7 Realistic observations: [0.5, 0.58]
+    8 Transfer across versions: [0.66, 0.42]
+```
+
+Positions are this repo's judgement, not measurements; the effort estimates under each opening are the basis for the x-axis.
+
+## 1. Audit the benchmark reward before anyone reports "beats PI"
+
+**Why open.** In this repo MBPO reached benchmark returns of 8.85 and 18.42 (the PI controller scores 3.79) by cutting auxiliary heating once the scheduled pedestal keeps the core hot, which inflates the uncapped Q = P_fus/P_aux term ([Limitations](05-limitations.md#the-q-loophole-found-by-rl)). Any RL result on Gym-TORAX 1.0 that does not check for this is uninterpretable. The Gym-TORAX authors describe TORAX-based studies as "preliminary investigations" ([R1](07-references.md#r1)); they do not discuss reward exploits.
+
+**What a first paper would show.** The exploit (mechanism, how quickly each algorithm finds it, how often across seeds), the two-line audit used here (Q capped at 10, H-mode gate requires P_SOL ≥ P_LH, [`audited_return`](04-designs.md#results)), and every baseline re-scored under it, together with CEM's open-loop optimum for both objectives. This is a short, citable note, and a natural thing to send to the Liège authors and to the TORAX discussion ([R5](07-references.md#r5)).
+
+**Effort.** 1–2 weeks, most of it already in this repo.
+
+## 2. The first RL baseline on Gym-TORAX, done properly
 
 **Why open.** The benchmark was published in October 2025 with PI, open-loop and random baselines only ([R1](07-references.md#r1)); no RL number has been published on it. This repo's single-seed runs are a first answer, not a publishable one.
 
-**What a first paper would show.** PPO, SAC, MBPO and offline RL on gymtorax 1.0.0 with 5 seeds each, compute reported in CPU-hours and simulator steps, the open-loop optimum as an upper reference (CEM here; gradient-based through TORAX's JAX as a stronger one), the same study repeated on gymtorax 1.1.1 with re-tuned PI gains, and the physics audit of every policy (q_min, f_GW, heating energy; [Limitations](05-limitations.md)). A short benchmark paper (e.g. a workshop or *Software Impacts*-style companion) or a section of opening 2.
+**What a first paper would show.** PPO, SAC, MBPO and offline RL on gymtorax 1.0.0 with 5 seeds each, compute reported in CPU-hours and simulator steps, the open-loop optimum as an upper reference (CEM here; gradient-based through TORAX's JAX as a stronger one), the same study repeated on gymtorax 1.1.1 with re-tuned PI gains, and the physics audit of every policy (q_min, f_GW, heating energy; [Limitations](05-limitations.md)). A short benchmark paper (e.g. a workshop or *Software Impacts*-style companion) or a section of opening 3.
 
 **Effort.** 2–3 weeks of compute on one laptop (5 seeds × 6 methods × < 1 h), 1 week of writing.
 
-## 2. Does feedback matter? A randomised Gym-TORAX
+## 3. Does feedback matter? A randomised Gym-TORAX
 
 **Why open.** Gym-TORAX has a fixed initial state and deterministic dynamics, so its optimal policy is an open-loop schedule ([The control problem](01-problem.md#what-solved-would-mean)). The value of RL for ramp-up control, as opposed to offline trajectory optimisation (which RAPTOR-based work already does on real machines, [R15h](07-references.md#r15-timeline-sources)), only appears when the plasma differs from the model: transport multipliers, initial density and temperature, impurity content, pedestal timing, actuator dropouts.
 
@@ -18,7 +47,7 @@ Ranked by (value of a first paper) × (probability you can deliver it on a lapto
 
 **Effort.** 4–6 weeks. The env subclass is a few hundred lines; `notebooks/03-first-experiment.ipynb` is the scaffold.
 
-## 3. Physics-constrained ramp-up: q_min ≥ 1 and f_GW < 1 as constraints
+## 4. Physics-constrained ramp-up: q_min ≥ 1 and f_GW < 1 as constraints
 
 **Why open.** The benchmark reward lets the PI baseline run 101 s with q_min < 1 (lowest 0.41) and end at Greenwald fraction 1.19 ([Limitations](05-limitations.md)). A hybrid scenario is defined by q_min just above 1 ([R27](07-references.md#r27), [primer §5](02-primer.md#5-the-iter-hybrid-scenario)). No fusion RL paper reports hard-constraint satisfaction; they all shape rewards ([designs](04-designs.md#published-designs-side-by-side)).
 
@@ -26,7 +55,7 @@ Ranked by (value of a first paper) × (probability you can deliver it on a lapto
 
 **Effort.** 3–5 weeks.
 
-## 4. How much simulator data does model-based RL need? (and can it use TORAX's gradients?)
+## 5. How much simulator data does model-based RL need? (and can it use TORAX's gradients?)
 
 **Why open.** MBPO's promise, "MBPO's performance on the Ant task at 300 thousand steps matches that of SAC at 3 million steps" ([R19](07-references.md#r19)), has not been measured on a transport simulator. This repo's first run already beats PI after about 1,400 simulator steps; the scaling with seeds, model size and rollout length is unknown. TORAX is differentiable end to end ([R4](07-references.md#r4)), so analytic policy gradients through the simulator are also available and untested for control.
 
@@ -34,7 +63,7 @@ Ranked by (value of a first paper) × (probability you can deliver it on a lapto
 
 **Effort.** 4–8 weeks; the JAX gradient part needs familiarity with TORAX internals.
 
-## 5. Offline-to-online from classical-controller logs
+## 6. Offline-to-online from classical-controller logs
 
 **Why open.** Real tokamaks have years of logs from deterministic classical controllers, and offline RL is being benchmarked on 5,882 DIII-D shots ([R13](07-references.md#r13)). Whether offline RL can improve on a deterministic behaviour policy depends on action coverage ([R22](07-references.md#r22)). Gym-TORAX lets you control that coverage exactly, which a real archive does not.
 
@@ -42,7 +71,7 @@ Ranked by (value of a first paper) × (probability you can deliver it on a lapto
 
 **Effort.** 3–4 weeks.
 
-## 6. Realistic observations: from profiles to diagnostics
+## 7. Realistic observations: from profiles to diagnostics
 
 **Why open.** The benchmark observes 1,735 noise-free state numbers. Real control sees a handful of noisy, delayed diagnostics plus a reconstructed equilibrium. All hardware RL results either use raw magnetics with an asymmetric critic ([R6](07-references.md#r6)) or learned models on diagnostic data ([R8](07-references.md#r8)).
 
@@ -50,7 +79,7 @@ Ranked by (value of a first paper) × (probability you can deliver it on a lapto
 
 **Effort.** 3–5 weeks.
 
-## 7. Transfer across simulator versions and machines
+## 8. Transfer across simulator versions and machines
 
 **Why open.** Cross-device transfer is the gap every published controller shares ([primer §8](02-primer.md#8-what-has-been-solved-and-what-has-not)). Inside TORAX there are two cheap proxies: gymtorax 1.0 → 1.1 (different TORAX physics and action semantics) and ITER → STEP once UKAEA's public benchmark cases appear ([R5](07-references.md#r5)).
 

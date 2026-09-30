@@ -6,6 +6,18 @@ This page states the Gym-TORAX ITER hybrid ramp-up task as an MDP, exactly as th
 
 A plasma is started at 3 MA in an ITER-sized tokamak (R = 6.2 m, a = 2.0 m, B₀ = 5.3 T; [R3](07-references.md#r3)). Over 150 simulated seconds, one decision per second, the controller chooses the plasma-current set-point and the power (and optionally deposition location and width) of two heating systems: neutral-beam injection (NBI, up to 33 MW, which also drives current) and electron-cyclotron heating (ECRH, up to 20 MW). TORAX integrates four coupled 1D transport PDEs between decisions. The reward pays for fusion gain and confinement quality once the core is hot enough to count as H-mode, and pays a small amount every second for keeping the safety factor above 1 in the core and above 3 at the edge. A numerical failure or a state outside the environment's bounds file ends the episode with −1000. The benchmark score is the undiscounted return of one episode.
 
+```mermaid
+flowchart LR
+    A["Agent π(a | x)<br/>PPO · SAC · MBPO · offline"] -- "a ∈ [-1, 1]³<br/>I_p ramp rate, P_NBI, P_ECRH" --> W1["RampupEnv.step<br/>I_p ← I_p + 0.2 MA · a₀ (floor 3 MA)<br/>P ← (a + 1)/2 · P_max"]
+    W1 -- "action dict<br/>Ip · NBI[3] · ECRH[3]" --> G["gymtorax.IterHybridEnv 1.0.0<br/>(unmodified)"]
+    G -- "update config, run 1 s" --> T["TORAX 1.0.3<br/>4 coupled 1D PDEs<br/>T_i, T_e, n_e, ψ on 25 cells"]
+    T -- "new state" --> G
+    G -- "obs dict (1,735 numbers)<br/>reward r_t, −1000 on failure" --> W2["RampupEnv features<br/>60-d normalised vector, t/150<br/>info: benchmark_reward"]
+    W2 -- "x_t+1, training reward" --> A
+```
+
+The wrapper changes only the interface (the two `RampupEnv` boxes are this repo's code; Gym-TORAX and TORAX run as released). Every learned policy and every classical controller in this repo goes through the same loop, and every score is the Gym-TORAX reward summed over one episode.
+
 ## Which version is the benchmark
 
 The only published scores (PI 3.79, open-loop 3.40, random −10.79; [R1](07-references.md#r1)) were produced with Gym-TORAX 1.0 on TORAX 1.0. Gym-TORAX 1.1 (July 2026) moved to TORAX 1.4 and changed the action semantics from "hold the set-point for the whole step" to "ramp linearly to the set-point over the step"; its maintainers say the published numbers "are therefore no longer up to date" ([R3](07-references.md#r3)). This repo measured both:
@@ -70,6 +82,10 @@ r_t = \underbrace{\tfrac{1}{50}\,H\,\tfrac{Q}{10}}_{\text{fusion gain}}
 $$
 
 and r_t = −1000 (episode ends) if TORAX fails or the observation leaves the bounds in `iter_hybrid.json`. The objective is J(π) = Σ_t r_t over one episode with γ = 1. The two q terms can add at most 2/150 ≈ 0.0133 per second, 2.0 over an episode; the H-mode terms have no upper bound through Q.
+
+![Reward per second of the PI episode, split into its four terms](figures/reward_timeline.png)
+
+The PI episode above earns the q terms throughout, loses part of the q_min term once q_min drops below 1 at about t = 50 s, and earns the gated terms only after the scheduled pedestal lifts the core above 10 keV at t = 102 s: roughly 55 % of its return arrives in the last third of the episode.
 
 For training, the wrapper can rescale the reward (`reward_mode=scaled`: ×100, failure → −100) or add a physics penalty (`qmin_safe`: −(1 − q_min)⁺ per step on top of `scaled`). Evaluation always reports the unmodified Gym-TORAX return, carried in `info["benchmark_reward"]`.
 

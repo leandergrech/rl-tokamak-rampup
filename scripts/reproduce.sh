@@ -49,7 +49,8 @@ if [[ "${1:-}" == "--full" ]]; then
     done
   done
   echo "== open-loop optimum estimate"
-  $PY scripts/open_loop_search.py --workers 4 --population 12 --generations 10 --minutes 45
+  $PY scripts/open_loop_search.py --workers 8 --population 16 --generations 10 --minutes 45 --objective benchmark
+  $PY scripts/open_loop_search.py --workers 8 --population 16 --generations 10 --minutes 45 --objective audited
 fi
 
 echo "== re-evaluate stored checkpoints (deterministic: must match result.json)"
