@@ -1,0 +1,67 @@
+{
+  "algo": "mbpo",
+  "seed": 0,
+  "env_config": {
+    "obs_set": "scalars",
+    "action_set": "powers",
+    "ip_mode": "delta",
+    "ip_min": 3000000.0,
+    "reward_mode": "scaled",
+    "reward_scale": 100.0,
+    "failure_penalty": -100.0,
+    "qmin_weight": 1.0,
+    "normalize": true,
+    "clip_obs": 10.0,
+    "log_dir": null,
+    "max_steps": null,
+    "extra": {}
+  },
+  "args": {
+    "algo": "mbpo",
+    "out": "data/runs/mbpo_obs-scalars_s0",
+    "seed": 0,
+    "minutes": 50.0,
+    "obs_set": "scalars",
+    "action_set": "powers",
+    "ip_mode": "delta",
+    "reward_mode": "scaled",
+    "n_envs": null,
+    "real_episodes": 15,
+    "utd": 10,
+    "dataset": null,
+    "steps": 60000,
+    "penalty_lambda": 1.0,
+    "ip_min_ma": 3.0,
+    "max_steps": null
+  },
+  "gymtorax": "1.0.0",
+  "started": "2026-09-30T19:07:36Z",
+  "algo_config": {
+    "real_episodes": 15,
+    "max_minutes": 50.0,
+    "ensemble_size": 5,
+    "model_hidden": 200,
+    "rollout_every": 50,
+    "rollout_batch": 1000,
+    "k_min": 1,
+    "k_max": 5,
+    "k_ramp_episodes": [
+      4,
+      20
+    ],
+    "model_retain_rollouts": 12,
+    "utd": 10,
+    "real_ratio": 0.1,
+    "batch": 256,
+    "hidden": [
+      256,
+      256
+    ],
+    "gamma": 0.995,
+    "lr": 0.0003,
+    "eval_every_episodes": 2,
+    "seed": 0
+  },
+  "env_steps": 1524,
+  "train_minutes": 52.72909392913183
+}

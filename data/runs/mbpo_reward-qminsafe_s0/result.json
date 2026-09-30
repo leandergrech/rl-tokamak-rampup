@@ -1,0 +1,20 @@
+{
+  "run": "mbpo_reward-qminsafe_s0",
+  "algo": "mbpo",
+  "seed": 0,
+  "benchmark_return": 3.0019429737905368,
+  "failed": false,
+  "env_steps_used": 1451,
+  "train_minutes": 52.50003623167674,
+  "Ip_final_MA": 3.0,
+  "Q_final": 0.20936473019071405,
+  "H98_final": 1.9194978368184836,
+  "q_min_final": 2.471405886890129,
+  "q95_final": 19.955450007392443,
+  "fGW_max": 1.2225026317263785,
+  "q_min_lowest": 2.471405886890129,
+  "t_q_min_below_1_s": 0.0,
+  "first_hmode_proxy_s": 104.0,
+  "E_aux_GJ": 5.505055909952614,
+  "total_minutes": 52.968752801418304
+}

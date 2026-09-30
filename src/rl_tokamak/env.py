@@ -62,7 +62,7 @@ PROFILE_IDX = (0, 4, 8, 13, 17, 21, 25)  # cell-grid indices, rho_norm ~ 0 .. 0.
 
 OBS_SETS = ("scalars", "profiles", "full")
 ACTION_SETS = ("powers", "full")
-REWARD_MODES = ("benchmark", "scaled", "qmin_safe")
+REWARD_MODES = ("benchmark", "scaled", "qmin_safe", "patched")
 
 
 @dataclass
@@ -131,6 +131,30 @@ def benchmark_components(obs: dict) -> dict[str, float]:
         "r_q_min": min(qmin, 1.0) / 150,
         "r_q95": min(q95 / 3, 1.0) / 150,
     }
+
+
+def audited_components(q: float, h98: float, qmin: float, q95: float, te0: float, ti0: float,
+                       p_sol: float, p_lh: float) -> dict[str, float]:
+    """Benchmark reward with two loopholes closed (this repo's audit, not part of Gym-TORAX).
+
+    * Q is capped at 10 (ITER's design goal), so cutting auxiliary power cannot inflate Q = P_fus/P_aux without bound;
+    * the "H-mode" gate additionally requires P_SOL >= P_LH, the L-H threshold power TORAX reports, so a hot core
+      under the time-scheduled pedestal no longer counts as H-mode when the heating is off.
+    """
+    h_mode = te0 > 10 and ti0 > 10 and p_sol >= p_lh
+    return {
+        "a_fusion_gain": (min(q / 10, 1.0) if h_mode else 0.0) / 50,
+        "a_h98": (min(h98, 1.0) if h_mode else 0.0) / 50,
+        "a_q_min": min(qmin, 1.0) / 150,
+        "a_q95": min(q95 / 3, 1.0) / 150,
+    }
+
+
+def audited_reward_from_obs(obs: dict) -> float:
+    s, p = obs["scalars"], obs["profiles"]
+    return sum(audited_components(_scalar(s, "Q_fusion"), _scalar(s, "H98"), _scalar(s, "q_min"), _scalar(s, "q95"),
+                                  float(p["T_e"][0]), float(p["T_i"][0]), _scalar(s, "P_SOL_total"),
+                                  _scalar(s, "P_LH")).values())
 
 
 def _stats_path() -> Path:
@@ -233,6 +257,8 @@ class RampupEnv(gym.Env):
             return r_bench
         if r_bench == FAILURE_REWARD or obs is None:
             return cfg.failure_penalty
+        if cfg.reward_mode == "patched":
+            return cfg.reward_scale * audited_reward_from_obs(obs)
         r = cfg.reward_scale * r_bench
         if cfg.reward_mode == "qmin_safe":
             qmin = _scalar(obs["scalars"], "q_min")

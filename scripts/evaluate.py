@@ -104,6 +104,24 @@ LABELS = {
 }
 
 
+def _audited_csv(f: Path):
+    import pandas as pd
+
+    from rl_tokamak.evaluate import audited_return
+
+    return audited_return(pd.read_csv(f).to_dict("records")) if f.exists() else None
+
+
+def _audited(run_dir: Path):
+    """Audited score of a run's final evaluation episode (recomputed from final_episode.csv)."""
+    import pandas as pd
+
+    from rl_tokamak.evaluate import audited_return
+
+    f = run_dir / "final_episode.csv"
+    return audited_return(pd.read_csv(f).to_dict("records")) if f.exists() else None
+
+
 def summary() -> None:
     rows = []
     cl = json.loads((RESULTS / "classical.json").read_text()) if (RESULTS / "classical.json").exists() else {}
@@ -113,7 +131,8 @@ def summary() -> None:
                          "paper": PAPER[key], "env_steps": None, "minutes": None, "failed": cl[key]["failed"],
                          "q_min_final": cl[key].get("q_min_final"), "fGW_max": cl[key].get("fGW_max"),
                          "Q_final": cl[key].get("Q_final"), "Ip_final_MA": cl[key].get("Ip_final_MA"),
-                         "t_q_min_below_1_s": cl[key].get("t_q_min_below_1_s")})
+                         "t_q_min_below_1_s": cl[key].get("t_q_min_below_1_s"),
+                         "audited": _audited_csv(TRAJ / f"{key}.csv")})
     if "random" in cl:
         r = cl["random"]
         rows.append({"policy": f"Random (mean of {r['n_episodes']})", "group": "classical", "return": r["mean_return"],
@@ -155,16 +174,18 @@ def summary() -> None:
                      "minutes": res.get("total_minutes", cfg.get("train_minutes")),
                      "failed": res["failed"], "q_min_final": res.get("q_min_final"), "fGW_max": res.get("fGW_max"),
                      "Q_final": res.get("Q_final"), "Ip_final_MA": res.get("Ip_final_MA"),
-                     "t_q_min_below_1_s": res.get("t_q_min_below_1_s"),
+                     "t_q_min_below_1_s": res.get("t_q_min_below_1_s"), "audited": _audited(res_path.parent),
                      "first_hmode_proxy_s": res.get("first_hmode_proxy_s")})
-    cem = RESULTS / "cem_open_loop.json"
-    if cem.exists():
-        c = json.loads(cem.read_text())
-        rows.append({"policy": "CEM open-loop schedule search (9 parameters)", "group": "reference",
-                     "return": c["best_rescored"], "paper": None, "env_steps": c["episodes"] * 151,
-                     "minutes": c["minutes"], "failed": False, "q_min_final": c.get("q_min_final"),
-                     "fGW_max": c.get("fGW_max"), "Q_final": c.get("Q_final"), "Ip_final_MA": c.get("Ip_final_MA"),
-                     "t_q_min_below_1_s": c.get("t_q_min_below_1_s")})
+    for tag, label in (("", "benchmark"), ("_audited", "audited score")):
+        cem = RESULTS / f"cem_open_loop{tag}.json"
+        if cem.exists():
+            c = json.loads(cem.read_text())
+            rows.append({"policy": f"CEM open-loop schedule search, objective: {label}", "group": "reference",
+                         "return": c["best_rescored"], "paper": None, "env_steps": c["episodes"] * 151,
+                         "minutes": c["minutes"], "failed": False, "q_min_final": c.get("q_min_final"),
+                         "fGW_max": c.get("fGW_max"), "Q_final": c.get("Q_final"), "Ip_final_MA": c.get("Ip_final_MA"),
+                         "t_q_min_below_1_s": c.get("t_q_min_below_1_s"),
+                         "audited": _audited_csv(TRAJ / f"cem_best{tag}.csv")})
     (RESULTS / "summary.json").write_text(json.dumps(rows, indent=2, default=float))
 
     def f(x, nd=2):
@@ -173,15 +194,15 @@ def summary() -> None:
     def n(x):
         return "" if x is None else f"{int(x):,}"
 
-    lines = ["| Policy | Group | Return (final policy) | Best during training | Sim. steps to beat PI | Sim. steps used "
-             "| Wall time (min) | I_p end (MA) | q_min end | s with q_min<1 | max f_GW | Q end |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    lines = ["| Policy | Group | Return (final policy) | Audited score | Best during training | Sim. steps to beat PI "
+             "| Sim. steps used | Wall time (min) | I_p end (MA) | q_min end | s with q_min<1 | max f_GW | Q end |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         ret = f(r["return"]) + (f" ± {f(r['return_std'])}" if "return_std" in r else "")
         if r.get("paper") is not None:
             ret += f" (paper {f(r['paper'])})"
         used = n(r.get("env_steps")) if not r.get("dataset_transitions") else f"0 online, {n(r['dataset_transitions'])} logged"
-        lines.append(f"| {r['policy']} | {r['group']} | {ret} | {f(r.get('best_during_training'))} | "
+        lines.append(f"| {r['policy']} | {r['group']} | {ret} | {f(r.get('audited'))} | {f(r.get('best_during_training'))} | "
                      f"{n(r.get('steps_to_beat_pi'))} | {used} | {f(r['minutes'], 1)} | {f(r.get('Ip_final_MA'), 1)} | "
                      f"{f(r.get('q_min_final'))} | {n(r.get('t_q_min_below_1_s'))} | {f(r.get('fGW_max'))} | "
                      f"{f(r.get('Q_final'), 1)} |")

@@ -62,11 +62,13 @@ def _init_worker() -> None:
     _ENV = RampupEnv(EnvConfig())
 
 
-def _score(p) -> tuple[float, bool]:
-    from ..evaluate import run_controller
+def _score(args) -> tuple[float, bool]:
+    from ..evaluate import audited_return, run_controller
 
+    p, objective = args
     r = run_controller(_ENV, ScheduleController(p))
-    return float(r["benchmark_return"]), bool(r["failed"])
+    score = r["benchmark_return"] if objective == "benchmark" else audited_return(r["log"])
+    return float(score), bool(r["failed"])
 
 
 @dataclass
@@ -79,6 +81,7 @@ class CEMConfig:
     workers: int = 8
     max_minutes: float = 50.0
     seed: int = 0
+    objective: str = "benchmark"  # or "audited" (see rl_tokamak.evaluate.audited_return)
 
 
 def run_cem(cfg: CEMConfig, log=print) -> dict:
@@ -92,7 +95,7 @@ def run_cem(cfg: CEMConfig, log=print) -> dict:
         for g in range(cfg.generations):
             pop = np.clip(mean + std * rng.standard_normal((cfg.population, N_PARAMS)), 0, 1)
             pop[0] = mean  # always re-score the current mean
-            scores = list(ex.map(_score, pop))
+            scores = list(ex.map(_score, [(q, cfg.objective) for q in pop]))
             episodes += len(pop)
             ret = np.array([s[0] for s in scores])
             elite = pop[np.argsort(ret)[-cfg.elites:]]

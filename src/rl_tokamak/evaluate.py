@@ -101,6 +101,20 @@ def save_json(obj: Any, path: str | Path) -> None:
     path.write_text(json.dumps(obj, indent=2, default=float))
 
 
+def audited_return(log: list[dict[str, float]]) -> float:
+    """Episode return under the audited reward (Q capped at 10, H-mode gate needs P_SOL >= P_LH); failure = -1000."""
+    from .env import FAILURE_REWARD, audited_components
+
+    total = 0.0
+    for r in log:
+        if "q_min" not in r:
+            total += FAILURE_REWARD
+            continue
+        total += sum(audited_components(r["Q_fusion"], r["H98"], r["q_min"], r["q95"], r["T_e0"], r["T_i0"],
+                                        r["P_SOL_total"], r["P_LH"]).values())
+    return float(total)
+
+
 def final_log_summary(log: list[dict[str, float]]) -> dict[str, float]:
     """Physics numbers worth reporting next to the score (end of episode and extremes)."""
     ok = [r for r in log if "q_min" in r]
@@ -108,6 +122,10 @@ def final_log_summary(log: list[dict[str, float]]) -> dict[str, float]:
         return {}
     last = ok[-1]
     return {
+        "audited_return": audited_return(log),
+        "t_fGW_above_1_s": float(sum(1 for r in ok if r["fgw_n_e_line_avg"] > 1.0)),
+        "Q_max": max(r["Q_fusion"] for r in ok),
+        "P_aux_flattop_MW": float(np.mean([r["P_NBI_MW"] + r["P_ECRH_MW"] for r in log if r["t"] > 110] or [np.nan])),
         "Ip_final_MA": last["Ip_MA"],
         "Q_final": last["Q_fusion"],
         "H98_final": last["H98"],

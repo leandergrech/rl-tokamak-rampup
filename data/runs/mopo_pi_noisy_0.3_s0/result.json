@@ -1,0 +1,20 @@
+{
+  "run": "mopo_pi_noisy_0.3_s0",
+  "algo": "mopo",
+  "seed": 0,
+  "benchmark_return": 2.013333333333338,
+  "failed": false,
+  "env_steps_used": 0,
+  "train_minutes": 21.185386077562967,
+  "Ip_final_MA": 13.011168787628412,
+  "Q_final": 1.8060613968238104,
+  "H98_final": 0.7729412715575315,
+  "q_min_final": 2.6798142668837874,
+  "q95_final": 4.339759012131582,
+  "fGW_max": 0.8877795606244054,
+  "q_min_lowest": 2.180771418286464,
+  "t_q_min_below_1_s": 0.0,
+  "first_hmode_proxy_s": NaN,
+  "E_aux_GJ": 0.9051905402243138,
+  "total_minutes": 21.453861979643502
+}

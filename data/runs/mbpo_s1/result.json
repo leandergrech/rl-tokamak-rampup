@@ -1,0 +1,20 @@
+{
+  "run": "mbpo_s1",
+  "algo": "mbpo",
+  "seed": 1,
+  "benchmark_return": 18.420217277785888,
+  "failed": false,
+  "env_steps_used": 1510,
+  "train_minutes": 53.31778570810954,
+  "Ip_final_MA": 3.0,
+  "Q_final": 123.2241342367446,
+  "H98_final": 4.194443005506913,
+  "q_min_final": 0.6690309997089842,
+  "q95_final": 15.375183053563289,
+  "fGW_max": 1.7961695440785428,
+  "q_min_lowest": 0.6690309997089842,
+  "t_q_min_below_1_s": 99.0,
+  "first_hmode_proxy_s": 92.0,
+  "E_aux_GJ": 1.6991491204183549,
+  "total_minutes": 53.71815437078476
+}
