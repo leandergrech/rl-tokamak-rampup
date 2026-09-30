@@ -13,16 +13,21 @@ theme:
     - navigation.top
     - toc.follow
     - content.code.copy
+  font:
+    text: Inter
+    code: JetBrains Mono
   palette:
     - scheme: default
-      primary: indigo
+      primary: custom
+      accent: custom
       toggle:
-        icon: material/brightness-7
+        icon: material/weather-night
         name: Dark mode
     - scheme: slate
-      primary: indigo
+      primary: custom
+      accent: custom
       toggle:
-        icon: material/brightness-4
+        icon: material/weather-sunny
         name: Light mode
 
 nav:
@@ -51,6 +56,9 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+
+extra_css:
+  - stylesheets/theme.css
 
 extra_javascript:
   - javascripts/mathjax.js

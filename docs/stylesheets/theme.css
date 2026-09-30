@@ -1,0 +1,41 @@
+/* Option A: "Plasma" — violet-magenta glow, Space Grotesk */
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap");
+:root {
+  --rt-grad: linear-gradient(90deg, #26124f 0%, #5b1a86 45%, #b0287a 100%);
+}
+[data-md-color-scheme="default"] {
+  --md-default-bg-color: #fbfaff;
+  --md-default-fg-color: #1b1633;
+  --md-default-fg-color--light: #4a4466;
+  --md-primary-fg-color: #3b1f78;
+  --md-primary-fg-color--light: #5b3aa0;
+  --md-primary-fg-color--dark: #26124f;
+  --md-primary-bg-color: #ffffff;
+  --md-accent-fg-color: #d6368f;
+  --md-typeset-a-color: #7a2fd1;
+  --md-code-bg-color: #f1eefb;
+  --rt-table-head: #efe9fb;
+  --rt-rule: #e3dcf5;
+}
+[data-md-color-scheme="slate"] {
+  --md-hue: 255;
+  --md-default-bg-color: #0d0b1a;
+  --md-default-fg-color: #e8e4ff;
+  --md-default-fg-color--light: #b6aee0;
+  --md-primary-fg-color: #1c1438;
+  --md-primary-bg-color: #f4eeff;
+  --md-accent-fg-color: #ff5fb8;
+  --md-typeset-a-color: #c29bff;
+  --md-code-bg-color: #17132b;
+  --rt-table-head: #1f1840;
+  --rt-rule: #2c2452;
+}
+.md-header, .md-tabs { background: var(--rt-grad); }
+.md-typeset h1, .md-typeset h2, .md-typeset h3 { font-family: "Space Grotesk", sans-serif; letter-spacing: -0.01em; }
+.md-typeset h1 { font-weight: 700; color: var(--md-default-fg-color); }
+.md-typeset h2 { border-bottom: 2px solid var(--rt-rule); padding-bottom: .2em; }
+.md-typeset table:not([class]) th { background: var(--rt-table-head); }
+.md-typeset table:not([class]) { border: 1px solid var(--rt-rule); }
+.md-typeset img[src*="figures/"] { border-radius: 6px; border: 1px solid var(--rt-rule); }
+[data-md-color-scheme="slate"] .md-typeset img[src*="figures/"] { background: #fbfaff; padding: 6px; }
+.md-typeset .mermaid { margin: 1.2em 0; }

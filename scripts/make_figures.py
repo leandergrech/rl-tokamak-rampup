@@ -21,7 +21,7 @@ OUT = Path("docs/figures")
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
 STYLES = ["-", "--", "-.", ":"]
 MARKERS = ["o", "s", "^", "D"]
-INK, MUTED, GRID, SURFACE = "#0b0b0b", "#52514e", "#e4e3df", "#fcfcfb"
+INK, MUTED, GRID, SURFACE = "#1b1633", "#4a4466", "#e3dcf5", "#fbfaff"  # site theme A "Plasma" (light)
 FLOOR = 1.5  # failed episodes (return about -1000) are drawn at the axis floor
 
 plt.rcParams.update({
