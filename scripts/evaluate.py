@@ -78,16 +78,24 @@ def classical(n_random: int, workers: int) -> dict:
     return out
 
 
-def runs(paths: list[str]) -> None:
+def runs(paths: list[str], tol: float = 1e-6) -> None:
+    """Re-evaluate stored checkpoints and check they reproduce their stored result.json (the env is deterministic)."""
     from rl_tokamak.evaluate import evaluate_run
 
+    mismatches = []
     for p in paths:
         p = Path(p)
-        if not (p / "config.json").exists():
+        if not (p / "config.json").exists() or not (p / "result.json").exists():
             continue
+        stored = json.loads((p / "result.json").read_text())["benchmark_return"]
         res = evaluate_run(p)
-        (p / "result.json").write_text(json.dumps(res, indent=2, default=float))
-        print(json.dumps(res, default=float), flush=True)
+        ok = abs(res["benchmark_return"] - stored) <= tol * max(1.0, abs(stored))
+        print(f"{p.name}: stored {stored:.6f}  re-evaluated {res['benchmark_return']:.6f}  {'OK' if ok else 'MISMATCH'}",
+              flush=True)
+        if not ok:
+            mismatches.append(p.name)
+    if mismatches:
+        raise SystemExit(f"re-evaluation mismatch: {mismatches}")
 
 
 LABELS = {

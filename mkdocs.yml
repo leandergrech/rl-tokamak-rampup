@@ -1,0 +1,57 @@
+site_name: RL for tokamak current ramp-up
+site_description: Literature review and CPU baselines for reinforcement learning on the Gym-TORAX ITER hybrid ramp-up benchmark
+site_author: Leander Grech
+site_url: https://leandergrech.github.io/rl-tokamak-rampup/
+repo_url: https://github.com/leandergrech/rl-tokamak-rampup
+repo_name: leandergrech/rl-tokamak-rampup
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+    - scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+
+nav:
+  - Home: index.md
+  - For Leander: for-leander.md
+  - 1. The control problem: 01-problem.md
+  - 2. Domain primer: 02-primer.md
+  - 3. Timeline 2018–2026: 03-timeline.md
+  - 4. Designs and results: 04-designs.md
+  - 5. Limitations: 05-limitations.md
+  - 6. Open questions: 06-open-questions.md
+  - 7. References: 07-references.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
