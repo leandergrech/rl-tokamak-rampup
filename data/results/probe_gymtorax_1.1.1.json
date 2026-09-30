@@ -1,0 +1,22 @@
+{
+  "gymtorax": "1.1.1",
+  "torax": "1.4.3",
+  "open_loop": {
+    "return": 3.262925961324315,
+    "steps": 150,
+    "failed": false,
+    "wall_s": 25.085451126098633
+  },
+  "pi_paper_gains": {
+    "return": -998.6725655761333,
+    "steps": 105,
+    "failed": true,
+    "wall_s": 9.25694489479065
+  },
+  "random_seed0": {
+    "return": 3.102751748257447,
+    "steps": 150,
+    "failed": false,
+    "wall_s": 14.102562665939331
+  }
+}

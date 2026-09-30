@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -44,7 +45,7 @@ def main(argv=None):
     for s in a.sigmas:
         jobs[f"pi_noisy_{s}"] = [(s, 1000 * int(10 * s) + i) for i in range(a.episodes)]
     flat = [(name, j) for name, js in jobs.items() for j in js]
-    with ProcessPoolExecutor(a.workers) as ex:
+    with ProcessPoolExecutor(a.workers, mp_context=mp.get_context("spawn")) as ex:
         results = list(ex.map(_collect, [j for _, j in flat]))
     summary = {}
     for name in jobs:

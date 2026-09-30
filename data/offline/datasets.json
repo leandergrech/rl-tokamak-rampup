@@ -1,0 +1,26 @@
+{
+  "pi_det": {
+    "episodes": 1,
+    "transitions": 151,
+    "behaviour_mean_return": 3.79192295529996,
+    "behaviour_std_return": 0.0,
+    "behaviour_max_return": 3.79192295529996,
+    "failures": 0
+  },
+  "pi_noisy_0.1": {
+    "episodes": 20,
+    "transitions": 3020,
+    "behaviour_mean_return": 3.854824418274044,
+    "behaviour_std_return": 0.007222306135492553,
+    "behaviour_max_return": 3.8664591897230185,
+    "failures": 0
+  },
+  "pi_noisy_0.3": {
+    "episodes": 20,
+    "transitions": 3020,
+    "behaviour_mean_return": 4.007017779894253,
+    "behaviour_std_return": 0.03101793414605207,
+    "behaviour_max_return": 4.076619057708088,
+    "failures": 0
+  }
+}
