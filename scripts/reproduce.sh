@@ -28,10 +28,20 @@ PYEOF
 if [[ "${1:-}" == "--full" ]]; then
   echo "== offline datasets from the PI controller"
   $PY scripts/make_datasets.py --episodes 20 --sigmas 0.1 0.3 --workers 8
-  echo "== online baselines"
-  $PY scripts/train.py --algo mbpo --out data/runs/mbpo_s0 --minutes 50 --real-episodes 40 --seed 0
+  echo "== online baselines (final protocol: I_p floor 3 MA)"
+  $PY scripts/train.py --algo mbpo --out data/runs/mbpo_s0 --minutes 55 --real-episodes 30 --seed 0
+  $PY scripts/train.py --algo mbpo --out data/runs/mbpo_s1 --minutes 50 --real-episodes 20 --seed 1
+  $PY scripts/train.py --algo mbpo --out data/runs/mbpo_s2 --minutes 50 --real-episodes 20 --seed 2
   $PY scripts/train.py --algo sac  --out data/runs/sac_s0  --minutes 45 --n-envs 8 --seed 0
-  $PY scripts/train.py --algo ppo  --out data/runs/ppo_s0  --minutes 45 --n-envs 12 --seed 0
+  $PY scripts/train.py --algo ppo  --out data/runs/ppo_s0  --minutes 45 --n-envs 8 --seed 0
+  echo "== first-protocol runs (I_p floor 1 MA), kept as an ablation"
+  $PY scripts/train.py --algo mbpo --out data/runs/mbpo_ipfloor1MA_s0 --ip-min-ma 1 --minutes 50 --real-episodes 40 --seed 0
+  $PY scripts/train.py --algo sac  --out data/runs/sac_ipfloor1MA_s0  --ip-min-ma 1 --minutes 45 --n-envs 8 --seed 0
+  echo "== ablations: observation set and reward (MBPO, 15 simulator episodes)"
+  $PY scripts/train.py --algo mbpo --out data/runs/mbpo_obs-scalars_s0 --obs-set scalars --real-episodes 15 --minutes 50 --seed 0
+  $PY scripts/train.py --algo mbpo --out data/runs/mbpo_obs-full_s0 --obs-set full --real-episodes 15 --minutes 50 --seed 0
+  $PY scripts/train.py --algo mbpo --out data/runs/mbpo_reward-benchmark_s0 --reward-mode benchmark --real-episodes 15 --minutes 50 --seed 0
+  $PY scripts/train.py --algo mbpo --out data/runs/mbpo_reward-qminsafe_s0 --reward-mode qmin_safe --real-episodes 15 --minutes 50 --seed 0
   echo "== offline baselines"
   for ds in pi_det pi_noisy_0.1 pi_noisy_0.3; do
     for algo in bc td3bc mopo; do
@@ -39,7 +49,7 @@ if [[ "${1:-}" == "--full" ]]; then
     done
   done
   echo "== open-loop optimum estimate"
-  $PY scripts/open_loop_search.py --workers 8 --generations 12
+  $PY scripts/open_loop_search.py --workers 4 --population 12 --generations 10 --minutes 45
 fi
 
 echo "== re-evaluate stored checkpoints (deterministic: must match result.json)"

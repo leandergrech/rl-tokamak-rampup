@@ -1,0 +1,20 @@
+{
+  "run": "sac_s0",
+  "algo": "sac",
+  "seed": 0,
+  "benchmark_return": 2.922637522391741,
+  "failed": false,
+  "env_steps_used": 11192,
+  "train_minutes": 46.692203470071156,
+  "Ip_final_MA": 3.3174536347389223,
+  "Q_final": 1.4678558792069887,
+  "H98_final": 2.6035430937616977,
+  "q_min_final": 2.4628187151457053,
+  "q95_final": 17.679298414717174,
+  "fGW_max": 1.2837631224659196,
+  "q_min_lowest": 1.983703554281075,
+  "t_q_min_below_1_s": 0.0,
+  "first_hmode_proxy_s": 105.0,
+  "E_aux_GJ": 2.730687713176012,
+  "total_minutes": 47.22650085290273
+}
