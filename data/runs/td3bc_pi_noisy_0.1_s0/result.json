@@ -1,0 +1,20 @@
+{
+  "run": "td3bc_pi_noisy_0.1_s0",
+  "algo": "td3bc",
+  "seed": 0,
+  "benchmark_return": 3.7937068393514126,
+  "failed": false,
+  "env_steps_used": 0,
+  "train_minutes": 23.989817078908285,
+  "Ip_final_MA": 14.509219500015025,
+  "Q_final": 13.820502812007815,
+  "H98_final": 0.9414903974009949,
+  "q_min_final": 0.42905255371812795,
+  "q95_final": 3.4078843020635987,
+  "fGW_max": 1.196187797261917,
+  "q_min_lowest": 0.42905255371812795,
+  "t_q_min_below_1_s": 99.0,
+  "first_hmode_proxy_s": 102.0,
+  "E_aux_GJ": 3.1093817675113677,
+  "total_minutes": 25.008175086975097
+}

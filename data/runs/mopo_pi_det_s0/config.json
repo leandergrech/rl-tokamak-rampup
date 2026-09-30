@@ -1,0 +1,63 @@
+{
+  "algo": "mopo",
+  "seed": 0,
+  "env_config": {
+    "obs_set": "profiles",
+    "action_set": "powers",
+    "ip_mode": "delta",
+    "ip_min": 1000000.0,
+    "reward_mode": "scaled",
+    "reward_scale": 100.0,
+    "failure_penalty": -100.0,
+    "qmin_weight": 1.0,
+    "normalize": true,
+    "clip_obs": 10.0,
+    "log_dir": null,
+    "max_steps": null,
+    "extra": {}
+  },
+  "args": {
+    "algo": "mopo",
+    "out": "data/runs/mopo_pi_det_s0",
+    "seed": 0,
+    "minutes": 25.0,
+    "obs_set": "profiles",
+    "action_set": "powers",
+    "ip_mode": "delta",
+    "reward_mode": "scaled",
+    "n_envs": null,
+    "real_episodes": 40,
+    "utd": 10,
+    "dataset": "data/offline/pi_det.npz",
+    "steps": 60000,
+    "penalty_lambda": 1.0,
+    "max_steps": null
+  },
+  "gymtorax": "1.0.0",
+  "started": "2026-09-30T17:31:21Z",
+  "algo_config": {
+    "algo": "mopo",
+    "steps": 60000,
+    "batch": 256,
+    "alpha": 2.5,
+    "gamma": 0.995,
+    "penalty_lambda": 1.0,
+    "rollout_k": 5,
+    "rollout_batch": 1000,
+    "rollout_every": 250,
+    "real_ratio": 0.05,
+    "ensemble_size": 5,
+    "max_minutes": 25.0,
+    "eval_every": 20000,
+    "seed": 0
+  },
+  "dataset": "data/offline/pi_det.npz",
+  "dataset_transitions": 151,
+  "env_steps": 0,
+  "model_fit": {
+    "holdout_mse_norm": 0.24812963604927063,
+    "epochs": 191,
+    "n_train": 136
+  },
+  "train_minutes": 31.728672806421915
+}

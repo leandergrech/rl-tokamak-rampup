@@ -42,3 +42,8 @@ rl_tokamak = ["*.json"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+filterwarnings = [
+  "ignore::DeprecationWarning",
+  "ignore::pydantic.warnings.PydanticDeprecatedSince211",
+  "ignore:You have specified a mini-batch size:UserWarning",
+]

@@ -1,0 +1,20 @@
+{
+  "run": "ppo_s0",
+  "algo": "ppo",
+  "seed": 0,
+  "benchmark_return": 2.989510566803731,
+  "failed": false,
+  "env_steps_used": 14128,
+  "train_minutes": 46.63980558315913,
+  "Ip_final_MA": 4.337678465619684,
+  "Q_final": 0.4762664572245543,
+  "H98_final": 1.5685581423185453,
+  "q_min_final": 3.575184222565362,
+  "q95_final": 13.473648340551652,
+  "fGW_max": 1.2118849863287753,
+  "q_min_lowest": 3.124215042565484,
+  "t_q_min_below_1_s": 0.0,
+  "first_hmode_proxy_s": 105.0,
+  "E_aux_GJ": 3.6683810156583787,
+  "total_minutes": 47.17851176659266
+}

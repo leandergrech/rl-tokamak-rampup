@@ -1,0 +1,20 @@
+{
+  "run": "bc_pi_noisy_0.1_s0",
+  "algo": "bc",
+  "seed": 0,
+  "benchmark_return": 3.8540865706873757,
+  "failed": false,
+  "env_steps_used": 0,
+  "train_minutes": 8.869874680042267,
+  "Ip_final_MA": 15.0,
+  "Q_final": 15.09778865565412,
+  "H98_final": 0.9158680323099818,
+  "q_min_final": 0.41264452445917144,
+  "q95_final": 3.310175249191732,
+  "fGW_max": 1.1947360373388485,
+  "q_min_lowest": 0.41264452445917144,
+  "t_q_min_below_1_s": 101.0,
+  "first_hmode_proxy_s": 102.0,
+  "E_aux_GJ": 2.78564267167449,
+  "total_minutes": 11.780006714661916
+}
