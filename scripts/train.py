@@ -33,7 +33,7 @@ def parse(argv=None):
     p.add_argument("--obs-set", default="profiles", choices=["scalars", "profiles", "full"])
     p.add_argument("--action-set", default="powers", choices=["powers", "full"])
     p.add_argument("--ip-mode", default="delta", choices=["delta", "absolute"])
-    p.add_argument("--reward-mode", default="scaled", choices=["benchmark", "scaled", "qmin_safe"])
+    p.add_argument("--reward-mode", default="scaled", choices=["benchmark", "scaled", "qmin_safe", "patched"])
     p.add_argument("--n-envs", type=int, default=None, help="PPO/SAC worker processes")
     p.add_argument("--real-episodes", type=int, default=40, help="MBPO simulator-episode budget")
     p.add_argument("--utd", type=int, default=10, help="MBPO SAC updates per real step")
