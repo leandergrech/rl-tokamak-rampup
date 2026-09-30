@@ -1,0 +1,12 @@
+.venv/
+.runs/
+__pycache__/
+*.pyc
+*.egg-info/
+site/
+.pytest_cache/
+.ipynb_checkpoints/
+build/
+dist/
+data/large/
+*.log
