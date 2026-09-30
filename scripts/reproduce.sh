@@ -35,7 +35,7 @@ if [[ "${1:-}" == "--full" ]]; then
   echo "== offline baselines"
   for ds in pi_det pi_noisy_0.1 pi_noisy_0.3; do
     for algo in bc td3bc mopo; do
-      $PY scripts/train.py --algo $algo --dataset data/offline/$ds.npz --out data/runs/${algo}_${ds}_s0 --steps 60000 --minutes 25 --seed 0
+      $PY scripts/train.py --algo $algo --dataset data/offline/$ds.npz --out data/runs/${algo}_${ds}_s0 --steps 20000 --minutes 25 --seed 0
     done
   done
   echo "== open-loop optimum estimate"
