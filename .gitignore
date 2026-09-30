@@ -11,3 +11,4 @@ dist/
 data/large/
 *.log
 .venv-v10/
+data/runs/*/*.zip

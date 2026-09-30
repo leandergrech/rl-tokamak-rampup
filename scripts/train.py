@@ -74,6 +74,11 @@ def main(argv=None) -> dict:
                         net_arch=(64, 64) if args.algo == "ppo" else (256, 256))
         res = train_sb3(env_cfg, cfg, log, best_path=out / "policy_best.zip")
         res["model"].save(out / "policy.zip")
+        from rl_tokamak.policies import compact_sb3
+
+        for stem in ("policy", "policy_best"):  # small actor-only copies that get committed; zips stay local
+            if (out / f"{stem}.zip").exists():
+                compact_sb3(out / f"{stem}.zip", args.algo, out / f"{stem}.pt")
         curve = {"eval": res["callback"].curve, "train_episodes": res["callback"].train_episodes}
         meta["algo_config"] = res["config"]
         eval_env = res["eval_env"]
