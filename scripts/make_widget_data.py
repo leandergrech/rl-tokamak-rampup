@@ -64,7 +64,7 @@ def episodes() -> dict:
 def profiles() -> dict:
     z = np.load("data/trajectories/profiles.npz")
     out = {}
-    for key in ("pi", "open_loop", "heating_cut"):
+    for key in ("pi", "open_loop", "heating_cut", "ppo_res", "mbpo_res"):
         if f"{key}_time" not in z:
             continue
         entry = {"t": [int(t) for t in z[f"{key}_time"]]}

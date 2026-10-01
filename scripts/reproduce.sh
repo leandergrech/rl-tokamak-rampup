@@ -57,6 +57,7 @@ if [[ "${1:-}" == "--full" ]]; then
   done
   echo "== radial profiles for the animations (PI, open-loop, heating cut)"
   $PY scripts/profile_snapshots.py
+  $PY scripts/profile_snapshots.py --add ppo_res=data/runs/ppo_res_s0:final mbpo_res=data/runs/mbpo_res_s0:best
   echo "== open-loop optimum estimate"
   $PY scripts/open_loop_search.py --workers 8 --population 16 --generations 10 --minutes 45 --objective benchmark
   $PY scripts/open_loop_search.py --workers 8 --population 16 --generations 10 --minutes 45 --objective audited

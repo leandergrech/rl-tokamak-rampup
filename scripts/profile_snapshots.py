@@ -5,8 +5,14 @@ switched off from t = 105 s (the reward loophole). Saved to data/trajectories/pr
 <policy>_<field> arrays of shape (steps, radial points), plus <policy>_time; the heating-cut episode
 log is also written to data/trajectories/heating_cut.csv.
 
+Stored policies can be added to the same file (the Lab draws their TORAX space-time maps):
+
 python scripts/profile_snapshots.py
+python scripts/profile_snapshots.py --add ppo_res=data/runs/ppo_res_s0:final mbpo_res=data/runs/mbpo_res_s0:best
 """
+
+import argparse
+from pathlib import Path
 
 import numpy as np
 
@@ -27,7 +33,43 @@ class HeatingCut(OpenLoopController):
         return a
 
 
+def record_policy(run_dir: str, which: str) -> dict:
+    """One deterministic episode of a stored policy, with its profiles at every second."""
+    from rl_tokamak.env import make_env
+    from rl_tokamak.policies import load_policy
+
+    cfg, pi = load_policy(run_dir, which)
+    env = make_env(cfg)
+    x, _ = env.reset()
+    snaps, times, t, done = {k: [] for k in FIELDS}, [], 0, False
+    while not done:
+        x, _, term, trunc, _ = env.step(pi(x))
+        t += 1
+        done = term or trunc
+        times.append(t)
+        for k in FIELDS:
+            snaps[k].append(np.ravel(env._last_obs["profiles"][k]).astype(np.float32))
+    return {"time": np.array(times), **{k: np.array(v) for k, v in snaps.items()}}
+
+
+def add(specs: list[str]) -> None:
+    path = Path("data/trajectories/profiles.npz")
+    out = dict(np.load(path)) if path.exists() else {}
+    for spec in specs:
+        key, rest = spec.split("=", 1)
+        run_dir, _, which = rest.partition(":")
+        for k, v in record_policy(run_dir, which or "final").items():
+            out[f"{key}_{k}"] = v
+        print(key, out[f"{key}_T_e"].shape, flush=True)
+    np.savez_compressed(path, **out)
+
+
 def main():
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--add", nargs="*", default=None, metavar="KEY=RUN_DIR[:final|best]")
+    a = p.parse_args()
+    if a.add:
+        return add(a.add)
     env = RampupEnv(EnvConfig())
     out = {}
     for name, ctrl in (("pi", PIController()), ("open_loop", OpenLoopController()), ("heating_cut", HeatingCut())):

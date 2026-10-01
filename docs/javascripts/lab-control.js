@@ -18,10 +18,11 @@
   const IP_START = 3e6, IP_RAMP = 0.2e6, IP_MAX = 15e6, NBI_MAX = 33e6, ECRH_MAX = 20e6;
   const HEAT_ON_STEP = 99, RAMP_END = 100, HORIZON = 151;
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-  const jTarget = (t) => 0.2e6 + 0.4e6 + (1.4e6 * t) / 100; // A/m^2, the PI's reference for j(0)
+  // A/m^2, the PI's reference for j(0): 0.6 MA/m^2 at t = 0 rising linearly to jEnd (2.0 MA/m^2) at 100 s
+  const jTarget = (t, jEnd = 2.0e6) => 0.2e6 + 0.4e6 + ((jEnd - 0.6e6) * t) / 100;
 
   // ------------------------------------------------------------------ PI (controllers.PIController)
-  function makePI(kp = 0.7, ki = 34.257, ipMin = 1e3, ipMax = IP_MAX) {
+  function makePI(kp = 0.7, ki = 34.257, ipMin = 1e3, ipMax = IP_MAX, jEnd = 2.0e6) {
     const pi = { kp, ki, step: 0, integral: 0, ip: 0 };
     pi.reset = () => Object.assign(pi, { step: 0, integral: 0, ip: 0 });
     // j0: measured central current density [A/m^2]. Returns the action dict and what the controller saw.
@@ -29,7 +30,7 @@
       const t = pi.step;
       let sig = null;
       if (t < RAMP_END) {
-        const target = jTarget(t), error = target - j0;
+        const target = jTarget(t, jEnd), error = target - j0;
         const desired = IP_START + pi.kp * error + pi.ki * pi.integral;
         let limited = desired, rampLimited = false;
         if (t > 0 && Math.abs(desired - pi.ip) > IP_RAMP) {
@@ -118,8 +119,13 @@
     return [clamp((act.Ip - ipNow) / IP_RAMP, -1, 1), (2 * act.nbi) / NBI_MAX - 1, (2 * act.ecrh) / ECRH_MAX - 1];
   }
 
-  function piController() {
-    const pi = makePI();
+  // tune (optional): {kpMul, kiMul, jEnd [A/m^2], corrMul}: the Lab's hyper-controls; defaults reproduce the paper's PI
+  const piFrom = (tune) => {
+    const t = tune || {};
+    return makePI(0.7 * (t.kpMul ?? 1), 34.257 * (t.kiMul ?? 1), 1e3, IP_MAX, t.jEnd ?? 2.0e6);
+  };
+  function piController(tune) {
+    const pi = piFrom(tune);
     return {
       kind: "feedback",
       reads: "j(0), the central current density",
@@ -131,8 +137,9 @@
     };
   }
 
-  function learnedController(spec) {
-    const res = spec.action.residual, pi = res ? makePI() : null;
+  function learnedController(spec, tune) {
+    const res = spec.action.residual, pi = res ? piFrom(tune) : null;
+    const corr = (tune && tune.corrMul) ?? 1;
     return {
       kind: "feedback",
       reads: `${spec.obs_dim} numbers: time, the last action, 18 scalars and 5 profiles at 7 radii`,
@@ -149,7 +156,7 @@
           x = x.concat(base, [(pi.ki * pi.integral) / 1e7]);
         }
         const u = forward(spec, x);
-        const total = res ? u.map((v, i) => clamp(base[i] + res.scale[i] * v, -1, 1)) : u;
+        const total = res ? u.map((v, i) => clamp(base[i] + corr * res.scale[i] * v, -1, 1)) : u;
         const act = toPhysical(total, ipNow, spec.action.ip_min);
         return { ...act, info: { x, u, base, total, pi: sig, scale: res ? res.scale : null } };
       },
