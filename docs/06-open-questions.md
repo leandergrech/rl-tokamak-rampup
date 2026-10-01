@@ -53,7 +53,7 @@ Positions are this repo's judgement, not measurements; the effort estimates unde
 
 **Why open.** Gym-TORAX has a fixed initial state and deterministic dynamics, so its optimal policy is an open-loop schedule ([The control problem](01-problem.md#what-solved-would-mean)). The value of RL for ramp-up control, as opposed to offline trajectory optimisation (which RAPTOR-based work already does on real machines, [R15h](07-references.md#r15-timeline-sources)), only appears when the plasma differs from the model: transport multipliers, initial density and temperature, impurity content, pedestal timing, actuator dropouts.
 
-**What a first paper would show.** A perturbed variant of the ITER hybrid environment (config-level randomisation, no physics changes), and the gap between (a) the best open-loop schedule optimised on the nominal model, (b) the PI controller, (c) MBPO/SAC trained with domain randomisation, evaluated on held-out perturbations. The headline is a curve: return versus perturbation size for each policy class. This is the sim-to-real argument you already make for accelerators, transplanted.
+**What a first paper would show.** A perturbed variant of the ITER hybrid environment (config-level randomisation, no physics changes), and the gap between (a) the best open-loop schedule optimised on the nominal model, (b) the PI controller, (c) MBPO/SAC trained with domain randomisation, evaluated on held-out perturbations. The headline is a curve: return versus perturbation size for each policy class. This is the familiar sim-to-real argument, transplanted to fusion.
 
 **Effort.** 4–6 weeks. The env subclass is a few hundred lines; `notebooks/03-first-experiment.ipynb` is the scaffold.
 

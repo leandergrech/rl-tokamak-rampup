@@ -43,6 +43,7 @@ nav:
   - The benchmark:
       - The control problem: 01-problem.md
       - Designs and results: 04-designs.md
+      - RL on top of PI: 04a-rl-on-pi.md
       - Limitations: 05-limitations.md
       - Open questions: 06-open-questions.md
   - Domain primer:

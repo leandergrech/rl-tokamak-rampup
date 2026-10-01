@@ -206,6 +206,9 @@ All opened on the publisher or arXiv page (IOP pages sit behind a bot wall, so t
 ### R32
 **Silver T., Allen K., Tenenbaum J., Kaelbling L.** "Residual Policy Learning." arXiv:1812.06298 (2018). <https://arxiv.org/abs/1812.06298>. **verified**: "learning a residual on top of the initial controller can yield substantial improvements".
 
+### R33
+**Xing L., Ma H., Yu C., et al. and the EXL-50U Team** "Reinforcement learning for vertical position control on the EXL-50U spherical tokamak." arXiv:2608.20901 (Aug 2026). <https://arxiv.org/abs/2608.20901>. **verified** (abstract): RL "achieves tracking accuracy comparable to PID with consistently lower vertical-stabilization coil effort, while lightweight integral compensation improves robustness against residual model–plant mismatch".
+
 ## Tokamak physics background
 
 ### R26

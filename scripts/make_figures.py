@@ -410,18 +410,22 @@ def residual() -> None:
     """Residual RL on PI: audited learning curves, and what the corrections do to the knobs and the score."""
     from rl_tokamak.evaluate import audited_return
 
-    runs = sorted(Path("data/runs").glob("*_res_s*"))
+    runs = sorted(p for p in Path("data/runs").glob("*_res*_s*") if (p / "curve.json").exists())
     if not runs:
         return
     pi_aud = _audit("data/trajectories/pi.csv")
-    fig, ax = plt.subplots(figsize=(8.5, 4.2))
+    fig, ax = plt.subplots(figsize=(8.5, 4.4))
+    labelled = set()
     for rd in runs:
         ev = [r for r in json.loads((rd / "curve.json").read_text())["eval"] if "eval_audited" in r]
         xk = "env_steps" if "env_steps" in ev[0] else "real_steps"
         i = 1 if rd.name.startswith("ppo") else 2
-        ls = STYLES[0] if rd.name.endswith("s0") else STYLES[1]
-        ax.plot([r[xk] for r in ev], [max(r["eval_audited"], FLOOR) for r in ev], color=SERIES[i], ls=ls,
-                marker=MARKERS[i], ms=4, label=f"{'PPO' if i == 1 else 'MBPO'} on PI, seed {rd.name[-1]}")
+        long = "_long_" in rd.name
+        lab = f"{'PPO' if i == 1 else 'MBPO'} on PI" + (", long runs" if long else ", one line per seed")
+        ax.plot([r[xk] for r in ev], [max(r["eval_audited"], FLOOR) for r in ev], color=SERIES[i],
+                ls=STYLES[1] if long else STYLES[0], lw=1.4, marker=MARKERS[i], ms=3, alpha=0.85,
+                label=None if lab in labelled else lab)
+        labelled.add(lab)
     ax.axhline(pi_aud, color=SERIES[0], lw=1.4, label=f"PI controller ({pi_aud:.2f})")
     cem = _audit("data/trajectories/cem_best_audited.csv")
     ax.axhline(cem, color=SERIES[3], lw=1.4, ls=":", label=f"best open-loop schedule, CEM ({cem:.2f})")

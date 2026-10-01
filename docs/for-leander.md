@@ -13,16 +13,16 @@ icon: rt/onramp
     3. [Designs and results](04-designs.md), especially *How every number is produced and checked*.
     4. [Limitations](05-limitations.md) section 1 (the loophole), then [Open questions](06-open-questions.md).
 
-You know the RL side: PPO, SAC and TD3 in SB3, Gymnasium plumbing, sample-efficient learning on an expensive physical system (the TWOCRYST/AICRYSCON crystal alignment), sim-to-real with sparse noisy sensors, long-horizon safety-constrained decision-making (TADA), and inverse problems from images (Semablu). This page maps that onto the tokamak ramp-up and gives you a two-week plan. The physics is in the [primer](02-primer.md); the MDP in [The control problem](01-problem.md).
+You know the RL side: PPO, SAC and TD3 in SB3, Gymnasium plumbing, sample-efficient learning on an expensive physical system, sim-to-real with sparse noisy sensors, long-horizon safety-constrained decision-making, and inverse problems from images. This page maps that onto the tokamak ramp-up and gives you a two-week plan. The physics is in the [primer](02-primer.md); the MDP in [The control problem](01-problem.md).
 
 ## What transfers directly
 
 | Your experience | Where it lands here |
 |---|---|
-| **Crystal alignment at CERN, RL4AA practice**: sample budgets measured in machine time, model-based and Bayesian methods winning over model-free, a simulator that is useful but wrong | The same structure. TORAX is the "beam-dynamics code" of this problem: fast, open and physically incomplete. The fusion results that reached hardware on profile-level problems all learned a dynamics model first ([designs](04-designs.md#published-designs-side-by-side)). The MBPO baseline here is the family you already trust. |
+| **RL on an expensive physical system**: sample budgets measured in machine time, model-based and Bayesian methods winning over model-free, a simulator that is useful but wrong | The same structure. TORAX is the "beam-dynamics code" of this problem: fast, open and physically incomplete. The fusion results that reached hardware on profile-level problems all learned a dynamics model first ([designs](04-designs.md#published-designs-side-by-side)). The MBPO baseline here is the family you already trust. |
 | **Sim-to-real with sparse, noisy sensors** | The benchmark observes the full plasma state (1,735 numbers, noise-free). Real ramp-ups see magnetics, interferometry, ECE and a reconstructed equilibrium, all noisy and some delayed. The partial-observability opening in [Open questions](06-open-questions.md) is your home ground. |
-| **TADA, separation minima and conflict resolution** | q_min ≥ 1, Greenwald fraction < 1 and the L-H power threshold are the "separation minima" of a ramp-up. The benchmark puts none of them in the reward as a hard constraint, and its PI baseline violates two of them ([Limitations](05-limitations.md)). Constrained RL and safety layers are an obvious contribution. |
-| **Super-resolution, inverse problems** | Recovering the current and q profile from external magnetics is equilibrium reconstruction, an ill-posed inverse problem. A learned state estimator is a natural bridge between your EO work and this domain. |
+| **Safety-constrained decision-making** (hard separation constraints, conflict resolution) | q_min ≥ 1, Greenwald fraction < 1 and the L-H power threshold are the hard separation constraints of a ramp-up. The benchmark puts none of them in the reward as a hard constraint, and its PI baseline violates two of them ([Limitations](05-limitations.md)). Constrained RL and safety layers are an obvious contribution. |
+| **Super-resolution, inverse problems** | Recovering the current and q profile from external magnetics is equilibrium reconstruction, an ill-posed inverse problem. A learned state estimator is a natural bridge between image-based inverse problems and this domain. |
 | **Teaching a Master's AI/ML course** | Gym-TORAX 1.0 on a laptop, with the PI controller as the bar to beat, is a self-contained course project: one episode takes about 17 s on one core. |
 
 ## What is new

@@ -169,7 +169,9 @@ def summary() -> None:
         residual = (ec.get("extra") or {}).get("residual")
         if residual:  # residual RL on the PI controller: its own group, not an ablation
             group = "residual"
-            tag += " on PI (residual" + (", audited reward" if ec["reward_mode"] == "patched" else "") + ")"
+            steps_cap = (cfg.get("args") or {}).get("total_steps") or 0
+            tag += " on PI (residual" + (", audited reward" if ec["reward_mode"] == "patched" else "") + (
+                f", long run: {steps_cap // 1000}k steps" if steps_cap >= 60_000 else "") + ")"
         elif variant:
             group = "ablation"
             tag += " [" + ", ".join(variant) + "]"

@@ -43,7 +43,7 @@ What this repo found:
 1. **The published PI and open-loop numbers reproduce exactly on gymtorax 1.0.0 / TORAX 1.0.3; the random-policy number (−10.79) does not** (3.23 ± 0.06, no failures in 20 episodes), and the current gymtorax 1.1.1 changes all three ([details](01-problem.md#which-version-is-the-benchmark)).
 2. **The benchmark reward is exploitable.** Its fusion-gain term Q/10 is uncapped and its H-mode test is a core-temperature threshold under a time-scheduled pedestal, so switching the heating off after t = 105 s sends Q = P_fus/P_aux into the hundreds. A fixed open-loop sequence scores 22.74; MBPO, SAC and PPO found variants of it on their own (18.42, 27.08, 48.98) ([mechanism](05-limitations.md#the-q-loophole-found-by-rl)).
 3. **Under an audited score** (Q capped at 10, H-mode only while P_SOL ≥ P_LH), the best policy learned from scratch scores 3.69 against PI's 3.50 and the best open-loop schedule found 3.63: the real headroom above PI is a few tenths.
-4. **RL on top of PI beats it without the loophole.** With the agent outputting a correction to the PI controller's action, trained and checkpointed on the audited score, both PPO seeds end at 3.64 audited (4.47 and 4.02 on the benchmark) after about 29,500 simulator steps, and MBPO passes PI after 302–604 steps (best checkpoint 3.72, final policies 3.51 and 3.63). The agents heat during the ramp, which keeps q_min above 1 about 10 s longer, and trim the flat-top heating ([details](04-designs.md)). The [Ramp-up Lab](primer/7-lab.md) shows every controller's knobs live, separates feedback from open-loop control, and runs PI and the learned policies closed-loop on its own plasma.
+4. **RL on top of PI beats it without the loophole.** With the agent outputting a correction to the PI controller's action, trained and checkpointed on the audited score, both PPO seeds end at 3.64 audited (4.47 and 4.02 on the benchmark) after about 29,500 simulator steps, and MBPO passes PI after 302–604 steps (best checkpoint 3.72, final policies 3.51 and 3.63). The agents heat during the ramp, which keeps q_min above 1 about 10 s longer, and trim the flat-top heating ([how it works and where the design comes from](04a-rl-on-pi.md); [results](04-designs.md#what-the-numbers-say)). The [Ramp-up Lab](primer/7-lab.md) shows every controller's knobs live, separates feedback from open-loop control, and runs PI and the learned policies closed-loop on its own plasma.
 5. A fork of Gym-TORAX with an additive `IterHybridAudited-v0` environment, tests and a baseline table is on [`leandergrech/gymtorax`, branch `fix/audited-iter-hybrid-reward`](https://github.com/leandergrech/gymtorax/tree/fix/audited-iter-hybrid-reward).
 
 ![Where each policy's return comes from](figures/reward_components.png)
@@ -57,7 +57,7 @@ What this repo found:
 
     ---
 
-    What transfers from your ATC, CERN and EO work, what is new, and a two-week plan.
+    What transfers from your RL background, what is new, and a two-week plan.
 
     [:octicons-arrow-right-24: Start here](for-leander.md)
 

@@ -33,7 +33,7 @@ An **open-loop** controller fixes every knob setting before the shot: the knobs 
 | Open-loop reference, heating cut, early heating | a schedule | the clock | – |
 | Best audited schedule | a schedule found by cross-entropy search (9 numbers) | the clock | – |
 | PI controller | PI on I_p; heating on the reference schedule | j(0), against a target rising from 0.6 to 2.0 MA/m² | JavaScript port of `controllers.py` |
-| PPO on PI, MBPO on PI | PI plus a learned correction to all three knobs | 64 numbers: the 60-number observation, PI's proposal and its integral | exported networks |
+| PPO on PI, MBPO on PI | PI plus a learned correction to all three knobs ([how](../04a-rl-on-pi.md)) | 64 numbers: the 60-number observation, PI's proposal and its integral | exported networks |
 | PPO exploit, MBPO seed 1, TD3+BC | a learned policy | the 60-number observation (time, last action, 18 scalars, 5 profiles at 7 radii) | exported networks |
 | Sandbox | you | the screen | – |
 
