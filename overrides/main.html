@@ -5,7 +5,7 @@
   {%- if p.meta and p.meta.icon -%}{% include ".icons/" ~ p.meta.icon ~ ".svg" %}{%- endif -%}
 {%- endmacro %}
 {% macro arrow(dir) -%}
-  <svg class="rt-pager__arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ 'M15 5l-7 7 7 7' if dir == 'prev' else 'M9 5l7 7-7 7' }}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <svg class="rt-pager__arrow" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="{{ 'M15 5l-7 7 7 7' if dir == 'prev' else 'M9 5l7 7-7 7' }}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
 {%- endmacro %}
 
 {% block content %}

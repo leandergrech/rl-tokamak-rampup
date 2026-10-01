@@ -62,6 +62,7 @@ nav:
 
 hooks:
   - hooks/strip_svg_metadata.py
+  - hooks/asset_versions.py
 
 markdown_extensions:
   - admonition
