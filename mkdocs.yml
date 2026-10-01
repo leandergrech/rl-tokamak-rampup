@@ -18,6 +18,7 @@ theme:
     - navigation.footer
     - navigation.top
     - toc.follow
+    - toc.integrate
     - content.code.copy
   font:
     text: Inter
@@ -37,9 +38,14 @@ theme:
         name: Light mode
 
 nav:
-  - Home: index.md
-  - For Leander: for-leander.md
-  - The control problem: 01-problem.md
+  - Overview:
+      - Home: index.md
+      - For Leander: for-leander.md
+  - The benchmark:
+      - The control problem: 01-problem.md
+      - Designs and results: 04-designs.md
+      - Limitations: 05-limitations.md
+      - Open questions: 06-open-questions.md
   - Domain primer:
       - Start here: 02-primer.md
       - The machine: primer/1-machine.md
@@ -50,12 +56,13 @@ nav:
       - From physics to reward: primer/6-reward.md
       - The Ramp-up Lab: primer/7-lab.md
       - Gaps, status and glossary: primer/8-field.md
+  - Reference:
       - Equation sheet: primer/equations.md
-  - Timeline 2018–2026: 03-timeline.md
-  - Designs and results: 04-designs.md
-  - Limitations: 05-limitations.md
-  - Open questions: 06-open-questions.md
-  - References: 07-references.md
+      - Timeline 2018–2026: 03-timeline.md
+      - References: 07-references.md
+
+hooks:
+  - hooks/strip_svg_metadata.py
 
 markdown_extensions:
   - admonition
@@ -86,5 +93,6 @@ extra_javascript:
   - javascripts/widgets.js
   - javascripts/tokamak-model.js
   - javascripts/lab.js
+  - javascripts/nav.js
   - javascripts/mathjax.js
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
