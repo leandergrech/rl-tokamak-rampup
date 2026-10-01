@@ -32,6 +32,7 @@ class SB3Config:
     gamma: float = 0.995
     net_arch: tuple[int, ...] = (64, 64)
     norm_reward: bool = False  # VecNormalize the training reward (keeps PPO's value loss from swamping the clipped gradient)
+    total_timesteps: int = 10**9  # simulator-step cap (the wall-clock budget usually ends training first)
     ppo: dict = field(default_factory=lambda: {"n_steps": 128, "batch_size": 256, "n_epochs": 10,
                                                "learning_rate": 3e-4, "gae_lambda": 0.95, "clip_range": 0.2,
                                                "ent_coef": 0.0, "log_std_init": -0.5})
@@ -109,7 +110,7 @@ def train_sb3(env_cfg: EnvConfig, cfg: SB3Config, log=print, best_path=None) -> 
         raise ValueError(cfg.algo)
     select = "audited_return" if env_cfg.reward_mode == "patched" else "benchmark_return"
     cb = BudgetCallback(cfg.max_minutes, cfg.eval_every_minutes, eval_env, log, best_path=best_path, select=select)
-    model.learn(total_timesteps=10**9, callback=cb)
+    model.learn(total_timesteps=cfg.total_timesteps, callback=cb)
     cb._evaluate()  # final deterministic evaluation
     venv.close()
     return {"model": model, "callback": cb, "eval_env": eval_env, "config": asdict(cfg)}

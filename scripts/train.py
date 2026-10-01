@@ -68,6 +68,7 @@ def parse(argv=None):
                    help="MBPO: end model rollouts that leave Gym-TORAX's bounds (always on with --residual)")
     p.add_argument("--known-reward", action="store_true",
                    help="MBPO: score model rollouts with the reward formula on the predicted state (always on with --residual)")
+    p.add_argument("--total-steps", type=int, default=None, help="PPO/SAC: stop after this many simulator steps")
     p.add_argument("--ppo-n-steps", type=int, default=None, help="PPO rollout length per worker (default 128)")
     p.add_argument("--ppo-batch", type=int, default=None, help="PPO minibatch size (default 256)")
     p.add_argument("--max-steps", type=int, default=None, help=argparse.SUPPRESS)  # smoke tests only
@@ -107,7 +108,8 @@ def main(argv=None) -> dict:
 
         cfg = SB3Config(algo=args.algo, max_minutes=args.minutes, seed=args.seed,
                         n_envs=args.n_envs or (12 if args.algo == "ppo" else 8),
-                        net_arch=(64, 64) if args.algo == "ppo" else (256, 256), norm_reward=args.norm_reward)
+                        net_arch=(64, 64) if args.algo == "ppo" else (256, 256), norm_reward=args.norm_reward,
+                        total_timesteps=args.total_steps or 10**9)
         if args.log_std_init is not None:
             cfg.ppo["log_std_init"] = args.log_std_init
         if args.ppo_n_steps:
