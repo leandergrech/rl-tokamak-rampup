@@ -3,7 +3,7 @@ repo: https://github.com/leandergrech/rl-tokamak-rampup
 pages: https://leandergrech.github.io/rl-tokamak-rampup/
 step: 7
 state: done
-updated: 2026-10-01T14:20:00Z
+updated: 2026-10-01T16:40:00Z
 blockers: none
 next: Leander reviews the site and docs/upstream drafts; first experiment = randomised Gym-TORAX on the audited reward (notebooks/03)
 log:
@@ -25,6 +25,8 @@ log:
 - 2026-10-01T17:00:00Z navigation polish: section fold toggle is a plain chevron (no count) and also works inside the phone drawer (menu button, top left; tapping a section closes the drawer); previous/next buttons at the top and bottom of every page with page icons (overrides/main.html), replacing the manual chapter links and the footer pager
 - 2026-10-01T14:20:00Z residual RL on PI (rl_tokamak.residual; agent outputs a correction to PI's action, zero correction = PI episode 3.7919/3.5016), audited training reward, best checkpoint by audited score. PPO (5 envs, n_steps 64, VecNormalize reward, 75 min): final audited 3.64/3.64, benchmark 4.47/4.02, ~29.5k steps. MBPO (exact reward and Gym-TORAX bounds rule in model rollouts, entropy 0.1, I_p correction +-0.1 MA/s, 3,020 steps): final 3.51/3.63, best 3.72/3.66, beats PI after 302/604 steps. 2 PPO and 4 MBPO attempts (logs .runs/*attempt*); env logs fail_reason on -1000 steps. pytest 24 passed
 - 2026-10-01T14:20:00Z Ramp-up Lab: presets grouped open loop / feedback / you; knobs panel (signal path plasma -> controller -> knobs, dials with PI proposal and correction, knob strips with TORAX and pins); feedback presets run live on the Lab (docs/javascripts/lab-control.js: PI port, observation builder, exported networks via scripts/export_lab_policies.py; node scripts/check_lab_control.mjs: networks 1e-6, PI 4e-5 MA, observation 8e-6); robustness table and new guided experiments on the Lab page; residual figures and results on the designs page
+- 2026-10-01T16:40:00Z residual RL seeds 2-4 on a rented vast.ai CPU (personal account, EPYC 7K62, 48 cores; same budgets in steps/episodes; laptop re-evaluation matches to 2e-5): PPO on PI final audited 3.632 +- 0.037 over 5 seeds (all above PI 3.50), MBPO on PI 3.619 +- 0.070 (best checkpoints 3.66-3.76, above PI after 302-604 steps); MBPO seeds 2-4 trim flat-top heating to 14-20 MW (Q 75-310, benchmark 7.2-8.8), neutral under the audited cap. Long PPO runs (120k steps, seeds 5-6) still training
+- 2026-10-01T16:40:00Z Ramp-up Lab redesign: presets above, sticky side pane (playback, episode timeline, controller hyper-controls: PI gains, j(0) target, network correction; salient plasma parameters; outcome sparklines), full simulation parameters and reward designer below; new panels: space-time maps (Lab vs TORAX), power and current balance, reward by term through the episode; TORAX profiles recorded for PPO/MBPO on PI; keyboard stepping; new page docs/04a-rl-on-pi.md
 
 ## Fork task
 repo: https://github.com/leandergrech/gymtorax (branch fix/audited-iter-hybrid-reward; pinned backport branch fix/audited-iter-hybrid-reward-v1.0 off tag v1.0.0)

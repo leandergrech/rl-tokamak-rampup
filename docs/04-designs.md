@@ -10,7 +10,7 @@ icon: rt/results
     - **This repo:** PI and open-loop numbers reproduce exactly; the random-policy number does not.
     - PPO and SAC plateau near 3.0 with little data and **exploit the reward** with more (27–49).
     - MBPO beats PI within about 1,400–2,400 simulator steps, mostly via the same loophole.
-    - Under the **audited score** the best learned policy reaches 3.69 against PI's 3.50.
+    - Under the **audited score**, RL on top of PI reaches 3.63 ± 0.04 (PPO) and 3.62 ± 0.07 (MBPO) over five seeds each, against PI's 3.50; from scratch, the best is 3.69 (one seed).
 
 Two parts: the published RL/ML control designs side by side, then this repo's baselines on Gym-TORAX with their numbers. Every literature number links to [References](07-references.md); every number of ours comes from a file under `data/`.
 
@@ -220,7 +220,7 @@ Runs whose `config.json` lists host `AMD EPYC 7R13` (MBPO seeds 3–5, the audit
 
 **4. Offline RL from PI logs: coverage decides.** Behaviour cloning reproduces whichever data it gets (3.79, 3.85, 3.99 on the three datasets, against behaviour means 3.79, 3.85, 4.01). TD3+BC fails on the single deterministic trajectory (−998: it drifts off the data and leaves the observation bounds) and matches the behaviour policy on the noisy data (3.79 and 4.01). MOPO beats PI on the single trajectory (3.94) by cutting flat-top heating to about 19 MW, which raises Q, and collapses to the low-current plateau on the noisy data (2.88, 2.01). After the audit, the imitation learners on the σ = 0.3 data (3.56) stay above PI (3.50): they copy a behaviour policy whose noise switches some heating on during the ramp.
 
-**5. The open-loop optimum is not far above PI once the loophole is closed.** CEM over a 9-parameter schedule reached 4.08 on the benchmark objective (96 episodes, 45.8 min, audited 3.57) and 3.87 when optimising the audited score directly (160 episodes, 41.4 min, audited 3.63). Neither search found the Q loophole within its budget. On the audited score the ranking is MBPO full-observation seed 1 (3.69) > CEM (3.63) > imitation of noisy PI (3.56) > PI (3.50) > open-loop (3.41): a spread of 0.28, small next to the 1–45 points the loophole is worth. Item 7 adds RL on top of PI, at 3.64 (PPO, both seeds) and 3.72 (MBPO, best checkpoint).
+**5. The open-loop optimum is not far above PI once the loophole is closed.** CEM over a 9-parameter schedule reached 4.08 on the benchmark objective (96 episodes, 45.8 min, audited 3.57) and 3.87 when optimising the audited score directly (160 episodes, 41.4 min, audited 3.63). Neither search found the Q loophole within its budget. On the audited score the ranking is MBPO full-observation seed 1 (3.69) > CEM (3.63) > imitation of noisy PI (3.56) > PI (3.50) > open-loop (3.41): a spread of 0.28, small next to the 1–45 points the loophole is worth. Item 7 adds RL on top of PI: 3.63 ± 0.04 (PPO, five seeds) and 3.62 ± 0.07 (MBPO, five seeds; best checkpoints up to 3.76).
 
 Replay any of the stored episodes and watch where the return comes from:
 
@@ -234,26 +234,36 @@ Replay any of the stored episodes and watch where the return comes from:
 |---|---|---|---|---|---|---|---|
 | PI controller | 3.79 | 3.50 | | | | 101 | 53.0 |
 | Best open-loop schedule (CEM, audited objective) | 3.87 | 3.63 | | | 24,160 | 93 | 36.4 |
-| PPO on PI, seed 0 | 4.47 | **3.64** | 3.66 | 11,215 | 29,535 | 91 | 34.6 |
-| PPO on PI, seed 1 | 4.02 | **3.64** | 3.66 | 2,360 | 29,390 | 85 | 48.4 |
-| MBPO on PI, seed 0 | 3.88 | 3.51 | **3.72** | 302 | 3,020 | 100 | 48.2 |
+| PPO on PI, seed 0 | 4.47 | 3.64 | 3.66 | 11,215 | 29,535 | 91 | 34.6 |
+| PPO on PI, seed 1 | 4.02 | 3.64 | 3.66 | 2,360 | 29,390 | 85 | 48.4 |
+| PPO on PI, seed 2 | 4.48 | 3.66 | 3.66 | 6,605 | 30,080 | 89 | 33.5 |
+| PPO on PI, seed 3 | 4.06 | 3.57 | 3.57 | 23,060 | 30,080 | 99 | 43.6 |
+| PPO on PI, seed 4 | 4.11 | 3.66 | 3.66 | 6,515 | 30,080 | 95 | 47.8 |
+| **PPO on PI, 5 seeds** | **4.23 (mean)** | **3.632 ± 0.037** | 3.642 | 2,360–23,060 | ≈ 30,000 | 85–99 | 33–48 |
+| MBPO on PI, seed 0 | 3.88 | 3.51 | 3.72 | 302 | 3,020 | 100 | 48.2 |
 | MBPO on PI, seed 1 | 6.59 | 3.63 | 3.66 | 604 | 3,020 | 97 | 27.2 |
+| MBPO on PI, seed 2 | 8.64 | 3.62 | 3.73 | 302 | 2,983 | 89 | 14.3 |
+| MBPO on PI, seed 3 | 8.77 | 3.69 | 3.69 | 302 | 3,020 | 89 | 17.8 |
+| MBPO on PI, seed 4 | 7.17 | 3.64 | 3.76 | 302 | 3,011 | 100 | 20.2 |
+| **MBPO on PI, 5 seeds** | **7.01 (mean)** | **3.619 ± 0.070** | 3.711 | 302–604 | ≈ 3,000 | 89–100 | 14–48 |
 
-All four final policies are at or above PI on both scores, and the PPO policies are above the best open-loop schedule found by search. The gain is real but small: +0.14 for PPO, with an upper bound near 4.0 for any policy that only reaches H-mode when the scheduled pedestal rises at 100 s (all four terms at their maxima from 102 s, the q terms at theirs before).
+Mean ± sample standard deviation over seeds. Seeds 0 and 1 ran on the shared laptop with a 75-minute wall-clock cap (which ended PPO near 29,500 steps); seeds 2–4 ran on a rented 48-core cloud CPU (AMD EPYC 7K62) with the same budgets in simulator steps (PPO capped at 30,000) and episodes (MBPO 20). Re-evaluating the cloud checkpoints on the laptop reproduces their audited scores exactly and their benchmark returns to within 2 × 10⁻⁵.
+
+All ten final policies are at or above PI on the audited score (MBPO seed 0 ties, 3.505), and seven of the ten are above the best open-loop schedule's 3.63. The gain is real but small: +0.13 for PPO on average, with an upper bound near 4.0 for any policy that only reaches H-mode when the scheduled pedestal rises at 100 s (all four terms at their maxima from 102 s, the q terms at theirs before). The benchmark returns tell a different story, and the wrong one: MBPO's final policies average 7.01 because seeds 2–4 trim the flat-top heating to 14–20 MW, which sends Q to 75–310 while alpha heating keeps P_SOL above P_LH. The audited score caps Q at 10, so the trim neither helps nor hurts it there; on the benchmark it looks like a large win.
 
 <figure markdown="span">
   ![Residual RL learning curves](figures/residual_curves.png)
   <figcaption><strong>Audited score of the deterministic policy against simulator steps</strong> for the residual runs, with PI (blue line) and the best open-loop schedule (amber dotted). PPO climbs steadily past both; MBPO is above PI after 302–604 steps and then swings by up to 0.6 between evaluations. Failed evaluation episodes (−1000) fall off the bottom of the axis.</figcaption>
 </figure>
 
-**What the corrections do.** Both PPO seeds learned the same strategy, one the hybrid scenario is built on. During the ramp they add heating that PI does not use: seed 0 mostly ECRH from the first second plus NBI from 28 s, seed 1 mostly NBI. A hotter plasma conducts better, so the current reaches the core later: q_min stays above 1 until 61 s instead of 51 s and spends 85–91 s below 1 instead of 101 s. In the flat-top, seed 0 gives full power for three seconds while the scheduled pedestal rises, then trims to about 22 MW of NBI and 7 MW of ECRH, enough to keep P_SOL above P_LH, which the audited gate requires. Their audited gain over PI, +0.14, is about 60 % q_min term, 30 % fusion term and 10 % H98 term. The figure compares the knobs and the score with PI's and with the best open-loop schedule; the [Ramp-up Lab](primer/7-lab.md?preset=ppo_res&t=60) shows the PI proposal and the network's correction separately, second by second.
+**What the corrections do.** All ten final policies learned the same core strategy, one the hybrid scenario is built on: during the ramp they add heating that PI does not use (3–27 MW on average before 100 s, from the first seconds; seed 0 of PPO mostly ECRH, seed 1 mostly NBI). A hotter plasma conducts better, so the current reaches the core later: q_min stays above 1 until 52–67 s instead of 51 s. The seed that heats least during the ramp (PPO seed 3, 4 MW on average) gains least. In the flat-top, seed 0 gives full power for three seconds while the scheduled pedestal rises, then trims to about 22 MW of NBI and 7 MW of ECRH, enough to keep P_SOL above P_LH, which the audited gate requires. For PPO seeds 0 and 1 the audited gain over PI, +0.14, is about 60 % q_min term, 30 % fusion term and 10 % H98 term. The figure compares the knobs and the score with PI's and with the best open-loop schedule; the [Ramp-up Lab](primer/7-lab.md?preset=ppo_res&t=60) shows the PI proposal and the network's correction separately, second by second.
 
 <figure markdown="span">
   ![Residual RL knobs](figures/residual_knobs.png)
   <figcaption><strong>Knobs and outcomes of the residual agents</strong> against PI and the best open-loop schedule (CEM, audited objective). Bottom right: the audited score each has gained over PI by time t.</figcaption>
 </figure>
 
-**MBPO on PI: ten times fewer simulator steps, and less stable.** MBPO passed PI's audited score after 302 and 604 simulator steps (two and four episodes), against 2,360 and 11,215 for PPO, and its seed-0 best checkpoint (3.72) is the highest audited score in this repo. It does not hold it. Between evaluations the score swings by up to 0.6: at 1,812 steps seed 0 scored 14.58 on the benchmark and 3.13 audited, the signature of reduced flat-top heating, where Q rises while the audited H-mode gate fails. The final policies score 3.51 and 3.63, so without the best-checkpoint rule seed 0 only ties PI. The seed-0 best checkpoint takes a different route from PPO: full heating from 50 s, just as q_min reaches 1, and an I_p ramp-down in the flat-top from 15 to 11.4 MA at its 0.1 MA/s limit. That ramp-down raises H98 from 0.93 to 1.22, partly because the IPB98 yardstick τ_98 ∝ I_p^0.93 falls with the current: a metric artefact the audited score inherits from the benchmark.
+**MBPO on PI: ten times fewer simulator steps, and less stable.** MBPO passed PI's audited score after 302 simulator steps (two episodes) in four seeds and 604 in the fifth, against 2,360–23,060 for PPO, and its best checkpoints (3.66–3.76, mean 3.71) are the highest audited scores in this repo. It does not hold them. Between evaluations the score swings by up to 0.6: at 1,812 steps seed 0 scored 14.58 on the benchmark and 3.13 audited, the signature of reduced flat-top heating, where Q rises while the audited H-mode gate fails. The final policies score 3.51–3.69 (mean 3.62), so without the best-checkpoint rule MBPO ends level with PPO, and seed 0 only ties PI. The seed-0 best checkpoint takes a different route from PPO: full heating from 50 s, just as q_min reaches 1, and an I_p ramp-down in the flat-top from 15 to 11.4 MA at its 0.1 MA/s limit. That ramp-down raises H98 from 0.93 to 1.22, partly because the IPB98 yardstick τ_98 ∝ I_p^0.93 falls with the current: a metric artefact the audited score inherits from the benchmark.
 
 Getting MBPO there took three changes, each prompted by a failed attempt:
 
@@ -261,7 +271,7 @@ Getting MBPO there took three changes, each prompted by a failed attempt:
 2. Model rollouts are scored with the exact reward formula on the predicted state. The learned reward head could not represent the H-mode gate and was exploited: one seed reached 19.3 on the benchmark and 1.97 audited while being trained on the audited reward.
 3. The I_p correction is limited to ±0.1 MA/s. With ±0.2 MA/s, SAC's first deterministic policies held I_p near 3 MA. That pays the q_min term at once and fails the edge-q bound 100 s later, when the heating comes on (a probe: q(ρ = 1) = 110 at 111 s), a delay the model never saw in its data.
 
-**Caveats.** The environment has one fixed initial state and is deterministic, so a policy's score is a single episode and there is no held-out test: the best checkpoint is selected on the same episode it is scored on, and each evaluation costs a further 151 simulator steps that the step counts above do not include. Two seeds per algorithm. The agents can only move a bounded distance from PI (I_p ±0.2 MA/s for PPO and ±0.1 MA/s for MBPO, any power), so this measures how much a learned correction adds to a reasonable controller, not what RL finds from scratch. The settings shown are the second PPO attempt and the fourth MBPO attempt; each earlier attempt failed for the reason that motivated a change listed in the [designs table](#baseline-designs) (logs kept locally in `.runs/`).
+**Caveats.** The environment has one fixed initial state and is deterministic, so a policy's score is a single episode and there is no held-out test: the best checkpoint is selected on the same episode it is scored on, and each evaluation costs a further 151 simulator steps that the step counts above do not include. Five seeds per algorithm. The agents can only move a bounded distance from PI (I_p ±0.2 MA/s for PPO and ±0.1 MA/s for MBPO, any power), so this measures how much a learned correction adds to a reasonable controller, not what RL finds from scratch. The settings shown are the second PPO attempt and the fourth MBPO attempt; each earlier attempt failed for the reason that motivated a change listed in the [designs table](#baseline-designs) (logs kept locally in `.runs/`).
 
 **What longer training changes.** The cloud runs answer part of this already: 5–8× more simulator steps took PPO and SAC from the plateau straight into the loophole. On the benchmark reward, more compute makes the scores larger, not more meaningful. On the audited score, the room above PI is a few tenths (CEM 3.63; RL on top of PI 3.64 for the PPO final policies, 3.72 for the best MBPO checkpoint). Finding out whether feedback policies keep that margin when the plasma differs from the model is the point of [opening 3](06-open-questions.md#3-does-feedback-matter-a-randomised-gym-torax); the [Ramp-up Lab](primer/7-lab.md#open-loop-and-feedback) gives a first, model-level look.
 

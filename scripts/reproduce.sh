@@ -42,12 +42,12 @@ if [[ "${1:-}" == "--full" ]]; then
   $PY scripts/train.py --algo mbpo --out data/runs/mbpo_obs-full_s0 --obs-set full --real-episodes 15 --minutes 50 --seed 0
   $PY scripts/train.py --algo mbpo --out data/runs/mbpo_reward-benchmark_s0 --reward-mode benchmark --real-episodes 15 --minutes 50 --seed 0
   $PY scripts/train.py --algo mbpo --out data/runs/mbpo_reward-qminsafe_s0 --reward-mode qmin_safe --real-episodes 15 --minutes 50 --seed 0
-  echo "== residual RL on the PI controller, audited reward (PPO: 5 workers, 75 min; MBPO: 25 episodes)"
-  for s in 0 1; do
+  echo "== residual RL on the PI controller, audited reward (PPO: 30,000 steps; MBPO: 20 episodes; five seeds each)"
+  for s in 0 1 2 3 4; do
     $PY scripts/train.py --algo ppo --residual pi --reward-mode patched --norm-reward --log-std-init -1.0 --n-envs 5 \
-      --ppo-n-steps 64 --ppo-batch 64 --minutes 75 --seed $s --out data/runs/ppo_res_s$s
-    $PY scripts/train.py --algo mbpo --residual pi --residual-scale 0.5 2 2 --reward-mode patched --real-episodes 25 \
-      --minutes 75 --seed $s --out data/runs/mbpo_res_s$s
+      --ppo-n-steps 64 --ppo-batch 64 --total-steps 30000 --minutes 120 --seed $s --out data/runs/ppo_res_s$s
+    $PY scripts/train.py --algo mbpo --residual pi --residual-scale 0.5 2 2 --reward-mode patched --real-episodes 20 \
+      --minutes 120 --seed $s --out data/runs/mbpo_res_s$s
   done
   echo "== offline baselines"
   for ds in pi_det pi_noisy_0.1 pi_noisy_0.3; do
