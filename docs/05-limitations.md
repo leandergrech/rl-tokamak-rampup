@@ -1,4 +1,8 @@
-# Limitations: what fails, and by how much
+---
+icon: rt/warning
+---
+
+# :rt-warning: Limitations: what fails, and by how much
 
 !!! abstract "In short"
 
@@ -18,7 +22,7 @@ The PI controller that sets the published bar (3.79) produces this plasma (`data
 |---|---|---|---|
 | I_p at the end | 15.0 MA (reached at t = 61 s) | 12.5 MA | hybrid scenario: 11.2–12.5 MA at q95 ≈ 4 ([R27](07-references.md#r27)) |
 | q95 at the end | 3.31 | 4.09 | ≈ 4 for the hybrid scenario ([R27](07-references.md#r27)) |
-| q_min, lowest | 0.41 | 0.62 | just above 1: that is the definition of a hybrid scenario ([primer, chapter 5](primer/5-limits.md#the-iter-hybrid-scenario)) |
+| q_min, lowest | 0.41 | 0.62 | just above 1: that is the definition of a hybrid scenario ([primer: Limits and the operating space](primer/5-limits.md#the-iter-hybrid-scenario)) |
 | seconds with q_min < 1 | 101 of 151 | 83 of 151 | 0 |
 | peak Greenwald fraction | 1.19 | 1.19 | < 1 ([R28](07-references.md#r28)) |
 | Q at the end | 14.6 | 7.7 | ITER design goals: Q ≥ 10 at 15 MA, Q = 5 in the hybrid scenario ([R26](07-references.md#r26), [R27](07-references.md#r27)) |

@@ -1,4 +1,8 @@
-# 2. The safety factor q
+---
+icon: rt/q
+---
+
+# :rt-q: The safety factor q
 
 !!! abstract "The question"
 
@@ -23,7 +27,7 @@ At rational q = m/n a field line closes on itself after m toroidal turns: the su
 - **q95**, q at the surface enclosing 95 % of the poloidal flux, is set mostly by total I_p and the shape. Low q95 risks disruptions (the usual rule of thumb is to stay above about 3; textbook value, unverified here), which is why the reward pays min(q95/3, 1). In the PI rollout q95 falls from 15.6 at t = 1 s to 3.31 at 15 MA.
 - **q_min**, the minimum of q, usually on or near the axis. Where q < 1 the core is unstable to an internal kink that produces **sawteeth**: periodic crashes that flatten the central temperature and current every few seconds and can seed more dangerous modes (textbook description, unverified here). The reward pays min(q_min, 1).
 
-The agent never sets q directly. q95 follows I_p almost immediately (the edge current is the boundary condition), but q_min follows the *current profile*, which arrives in the core only by diffusion over tens of seconds. That lag is the subject of [chapter 3](3-current-diffusion.md).
+The agent never sets q directly. q95 follows I_p almost immediately (the edge current is the boundary condition), but q_min follows the *current profile*, which arrives in the core only by diffusion over tens of seconds. That lag is the subject of [How the current gets in](3-current-diffusion.md).
 
 <figure markdown="span">
   ![Current density and q profiles of the PI episode](../figures/profiles.png)

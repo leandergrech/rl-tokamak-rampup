@@ -10,10 +10,12 @@ exclude_docs: |
 
 theme:
   name: material
+  custom_dir: overrides
   logo: assets/logo.svg
   favicon: assets/logo.svg
   features:
     - navigation.sections
+    - navigation.footer
     - navigation.top
     - toc.follow
     - content.code.copy
@@ -37,23 +39,23 @@ theme:
 nav:
   - Home: index.md
   - For Leander: for-leander.md
-  - 1. The control problem: 01-problem.md
-  - 2. Domain primer:
+  - The control problem: 01-problem.md
+  - Domain primer:
       - Start here: 02-primer.md
-      - 2.1 The machine: primer/1-machine.md
-      - 2.2 The safety factor q: primer/2-safety-factor.md
-      - 2.3 How the current gets in: primer/3-current-diffusion.md
-      - 2.4 Heat, confinement and fusion: primer/4-heat-and-fusion.md
-      - 2.5 Limits and the operating space: primer/5-limits.md
-      - 2.6 From physics to reward: primer/6-reward.md
-      - 2.7 The Ramp-up Lab: primer/7-lab.md
-      - 2.8 Gaps, status and glossary: primer/8-field.md
+      - The machine: primer/1-machine.md
+      - The safety factor q: primer/2-safety-factor.md
+      - How the current gets in: primer/3-current-diffusion.md
+      - Heat, confinement and fusion: primer/4-heat-and-fusion.md
+      - Limits and the operating space: primer/5-limits.md
+      - From physics to reward: primer/6-reward.md
+      - The Ramp-up Lab: primer/7-lab.md
+      - Gaps, status and glossary: primer/8-field.md
       - Equation sheet: primer/equations.md
-  - 3. Timeline 2018–2026: 03-timeline.md
-  - 4. Designs and results: 04-designs.md
-  - 5. Limitations: 05-limitations.md
-  - 6. Open questions: 06-open-questions.md
-  - 7. References: 07-references.md
+  - Timeline 2018–2026: 03-timeline.md
+  - Designs and results: 04-designs.md
+  - Limitations: 05-limitations.md
+  - Open questions: 06-open-questions.md
+  - References: 07-references.md
 
 markdown_extensions:
   - admonition
@@ -68,6 +70,9 @@ markdown_extensions:
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      options:
+        custom_icons:
+          - overrides/.icons
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid

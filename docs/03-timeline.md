@@ -1,4 +1,8 @@
-# Timeline 2018–2026
+---
+icon: rt/timeline
+---
+
+# :rt-timeline: Timeline 2018–2026
 
 !!! abstract "In short"
 

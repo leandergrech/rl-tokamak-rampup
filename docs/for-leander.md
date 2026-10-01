@@ -1,11 +1,15 @@
-# For Leander: on-ramp
+---
+icon: rt/onramp
+---
+
+# :rt-onramp: For Leander: on-ramp
 
 !!! abstract "In short"
 
     **Suggested reading order (about 3 hours):**
 
     1. This page, then [The control problem](01-problem.md) with the reward explorer.
-    2. [Primer](02-primer.md) chapters 2–6 with their animations, then the [Ramp-up Lab](primer/7-lab.md) guided experiments.
+    2. The [primer](02-primer.md) chapters from the safety factor to the reward, with their animations, then the [Ramp-up Lab](primer/7-lab.md) guided experiments.
     3. [Designs and results](04-designs.md), especially *How every number is produced and checked*.
     4. [Limitations](05-limitations.md) section 1 (the loophole), then [Open questions](06-open-questions.md).
 
@@ -60,7 +64,7 @@ Each day is about 2 hours of reading and 2–4 hours of coding. Commands assume 
 
 | Day | Read | Do |
 |---|---|---|
-| 1 | [Primer](02-primer.md) chapters 1–3 and Lab experiments 1–3; Gym-TORAX paper ([R1](07-references.md#r1)) | Run `notebooks/01-explore.ipynb`. Reproduce PI = 3.79 with `python scripts/evaluate.py --classical --n-random 4`. |
+| 1 | The first three [primer](02-primer.md) chapters and Lab experiments 1–3; Gym-TORAX paper ([R1](07-references.md#r1)) | Run `notebooks/01-explore.ipynb`. Reproduce PI = 3.79 with `python scripts/evaluate.py --classical --n-random 4`. |
 | 2 | TORAX paper §II–III ([R4](07-references.md#r4)) and the equation summary ([R4b](07-references.md#r4b)) | Current-diffusion experiment: hold I_p at 3 MA, step it to 5 MA at t = 20 s, plot j(ρ̂) every 5 s. Repeat with 20 MW ECRH on from t = 0 and compare how fast j(0) rises. |
 | 3 | Degrave et al. 2022 including Methods ([R6](07-references.md#r6)) | Read `src/rl_tokamak/env.py` end to end. Add a reward mode of your own (e.g. a Greenwald penalty) and a unit test for it. |
 | 4 | Seo et al. 2024 ([R8](07-references.md#r8)); Char et al. 2023 ([R15e](07-references.md#r15-timeline-sources)) | Read `agents/mbpo.py` and `agents/ensemble.py`. Measure the ensemble's multi-step prediction error on `data/offline/pi_noisy_0.3.npz` for k = 1, 5, 20. |

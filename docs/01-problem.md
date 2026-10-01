@@ -1,4 +1,8 @@
-# The control problem
+---
+icon: rt/loop
+---
+
+# :rt-loop: The control problem
 
 !!! abstract "In short"
 

@@ -1,14 +1,14 @@
 ---
 hide:
-  - navigation
   - toc
+icon: rt/lab
 ---
 
-# 7. The Ramp-up Lab
+# :rt-lab: The Ramp-up Lab
 
 !!! abstract "What this is"
 
-    A reduced model of the Gym-TORAX ITER hybrid ramp-up that runs in your browser: the same actuators, the same 151 one-second steps, the same reward, and physics that follows the equations of chapters 2–5 in simplified form. Presets **replay the recorded actions of real TORAX episodes** on the Lab model and overlay TORAX as dashed lines, so you always see how far the toy is from the real thing. The sandbox lets you be the agent. The benchmark designer lets you change the reward and the simulator assumptions and see what every policy would have scored. It is a thinking tool, not a substitute for TORAX: confirm anything interesting there.
+    A reduced model of the Gym-TORAX ITER hybrid ramp-up that runs in your browser: the same actuators, the same 151 one-second steps, the same reward, and physics that follows the equations of the physics chapters in simplified form. Presets **replay the recorded actions of real TORAX episodes** on the Lab model and overlay TORAX as dashed lines, so you always see how far the toy is from the real thing. The sandbox lets you be the agent. The benchmark designer lets you change the reward and the simulator assumptions and see what every policy would have scored. It is a thinking tool, not a substitute for TORAX: confirm anything interesting there.
 
 <div class="rt-widget" data-widget="lab" data-title="The Ramp-up Lab"></div>
 
@@ -30,7 +30,7 @@ Each one takes a few minutes. Predict first, then look.
 2. **The scheduled pedestal.** [Heating cut at 106 s](7-lab.md?preset=heating_cut&t=106&tab=T). Note the badge on the plasma view: the reward still counts this as H-mode. Now switch *pedestal: power-triggered* in the assumptions panel. *Predict* the benchmark return before you look. Then load PPO's exploit with the same switch: it heated from the first second, so on the Lab it enters H-mode early and keeps it on alpha power. Whether TORAX would agree is exactly the kind of question the Lab is for.
 3. **Be the agent.** [Sandbox](7-lab.md?preset=sandbox&tab=q). Ramp at full rate with no heating until 100 s, then full heating. Pin it. Reset, and this time give 20 MW of ECRH from t = 10 s. Compare q_min at 100 s and both returns.
 4. **Exploit the benchmark yourself.** From [PI at 104 s](7-lab.md?preset=pi&t=104&tab=T), take the controls, press *Heating off* and *Run*. Watch Q, the per-second reward bars, and the audit list. Then set the custom gate to *pedestal up and P_SOL ≥ P_LH*.
-5. **Steer the ECRH.** In the sandbox, put 20 MW of ECRH at ρ̂ = 0.1 and then at ρ̂ = 0.6 during the ramp. Which keeps q_min higher, and why? (Chapter 3: heating where the current would otherwise penetrate.)
+5. **Steer the ECRH.** In the sandbox, put 20 MW of ECRH at ρ̂ = 0.1 and then at ρ̂ = 0.6 during the ramp. Which keeps q_min higher, and why? ([How the current gets in](3-current-diffusion.md): heating where the current would otherwise penetrate.)
 6. **Robustness, the "control level".** Load the [best audited schedule](7-lab.md?preset=cem_audited&tab=T) and set *transport ×* to 1.5, then 0.7. A fixed schedule cannot react; how much of its score survives? Try the same with PI. This is the experiment [Open question 3](../06-open-questions.md#3-does-feedback-matter-a-randomised-gym-torax) proposes on TORAX.
 7. **Sawteeth.** Switch the sawtooth model on for [PI](7-lab.md?preset=pi&t=120&tab=T&sawtooth=1). How do T_e(0), q_min and the benchmark return change? Would the heating cut still pay with sawteeth on?
 8. **Design a reward.** Open the custom reward, add a Greenwald penalty and an end-of-episode rule at f_GW > 1.2. Go through the presets and write down the ranking. Does any honest policy beat PI? Does any exploit survive?

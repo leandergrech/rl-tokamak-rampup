@@ -1,4 +1,8 @@
-# 4. Heat, confinement and fusion
+---
+icon: rt/fusion
+---
+
+# :rt-fusion: Heat, confinement and fusion
 
 !!! abstract "The question"
 
@@ -6,7 +10,7 @@
 
 ## Stiff transport: the core rides on the edge
 
-The heat equations of [chapter 3](3-current-diffusion.md#four-profiles-four-transport-equations) are diffusion equations with a diffusivity χ that is not a constant: turbulence switches on when the normalised temperature gradient R/L_T = −R ∂(ln T)/∂r exceeds a critical value, and then χ rises steeply. Push more power in and the gradient barely steepens; the turbulence carries the extra heat away. Temperature profiles are therefore **stiff**: pushing more power in raises T less than you would expect, and the core temperature is set mostly by the temperature at the edge of the core region multiplied by a nearly fixed factor. The Lab captures this with a critical-gradient model (<span class="rt-eqref" data-eq="heat"></span>); TORAX uses QLKNN ([R4](../07-references.md#r4)).
+The heat equations of [How the current gets in](3-current-diffusion.md#four-profiles-four-transport-equations) are diffusion equations with a diffusivity χ that is not a constant: turbulence switches on when the normalised temperature gradient R/L_T = −R ∂(ln T)/∂r exceeds a critical value, and then χ rises steeply. Push more power in and the gradient barely steepens; the turbulence carries the extra heat away. Temperature profiles are therefore **stiff**: pushing more power in raises T less than you would expect, and the core temperature is set mostly by the temperature at the edge of the core region multiplied by a nearly fixed factor. The Lab captures this with a critical-gradient model (<span class="rt-eqref" data-eq="heat"></span>); TORAX uses QLKNN ([R4](../07-references.md#r4)).
 
 You can see it in the TORAX data: with 53 MW of heating and the H-mode pedestal (3 keV), T_e(0) settles near 27 keV in the PI episode; in the heating-cut episode, with no auxiliary heating, about 32 MW of alpha heating just after the cut (rising to 55 MW) and the same pedestal, it still sits near 20 keV.
 
@@ -37,7 +41,7 @@ $$
 
 ## Fusion power and the gain Q
 
-D-T fusion releases 17.6 MeV per reaction, 3.5 MeV of it in the alpha particle that stays in the plasma and heats it. The reaction rate per volume is n_D n_T ⟨σv⟩(T_i), and the reactivity ⟨σv⟩ rises steeply with temperature up to tens of keV (Bosch–Hale fit: 1.1 × 10⁻²² m³/s at 10 keV, 4.3 × 10⁻²² at 20 keV; <span class="rt-eqref" data-eq="fusion"></span>). Because density is capped by the Greenwald limit ([chapter 5](5-limits.md)), the way to more fusion power is temperature and confinement.
+D-T fusion releases 17.6 MeV per reaction, 3.5 MeV of it in the alpha particle that stays in the plasma and heats it. The reaction rate per volume is n_D n_T ⟨σv⟩(T_i), and the reactivity ⟨σv⟩ rises steeply with temperature up to tens of keV (Bosch–Hale fit: 1.1 × 10⁻²² m³/s at 10 keV, 4.3 × 10⁻²² at 20 keV; <span class="rt-eqref" data-eq="fusion"></span>). Because density is capped by the Greenwald limit ([Limits and the operating space](5-limits.md)), the way to more fusion power is temperature and confinement.
 
 **Fusion gain** Q = P_fusion / P_heating. ITER's goal is Q ≥ 10 at 500 MW of fusion power for 50 MW injected ([R26](../07-references.md#r26)); its long-pulse hybrid goal is Q = 5 for 1000 s ([R27](../07-references.md#r27)). In TORAX's output the denominator is the injected plus ohmic power, Q = P_fus/(P_aux + P_ohm): in the heating-cut episode P_alpha ≈ 54.6 MW (so P_fus ≈ 275 MW) over P_ohm ≈ 1.0 MW gives the recorded Q ≈ 270. The reward pays (Q/10)/50 per second in "H-mode", which is uncapped.
 
@@ -47,7 +51,7 @@ A 0-D power balance makes the consequence visible. Losses follow IPB98 × H98; h
 
 !!! tip "What it means for the agent"
 
-    - **Heating buys temperature, but with diminishing returns** (stiffness; τ_E ∝ P^−0.69), and early heating also changes the current profile (chapter 3).
+    - **Heating buys temperature, but with diminishing returns** (stiffness; τ_E ∝ P^−0.69), and early heating also changes the current profile ([How the current gets in](3-current-diffusion.md)).
     - **Q rewards a small denominator.** Any policy that keeps the core hot with less injected power is paid more, and under a scheduled pedestal "less" can mean zero. This is the loophole PPO, SAC and MBPO found ([Limitations](../05-limitations.md#the-q-loophole-found-by-rl)).
     - **The H-mode gate is a temperature threshold**, not the physics of H-mode. In the Lab, the badge on the plasma view turns red when the reward counts a state as H-mode while P_SOL < P_LH.
 

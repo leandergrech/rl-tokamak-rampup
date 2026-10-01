@@ -1,4 +1,8 @@
-# Equation sheet
+---
+icon: rt/sigma
+---
+
+# :rt-sigma: Equation sheet
 
 Every equation the primer and the Lab use, in one place. Each entry says what TORAX / Gym-TORAX does, what the Lab's reduced model does instead, and where to see it. Symbols: ρ̂ normalised radius (0 axis, 1 edge), r = ρ̂a, R = 6.2 m, a = 2.0 m, B = 5.3 T, κ = 1.7, T in keV, n in m⁻³ unless stated.
 
@@ -11,7 +15,7 @@ $$
 - **TORAX:** q from the poloidal flux ψ on the CHEASE equilibrium.
 - **Lab:** G(ρ̂) = 1.79 + 1.49 ρ̂², a stand-in for elongation and triangularity (G ≈ (1 + κ²)/2 near the axis), calibrated on TORAX's q on axis and q95. q95 is read at ρ̂ = 0.95.
 - **Reward:** min(q_min, 1)/150 and min(q95/3, 1)/150.
-- **See:** [chapter 2](2-safety-factor.md); [Lab, q colouring](7-lab.md?preset=pi&t=51&color=q&tab=q).
+- **See:** [The safety factor q](2-safety-factor.md); [Lab, q colouring](7-lab.md?preset=pi&t=51&color=q&tab=q).
 
 ## Current diffusion {#eq-diffusion}
 
@@ -19,9 +23,9 @@ $$
 \frac{\partial I}{\partial t} = \frac{2\pi r\,s}{\mu_0}\,\frac{\partial}{\partial r}\Big[\eta\,\big(j - j_{\rm ni}\big)\Big], \qquad j = \frac{1}{2\pi\kappa r}\frac{\partial I}{\partial r}, \qquad I(0,t)=0,\quad I(a,t) = I_p(t)
 $$
 
-- **TORAX:** the ψ equation of [chapter 3](3-current-diffusion.md#four-profiles-four-transport-equations), with neoclassical σ_∥ and ⟨B·j_ni⟩.
+- **TORAX:** the ψ equation of [How the current gets in](3-current-diffusion.md#four-profiles-four-transport-equations), with neoclassical σ_∥ and ⟨B·j_ni⟩.
 - **Lab:** the same physics in an elongated cylinder (s = 1.04 accounts for the longer poloidal path), 51 nodes, backward Euler with four sub-steps per action. The I_p action is ramped linearly over each 1 s step.
-- **See:** [chapter 3](3-current-diffusion.md); [Lab, j tab](7-lab.md?preset=pi&t=80&tab=j&color=j).
+- **See:** [How the current gets in](3-current-diffusion.md); [Lab, j tab](7-lab.md?preset=pi&t=80&tab=j&color=j).
 
 ## Resistivity and the resistive time {#eq-eta}
 
@@ -73,7 +77,7 @@ $$
 
 - **Gym-TORAX:** h rises from 0 to 1 between 100 and 105 s, whatever the plasma does.
 - **Lab, scheduled:** the same onset (adjustable), with the rise compressed to 2 s by the calibration. **Lab, power-triggered:** h relaxes to 1 (τ = 2 s) while P_SOL ≥ P_LH, decays to 0 (τ = 1 s) when P_SOL < 0.8 P_LH, and holds its state in between.
-- **See:** [chapter 4](4-heat-and-fusion.md#l-mode-h-mode-and-the-pedestal).
+- **See:** [Heat, confinement and fusion](4-heat-and-fusion.md#l-mode-h-mode-and-the-pedestal).
 
 ## Fusion power and gain {#eq-fusion}
 
@@ -148,7 +152,7 @@ $$
 r_t = \tfrac{1}{50}\,H\,\tfrac{Q}{10} + \tfrac{1}{50}\,H\min(H_{98},1) + \tfrac{1}{150}\min(q_{\min},1) + \tfrac{1}{150}\min\!\big(\tfrac{q_{95}}{3},1\big), \qquad H = [T_e(0) > 10\ \text{keV}] \wedge [T_i(0) > 10\ \text{keV}]
 $$
 
-- −1000 and the episode ends on solver failure or a bounds violation. **See:** [The control problem](../01-problem.md#reward-and-objective), [chapter 6](6-reward.md).
+- −1000 and the episode ends on solver failure or a bounds violation. **See:** [The control problem](../01-problem.md#reward-and-objective), [From physics to reward](6-reward.md).
 
 ## Audited reward {#eq-audited}
 

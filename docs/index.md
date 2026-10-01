@@ -1,6 +1,5 @@
 ---
-hide:
-  - navigation
+icon: rt/tokamak
 ---
 
 <div class="rt-hero" markdown>
@@ -51,7 +50,7 @@ What this repo found:
 
 <div class="grid cards" markdown>
 
--   :material-school-outline: **For Leander**
+-   :rt-onramp:{ .lg .middle } **For Leander**
 
     ---
 
@@ -59,7 +58,7 @@ What this repo found:
 
     [:octicons-arrow-right-24: Start here](for-leander.md)
 
--   :material-function-variant: **1. The control problem**
+-   :rt-loop:{ .lg .middle } **The control problem**
 
     ---
 
@@ -67,15 +66,15 @@ What this repo found:
 
     [:octicons-arrow-right-24: The MDP](01-problem.md)
 
--   :material-atom-variant: **2. Domain primer**
+-   :rt-primer:{ .lg .middle } **Domain primer**
 
     ---
 
     Eight short chapters from the machine to the reward, an equation sheet, and the **Ramp-up Lab**: replay TORAX episodes on a calibrated in-browser model, drive the plasma yourself, redesign the reward.
 
-    [:octicons-arrow-right-24: The physics](02-primer.md) · [:octicons-arrow-right-24: The Lab](primer/7-lab.md)
+    [:octicons-arrow-right-24: The physics](02-primer.md) · [:rt-lab: The Lab](primer/7-lab.md)
 
--   :material-timeline-clock-outline: **3. Timeline 2019–2026**
+-   :rt-timeline:{ .lg .middle } **Timeline 2018–2026**
 
     ---
 
@@ -83,7 +82,7 @@ What this repo found:
 
     [:octicons-arrow-right-24: The field](03-timeline.md)
 
--   :material-chart-scatter-plot: **4. Designs and results**
+-   :rt-results:{ .lg .middle } **Designs and results**
 
     ---
 
@@ -91,7 +90,7 @@ What this repo found:
 
     [:octicons-arrow-right-24: The results](04-designs.md)
 
--   :material-alert-octagon-outline: **5. Limitations**
+-   :rt-warning:{ .lg .middle } **Limitations**
 
     ---
 
@@ -99,7 +98,7 @@ What this repo found:
 
     [:octicons-arrow-right-24: The caveats](05-limitations.md)
 
--   :material-lightbulb-on-outline: **6. Open questions**
+-   :rt-idea:{ .lg .middle } **Open questions**
 
     ---
 
@@ -107,7 +106,7 @@ What this repo found:
 
     [:octicons-arrow-right-24: What to do next](06-open-questions.md)
 
--   :material-bookshelf: **7. References**
+-   :rt-books:{ .lg .middle } **References**
 
     ---
 

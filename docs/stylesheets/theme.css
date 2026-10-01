@@ -149,3 +149,16 @@ body:has(.rt-lab) .md-grid { max-width: 92rem; }
   .lab-traces { grid-row: auto; }
   .lab-events { columns: 1; }
 }
+
+/* ---------- theme icon family (overrides/.icons/rt): stroke icons, never filled by Material's icon rules ---------- */
+svg.rt-ic { fill: none !important; }
+.md-nav__link svg.rt-ic { color: var(--md-accent-fg-color); opacity: 0.85; margin-right: 0.15rem; }
+.md-nav__link--active svg.rt-ic, .md-nav__link:hover svg.rt-ic { opacity: 1; }
+.md-typeset h1 .twemoji { color: var(--md-accent-fg-color); margin-right: 0.15em; }
+.md-typeset h1 .twemoji svg { width: 1.05em; height: 1.05em; vertical-align: -0.12em; }
+.md-typeset .grid.cards .twemoji.lg { color: var(--md-accent-fg-color); }
+.md-typeset table .twemoji { color: var(--md-accent-fg-color); }
+.md-typeset table a .twemoji svg { width: 1.35em; height: 1.35em; }
+.md-footer__link .md-footer__title { font-family: "Space Grotesk", sans-serif; }
+.md-typeset .twemoji.lg svg { width: 1.7em; height: 1.7em; }
+.md-typeset .twemoji.middle svg { vertical-align: middle; }

@@ -1,4 +1,8 @@
-# Domain primer: start here
+---
+icon: rt/primer
+---
+
+# :rt-primer: Domain primer: start here
 
 !!! abstract "In short"
 
@@ -13,49 +17,49 @@ This primer is the physics you need to read the Gym-TORAX task critically and to
 
 <div class="grid cards" markdown>
 
--   **1. [The machine](primer/1-machine.md)**
+-   :rt-machine:{ .lg .middle } **[The machine](primer/1-machine.md)**
 
     ---
 
     What a tokamak is, as a control system: fields, the plasma current, the actuators, the layers of control. *Widget: the machine in 3D.*
 
--   **2. [The safety factor q](primer/2-safety-factor.md)**
+-   :rt-q:{ .lg .middle } **[The safety factor q](primer/2-safety-factor.md)**
 
     ---
 
     How field lines twist, and why q = 1, 3/2, 2 and q95 matter. *Widget: one field line, live.*
 
--   **3. [How the current gets in](primer/3-current-diffusion.md)**
+-   :rt-current:{ .lg .middle } **[How the current gets in](primer/3-current-diffusion.md)**
 
     ---
 
     The I_p action is a boundary condition on a diffusion equation whose diffusivity depends on temperature. *Widgets: toy diffusion, real TORAX profiles.*
 
--   **4. [Heat, confinement and fusion](primer/4-heat-and-fusion.md)**
+-   :rt-fusion:{ .lg .middle } **[Heat, confinement and fusion](primer/4-heat-and-fusion.md)**
 
     ---
 
     Stiff transport, the pedestal, IPB98 and H98, fusion power and Q. *Widgets: scalings, 0-D power balance.*
 
--   **5. [Limits and the operating space](primer/5-limits.md)**
+-   :rt-limits:{ .lg .middle } **[Limits and the operating space](primer/5-limits.md)**
 
     ---
 
     Greenwald, q95, β_N, the L–H threshold, sawteeth, disruptions, the hybrid scenario. *Widget: TORAX trajectories on the operating-space map.*
 
--   **6. [From physics to reward](primer/6-reward.md)**
+-   :rt-reward:{ .lg .middle } **[From physics to reward](primer/6-reward.md)**
 
     ---
 
     Each reward term traced back to its physics, the loopholes, and the levers a benchmark designer has. *Widgets: reward explorer, episode replay.*
 
--   **7. [The Ramp-up Lab](primer/7-lab.md)**
+-   :rt-lab:{ .lg .middle } **[The Ramp-up Lab](primer/7-lab.md)**
 
     ---
 
     All of the above in one simulator: presets that replay TORAX episodes with TORAX overlaid, a sandbox you drive one second at a time, and a reward you can redesign.
 
--   **[Equation sheet](primer/equations.md)** and **[8. Gaps, status and glossary](primer/8-field.md)**
+-   :rt-sigma:{ .lg .middle } **[Equation sheet](primer/equations.md)** and :rt-glossary:{ .lg .middle } **[Gaps, status and glossary](primer/8-field.md)**
 
     ---
 
@@ -63,27 +67,27 @@ This primer is the physics you need to read the Gym-TORAX task critically and to
 
 </div>
 
-Reading time is about two hours with the widgets. If you only have twenty minutes: chapter 3, then open the Lab on the [PI controller](primer/7-lab.md?preset=pi) and the [heating cut](primer/7-lab.md?preset=heating_cut).
+Reading time is about two hours with the widgets. If you only have twenty minutes: [How the current gets in](primer/3-current-diffusion.md), then open the Lab on the [PI controller](primer/7-lab.md?preset=pi) and the [heating cut](primer/7-lab.md?preset=heating_cut).
 
 ## The whole problem on one page
 
-Over 150 s the controller raises the plasma current from 3 MA towards 12.5–15 MA and, from about 100 s, heats the plasma with up to 53 MW. The chain from actuators to reward, as the environment implements it (each box is a chapter):
+Over 150 s the controller raises the plasma current from 3 MA towards 12.5–15 MA and, from about 100 s, heats the plasma with up to 53 MW. The chain from actuators to reward, as the environment implements it (each box is covered in one of the chapters):
 
 ```mermaid
 flowchart TB
-    IP["I_p set-point (≤ 0.2 MA/s)<br/>ch. 1"] --> BC["ψ edge boundary condition<br/>ch. 3"]
-    BC --> DIFF["current diffuses inward<br/>rate ∝ 1/σ∥, σ∥ rises with T_e<br/>ch. 3"]
-    NBI["NBI power, ch. 1"] --> TE["T_e, T_i profiles<br/>stiff turbulent transport<br/>ch. 4"]
-    ECRH["ECRH power, ch. 1"] --> TE
-    NBI --> JNI["non-inductive current<br/>(NBI drive + bootstrap), ch. 3"]
+    IP["I_p set-point (≤ 0.2 MA/s)"] --> BC["ψ edge boundary condition"]
+    BC --> DIFF["current diffuses inward<br/>rate ∝ 1/σ∥, σ∥ rises with T_e"]
+    NBI["NBI power"] --> TE["T_e, T_i profiles<br/>stiff turbulent transport"]
+    ECRH["ECRH power"] --> TE
+    NBI --> JNI["non-inductive current<br/>(NBI drive + bootstrap)"]
     TE -- "hotter core: slower diffusion" --> DIFF
     TE --> JNI
-    DIFF --> JQ["j(ρ̂), q(ρ̂)<br/>ch. 2"]
+    DIFF --> JQ["j(ρ̂), q(ρ̂)"]
     JNI --> JQ
-    PED["pedestal schedule<br/>0.5 keV → 3 keV at 100–105 s<br/>ch. 4"] --> TE
-    JQ --> RQ["q_min, q95 terms<br/>ch. 6"]
-    TE --> HT["'H-mode' test<br/>T_e(0), T_i(0) > 10 keV, ch. 6"]
-    TE --> QF["Q = P_fus / (P_aux + P_ohm)<br/>ch. 4"]
+    PED["pedestal schedule<br/>0.5 keV → 3 keV at 100–105 s"] --> TE
+    JQ --> RQ["q_min, q95 terms"]
+    TE --> HT["'H-mode' test<br/>T_e(0), T_i(0) > 10 keV"]
+    TE --> QF["Q = P_fus / (P_aux + P_ohm)"]
     NBI -. "denominator" .-> QF
     ECRH -. "denominator" .-> QF
     HT --> RG["gated Q and H98 terms"]

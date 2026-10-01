@@ -1,4 +1,8 @@
-# References
+---
+icon: rt/books
+---
+
+# :rt-books: References
 
 Every source cited anywhere on this site is listed here with the URL that was actually opened, the facts taken from it, and a verification status. Sources were opened on 30 September 2026.
 

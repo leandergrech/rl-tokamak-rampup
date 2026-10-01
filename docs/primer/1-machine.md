@@ -1,4 +1,8 @@
-# 1. The machine as a control system
+---
+icon: rt/machine
+---
+
+# :rt-machine: The machine as a control system
 
 !!! abstract "The question"
 
@@ -11,7 +15,7 @@ A tokamak holds a ring (torus) of hydrogen plasma inside a vacuum vessel using m
 - the **toroidal field** B_φ, the long way round the ring, made by large superconducting coils and essentially fixed during a pulse (5.3 T at ITER's plasma centre, R = 6.2 m; [R3](../07-references.md#r3), [R26](../07-references.md#r26));
 - the **poloidal field** B_θ, the short way round, made mainly by a current I_p flowing in the plasma itself (15 MA in ITER's baseline scenario; [R26](../07-references.md#r26)).
 
-Together they make field lines that wind helically around the torus. Raise the current below and watch the edge field lines twist faster: that twist is the safety factor of [chapter 2](2-safety-factor.md).
+Together they make field lines that wind helically around the torus. Raise the current below and watch the edge field lines twist faster: that twist is [the safety factor q](2-safety-factor.md).
 
 <div class="rt-widget" data-widget="machine" data-title="Interactive: the machine, to scale (drag to rotate)"></div>
 
@@ -26,7 +30,7 @@ Heating sources on top of the ohmic (resistive) heating from I_p:
 
 | Actuator | Gym-TORAX action | Bounds | What it changes first |
 |---|---|---|---|
-| Central solenoid (via I_p) | `Ip` set-point [A] | 3 MA floor in this repo's wrapper … 15 MA, at most 0.2 MA per 1 s step | the edge boundary condition of the current-diffusion equation ([ch. 3](3-current-diffusion.md)) |
+| Central solenoid (via I_p) | `Ip` set-point [A] | 3 MA floor in this repo's wrapper … 15 MA, at most 0.2 MA per 1 s step | the edge boundary condition of the current-diffusion equation ([How the current gets in](3-current-diffusion.md)) |
 | Neutral beams | `NBI` power, deposition centre, width | 0–33 MW | ion and electron heating, density (fuelling), driven current |
 | Electron cyclotron | `ECRH` power, deposition centre, width | 0–20 MW | electron heating at one radius, a little driven current |
 
@@ -51,7 +55,7 @@ flowchart LR
 ??? question "Check yourself (click to open)"
 
     1. Which field does the agent control, B_φ or B_θ? *B_θ, through I_p. B_φ is fixed by the coils.*
-    2. Why can't a real controller ramp I_p as fast as it likes? *The solenoid's flux swing and voltage are finite, and a fast ramp makes a hollow current profile (chapter 3). Gym-TORAX enforces only the 0.2 MA/s rate limit.*
+    2. Why can't a real controller ramp I_p as fast as it likes? *The solenoid's flux swing and voltage are finite, and a fast ramp makes a hollow current profile ([How the current gets in](3-current-diffusion.md)). Gym-TORAX enforces only the 0.2 MA/s rate limit.*
     3. Which actuator would you use to put current at one specific radius? *ECCD: its deposition is narrow and steerable.*
 
 [Next: the safety factor q →](2-safety-factor.md)

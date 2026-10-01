@@ -1,4 +1,8 @@
-# 5. Limits and the operating space
+---
+icon: rt/limits
+---
+
+# :rt-limits: Limits and the operating space
 
 !!! abstract "The question"
 
@@ -24,7 +28,7 @@ $$
 
 ([R28](../07-references.md#r28)) is what ideal-MHD pressure limits (the Troyon limit) are expressed in. The environment's reward docstring mentions β_N but the implemented reward does not use it ([R3](../07-references.md#r3)). In the TORAX episodes β_N peaks around 2.2 (PI), so this limit is not the binding one here.
 
-**L–H power threshold.** H-mode needs P_SOL, the power crossing the plasma edge, above a threshold P_LH that grows with density, field and surface area (Martin scaling, <span class="rt-eqref" data-eq="plh"></span>). In the PI episode P_LH rises from about 33 MW to 100 MW as the density builds. The benchmark ignores it: its pedestal is scheduled and its H-mode test is a temperature threshold ([chapter 4](4-heat-and-fusion.md#l-mode-h-mode-and-the-pedestal)). The audited reward of this repo adds P_SOL ≥ P_LH to the gate.
+**L–H power threshold.** H-mode needs P_SOL, the power crossing the plasma edge, above a threshold P_LH that grows with density, field and surface area (Martin scaling, <span class="rt-eqref" data-eq="plh"></span>). In the PI episode P_LH rises from about 33 MW to 100 MW as the density builds. The benchmark ignores it: its pedestal is scheduled and its H-mode test is a temperature threshold ([Heat, confinement and fusion](4-heat-and-fusion.md#l-mode-h-mode-and-the-pedestal)). The audited reward of this repo adds P_SOL ≥ P_LH to the gate.
 
 ## The operating space
 
@@ -74,6 +78,6 @@ The Lab's benchmark designer lets you add penalties or terminations for these an
 
     1. At 10 MA, what line-averaged density is the Greenwald limit? *10/(π·4) ≈ 0.80 × 10²⁰ m⁻³.*
     2. Which policies end beyond f_GW = 1 in the operating-space map? *PI and the open-loop reference among others; switch the chips on and drag time to 151 s.*
-    3. Why does a lower-current ramp help keep q_min above 1? *Less current means higher q everywhere (chapter 2), and the 1 crossing in the core comes later or not at all.*
+    3. Why does a lower-current ramp help keep q_min above 1? *Less current means higher q everywhere ([The safety factor q](2-safety-factor.md)), and the 1 crossing in the core comes later or not at all.*
 
 [← Heat, confinement and fusion](4-heat-and-fusion.md) · [Next: from physics to reward →](6-reward.md)

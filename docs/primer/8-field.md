@@ -1,4 +1,8 @@
-# 8. Gaps, status and glossary
+---
+icon: rt/glossary
+---
+
+# :rt-glossary: Gaps, status and glossary
 
 !!! abstract "In short"
 
@@ -40,28 +44,28 @@ The Gym-TORAX paper says TORAX's hypotheses "limit its use to preliminary invest
 
 | Term | Meaning | Chapter |
 |---|---|---|
-| ρ̂ | normalised toroidal-flux radius, 0 at the axis, 1 at the edge | [3](3-current-diffusion.md) |
-| I_p | total plasma current [MA] | [1](1-machine.md) |
-| B_φ, B_θ | toroidal field (from coils), poloidal field (from I_p) | [1](1-machine.md) |
-| ψ | poloidal magnetic flux; its radial profile carries the current | [3](3-current-diffusion.md) |
-| j(ρ̂), j(0) | current density profile, and its central value [MA/m²] | [3](3-current-diffusion.md) |
-| j_ni, bootstrap | non-inductive current; the part driven by pressure gradients | [3](3-current-diffusion.md#current-the-solenoid-does-not-have-to-drive) |
-| σ_∥, η, τ_R | parallel conductivity, resistivity, resistive diffusion time | [3](3-current-diffusion.md) |
-| V_loop, volt-seconds | loop voltage; flux the solenoid supplies | [1](1-machine.md), [3](3-current-diffusion.md) |
-| q, q95, q_min | safety factor; its value at 95 % poloidal flux; its minimum | [2](2-safety-factor.md) |
-| rational surface | where q = m/n: field lines close on themselves | [2](2-safety-factor.md) |
-| l_i(3) | internal inductance, a measure of how peaked the current profile is | [3](3-current-diffusion.md) |
-| χ, stiffness, R/L_T | heat diffusivity; profiles pinned near a critical gradient; normalised gradient | [4](4-heat-and-fusion.md) |
-| β_N | normalised beta, pressure relative to field, scaled by I_p/(aB) | [5](5-limits.md) |
-| f_GW | Greenwald fraction n̄_e / n_G | [5](5-limits.md) |
-| τ_E, H98 | energy confinement time; its ratio to the IPB98(y,2) scaling | [4](4-heat-and-fusion.md) |
-| Q | fusion gain P_fus / (P_aux + P_ohm) | [4](4-heat-and-fusion.md) |
-| P_LH, P_SOL | L-H threshold power; power crossing the separatrix | [5](5-limits.md) |
-| NBI, ECRH, ECCD | neutral beam injection; electron cyclotron heating; electron cyclotron current drive | [1](1-machine.md) |
-| L-mode, H-mode, pedestal | low and high confinement regimes; the edge transport barrier of H-mode | [4](4-heat-and-fusion.md) |
-| sawtooth, tearing mode, disruption | core q < 1 relaxation; magnetic island at a rational surface; sudden loss of the plasma | [5](5-limits.md) |
-| hybrid scenario | reduced-current H-mode with q_min just above 1 and broad low shear | [5](5-limits.md#the-iter-hybrid-scenario) |
-| QLKNN | neural-network surrogate for turbulent transport used by TORAX | [4](4-heat-and-fusion.md) |
-| RAPTOR, FGE | control-oriented transport code (EPFL); free-boundary equilibrium simulator used for TCV RL (licensed) | [5](5-limits.md) |
+| ρ̂ | normalised toroidal-flux radius, 0 at the axis, 1 at the edge | [:rt-current:](3-current-diffusion.md "How the current gets in") |
+| I_p | total plasma current [MA] | [:rt-machine:](1-machine.md "The machine") |
+| B_φ, B_θ | toroidal field (from coils), poloidal field (from I_p) | [:rt-machine:](1-machine.md "The machine") |
+| ψ | poloidal magnetic flux; its radial profile carries the current | [:rt-current:](3-current-diffusion.md "How the current gets in") |
+| j(ρ̂), j(0) | current density profile, and its central value [MA/m²] | [:rt-current:](3-current-diffusion.md "How the current gets in") |
+| j_ni, bootstrap | non-inductive current; the part driven by pressure gradients | [:rt-current:](3-current-diffusion.md#current-the-solenoid-does-not-have-to-drive "How the current gets in") |
+| σ_∥, η, τ_R | parallel conductivity, resistivity, resistive diffusion time | [:rt-current:](3-current-diffusion.md "How the current gets in") |
+| V_loop, volt-seconds | loop voltage; flux the solenoid supplies | [:rt-machine:](1-machine.md "The machine"), [:rt-current:](3-current-diffusion.md "How the current gets in") |
+| q, q95, q_min | safety factor; its value at 95 % poloidal flux; its minimum | [:rt-q:](2-safety-factor.md "The safety factor q") |
+| rational surface | where q = m/n: field lines close on themselves | [:rt-q:](2-safety-factor.md "The safety factor q") |
+| l_i(3) | internal inductance, a measure of how peaked the current profile is | [:rt-current:](3-current-diffusion.md "How the current gets in") |
+| χ, stiffness, R/L_T | heat diffusivity; profiles pinned near a critical gradient; normalised gradient | [:rt-fusion:](4-heat-and-fusion.md "Heat, confinement and fusion") |
+| β_N | normalised beta, pressure relative to field, scaled by I_p/(aB) | [:rt-limits:](5-limits.md "Limits and the operating space") |
+| f_GW | Greenwald fraction n̄_e / n_G | [:rt-limits:](5-limits.md "Limits and the operating space") |
+| τ_E, H98 | energy confinement time; its ratio to the IPB98(y,2) scaling | [:rt-fusion:](4-heat-and-fusion.md "Heat, confinement and fusion") |
+| Q | fusion gain P_fus / (P_aux + P_ohm) | [:rt-fusion:](4-heat-and-fusion.md "Heat, confinement and fusion") |
+| P_LH, P_SOL | L-H threshold power; power crossing the separatrix | [:rt-limits:](5-limits.md "Limits and the operating space") |
+| NBI, ECRH, ECCD | neutral beam injection; electron cyclotron heating; electron cyclotron current drive | [:rt-machine:](1-machine.md "The machine") |
+| L-mode, H-mode, pedestal | low and high confinement regimes; the edge transport barrier of H-mode | [:rt-fusion:](4-heat-and-fusion.md "Heat, confinement and fusion") |
+| sawtooth, tearing mode, disruption | core q < 1 relaxation; magnetic island at a rational surface; sudden loss of the plasma | [:rt-limits:](5-limits.md "Limits and the operating space") |
+| hybrid scenario | reduced-current H-mode with q_min just above 1 and broad low shear | [:rt-limits:](5-limits.md#the-iter-hybrid-scenario "Limits and the operating space") |
+| QLKNN | neural-network surrogate for turbulent transport used by TORAX | [:rt-fusion:](4-heat-and-fusion.md "Heat, confinement and fusion") |
+| RAPTOR, FGE | control-oriented transport code (EPFL); free-boundary equilibrium simulator used for TCV RL (licensed) | [:rt-limits:](5-limits.md "Limits and the operating space") |
 
 [← The Ramp-up Lab](7-lab.md) · [Back to the start](../02-primer.md)

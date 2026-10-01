@@ -1,8 +1,12 @@
-# 6. From physics to reward
+---
+icon: rt/reward
+---
+
+# :rt-reward: From physics to reward
 
 !!! abstract "The question"
 
-    Each reward term is a proxy for a piece of physics from chapters 2–5. Which proxies hold, which leak, and what can a benchmark designer change?
+    Each reward term is a proxy for a piece of physics from the physics chapters. Which proxies hold, which leak, and what can a benchmark designer change?
 
 ## The reward, term by term
 
@@ -17,12 +21,12 @@ $$
 
 | Term | Physics it stands for | Chapter | Where the proxy leaks |
 |---|---|---|---|
-| H gate: T_e(0), T_i(0) > 10 keV | being in H-mode | [4](4-heat-and-fusion.md#l-mode-h-mode-and-the-pedestal) | a hot core is not H-mode; under the scheduled pedestal the gate passes with the heating off |
-| (Q/10)/50 | fusion performance | [4](4-heat-and-fusion.md#fusion-power-and-the-gain-q) | uncapped, and Q's denominator is the injected power: less heating, more reward |
-| min(H98, 1)/50 | confinement quality | [4](4-heat-and-fusion.md#energy-confinement-time-and-h98) | capped at 1, so it saturates; fine as a proxy |
-| min(q_min, 1)/150 | no sawteeth, hybrid q profile | [2](2-safety-factor.md), [5](5-limits.md#the-iter-hybrid-scenario) | soft: PI spends 101 s below q = 1 (down to 0.41) and loses only 0.32 of return for it |
-| min(q95/3, 1)/150 | distance from the current limit | [2](2-safety-factor.md#two-numbers-summarise-the-profile) | saturates at q95 = 3, so it does not push towards the hybrid q95 ≈ 4 |
-| (absent) | density limit, L–H threshold, flux budget, β limit | [5](5-limits.md#what-the-benchmark-enforces) | not represented |
+| H gate: T_e(0), T_i(0) > 10 keV | being in H-mode | [:rt-fusion:](4-heat-and-fusion.md#l-mode-h-mode-and-the-pedestal "Heat, confinement and fusion") | a hot core is not H-mode; under the scheduled pedestal the gate passes with the heating off |
+| (Q/10)/50 | fusion performance | [:rt-fusion:](4-heat-and-fusion.md#fusion-power-and-the-gain-q "Heat, confinement and fusion") | uncapped, and Q's denominator is the injected power: less heating, more reward |
+| min(H98, 1)/50 | confinement quality | [:rt-fusion:](4-heat-and-fusion.md#energy-confinement-time-and-h98 "Heat, confinement and fusion") | capped at 1, so it saturates; fine as a proxy |
+| min(q_min, 1)/150 | no sawteeth, hybrid q profile | [:rt-q:](2-safety-factor.md "The safety factor q"), [:rt-limits:](5-limits.md#the-iter-hybrid-scenario "Limits and the operating space") | soft: PI spends 101 s below q = 1 (down to 0.41) and loses only 0.32 of return for it |
+| min(q95/3, 1)/150 | distance from the current limit | [:rt-q:](2-safety-factor.md#two-numbers-summarise-the-profile "The safety factor q") | saturates at q95 = 3, so it does not push towards the hybrid q95 ≈ 4 |
+| (absent) | density limit, L–H threshold, flux budget, β limit | [:rt-limits:](5-limits.md#what-the-benchmark-enforces "Limits and the operating space") | not represented |
 
 Move the sliders below to price one second of plasma; the presets are real TORAX states.
 
