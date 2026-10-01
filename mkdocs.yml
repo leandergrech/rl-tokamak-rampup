@@ -5,6 +5,8 @@ site_url: https://leandergrech.github.io/rl-tokamak-rampup/
 repo_url: https://github.com/leandergrech/rl-tokamak-rampup
 repo_name: leandergrech/rl-tokamak-rampup
 edit_uri: edit/main/docs/
+exclude_docs: |
+  upstream/
 
 theme:
   name: material

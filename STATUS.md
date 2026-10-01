@@ -20,12 +20,14 @@ log:
 
 ## Fork task
 repo: https://github.com/leandergrech/gymtorax (branch fix/audited-iter-hybrid-reward; pinned backport branch fix/audited-iter-hybrid-reward-v1.0 off tag v1.0.0)
-step: 4
-state: running
-updated: 2026-09-30T23:20:24Z
-blockers: none
-next: finish HEAD + pinned baseline tables, run pinned test suite, docs page, CHANGELOG, issue.md/pr.md drafts, push branches
+step: 7
+state: done
+updated: 2026-10-01T00:13:53Z
+blockers: none (one pre-existing v1.0.0 test needs a Qt binding outside CI; passes with CI=1)
+next: Leander reviews docs/upstream/issue.md and pr.md, then opens the issue and PR himself
 log:
 - 2026-09-30T22:41:19Z step 0: fork task started; rl-tokamak-rampup runs still going (vast.ai instance 53597337, 12 jobs, until ~01:20 CEST)
 - 2026-09-30T23:20:24Z step 1 done: forked, branch fix/audited-iter-hybrid-reward off main (v1.1.1; upstream dev is behind main), .venv via poetry.lock (torax 1.4.2). Clean checkout: ruff ok, 87 passed/11 skipped, docs 3 passed, scenarios 4 passed
 - 2026-09-30T23:20:24Z steps 2-3: IterHybridAuditedEnv + gymtorax/IterHybridAudited-v0, get_P_SOL/get_P_LH getters, examples/reward_exploit.py (OL ref, heating off from 105 s): HEAD v0 20.96 (max Q 244, 100% of H-mode steps P_SOL<P_LH) vs audited 1.83; tests/test_audited_env.py: 8 passed, 2 skipped on HEAD. Backport branch off v1.0.0 (poetry lock: torax 1.0.3, jax 0.7.1)
+- 2026-10-01T00:13:53Z step 4: baselines (examples/baselines_audited.md). 1.0.0/torax 1.0.3: PI 3.79->3.50, OL 3.41->3.41, random 3.23+-0.06 (0/20 fail)->2.16+-0.06, heating-cut 22.74->1.91, TD3+BC 4.01->3.56, MBPO full-obs s1 5.63->3.69. 1.1.1/torax 1.4.2: PI -998.67 (fails) both, OL 3.26->3.18, random 3.15+-0.06->2.09+-0.05, heating-cut 20.96->1.83
+- 2026-10-01T00:13:53Z steps 5-7: docs/example/iter_env_audited.rst + CHANGELOG; branches pushed to https://github.com/leandergrech/gymtorax (fix/audited-iter-hybrid-reward, fix/audited-iter-hybrid-reward-v1.0). HEAD CI commands: ruff ok, 100 passed/13 skipped, docs 3 passed, scenarios 4 passed. v1.0 branch: 78 passed, 1 failed (pre-existing Qt test, passes with CI=1). Drafts: docs/upstream/issue.md, docs/upstream/pr.md (not opened). Time: HEAD tests+table 21 min; pinned 48 min; 69 min combined on a CPU at load 25-35

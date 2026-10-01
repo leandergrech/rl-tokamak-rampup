@@ -1,0 +1,35 @@
+{
+  "gymtorax": "1.0.0",
+  "torax": "1.0.3",
+  "jax": "0.7.1",
+  "results": [
+    {
+      "run": "td3bc_pi_noisy_0.3_s0",
+      "label": "TD3+BC on noisy PI logs (sigma 0.3)",
+      "env_id": "gymtorax/IterHybrid-v0",
+      "return": 4.010587400177966,
+      "failed": false
+    },
+    {
+      "run": "td3bc_pi_noisy_0.3_s0",
+      "label": "TD3+BC on noisy PI logs (sigma 0.3)",
+      "env_id": "gymtorax/IterHybridAudited-v0",
+      "return": 3.563715786797009,
+      "failed": false
+    },
+    {
+      "run": "mbpo_obs-full_s1",
+      "label": "MBPO, full observation, seed 1 (final policy)",
+      "env_id": "gymtorax/IterHybrid-v0",
+      "return": 5.625857372358362,
+      "failed": false
+    },
+    {
+      "run": "mbpo_obs-full_s1",
+      "label": "MBPO, full observation, seed 1 (final policy)",
+      "env_id": "gymtorax/IterHybridAudited-v0",
+      "return": 3.6872547891711047,
+      "failed": false
+    }
+  ]
+}
