@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{#- Previous / next buttons at the top and bottom of every page, with the page icons of the theme. -#}
+{% macro pager_icon(p) -%}
+  {%- if p.meta and p.meta.icon -%}{% include ".icons/" ~ p.meta.icon ~ ".svg" %}{%- endif -%}
+{%- endmacro %}
+{% macro arrow(dir) -%}
+  <svg class="rt-pager__arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ 'M15 5l-7 7 7 7' if dir == 'prev' else 'M9 5l7 7-7 7' }}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+{%- endmacro %}
+
+{% block content %}
+  {% set prev = page.previous_page %}
+  {% set next = page.next_page %}
+  {% if prev or next %}
+    <nav class="rt-pager rt-pager--top" aria-label="Previous and next page">
+      {% if prev %}
+        <a class="rt-pager__btn" href="{{ prev.url | url }}" rel="prev" title="Previous: {{ prev.title | striptags }}">{{ arrow('prev') }}<span class="rt-pager__label">{{ prev.title | striptags }}</span></a>
+      {% else %}<span></span>{% endif %}
+      {% if next %}
+        <a class="rt-pager__btn rt-pager__btn--next" href="{{ next.url | url }}" rel="next" title="Next: {{ next.title | striptags }}"><span class="rt-pager__label">{{ next.title | striptags }}</span>{{ arrow('next') }}</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+  {{ super() }}
+  {% if prev or next %}
+    <nav class="rt-pager rt-pager--bottom" aria-label="Previous and next page">
+      {% if prev %}
+        <a class="rt-pager__card" href="{{ prev.url | url }}" rel="prev">
+          {{ arrow('prev') }}
+          <span class="rt-pager__text"><small>Previous</small><span class="rt-pager__title">{{ pager_icon(prev) }}{{ prev.title | striptags }}</span></span>
+        </a>
+      {% else %}<span></span>{% endif %}
+      {% if next %}
+        <a class="rt-pager__card rt-pager__card--next" href="{{ next.url | url }}" rel="next">
+          <span class="rt-pager__text"><small>Next</small><span class="rt-pager__title">{{ pager_icon(next) }}{{ next.title | striptags }}</span></span>
+          {{ arrow('next') }}
+        </a>
+      {% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

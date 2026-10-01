@@ -87,5 +87,3 @@ Inside the diffusion equation j_ni acts as a source that pushes the ohmic curren
     1. Why does heating at t = 10 s raise q_min at t = 80 s? *Hotter plasma has lower resistivity, so the current diffuses inward more slowly; less current inside a given radius means higher q there.*
     2. The PI controller's j(0) keeps rising after I_p is flat at 61 s. Where does that current come from? *From the outer region: total I_p is fixed, the profile relaxes inward; the edge current density falls as the core one rises.*
     3. A policy ramps at 0.2 MA/s with full heating from t = 0. What do you expect for j(0) at 50 s, and why does the Lab disagree with TORAX here? *A flat or slightly hollow profile (hot, conductive plasma; off-axis driven current). TORAX keeps j(0) near 0.4 MA/m² for the first 50 s of PPO's episode. The Lab keeps the current out of the core even longer: its bootstrap and driven currents at low I_p are the least calibrated part of the model (see the [model card](7-lab.md#model-card)).*
-
-[← The safety factor q](2-safety-factor.md) · [Next: heat, confinement and fusion →](4-heat-and-fusion.md)

@@ -79,5 +79,3 @@ The Lab's benchmark designer lets you add penalties or terminations for these an
     1. At 10 MA, what line-averaged density is the Greenwald limit? *10/(π·4) ≈ 0.80 × 10²⁰ m⁻³.*
     2. Which policies end beyond f_GW = 1 in the operating-space map? *PI and the open-loop reference among others; switch the chips on and drag time to 151 s.*
     3. Why does a lower-current ramp help keep q_min above 1? *Less current means higher q everywhere ([The safety factor q](2-safety-factor.md)), and the 1 crossing in the core comes later or not at all.*
-
-[← Heat, confinement and fusion](4-heat-and-fusion.md) · [Next: from physics to reward →](6-reward.md)

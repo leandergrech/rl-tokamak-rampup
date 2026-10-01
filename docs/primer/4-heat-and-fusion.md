@@ -60,5 +60,3 @@ A 0-D power balance makes the consequence visible. Losses follow IPB98 × H98; h
     1. Doubling P_aux from 50 to 100 MW at fixed W: by how much does τ_E^98 change? *By 2^−0.69 ≈ 0.62: confinement time drops 38 %.*
     2. Why does the heating-cut plasma stay near 20 keV in TORAX? *The pedestal is held at 3 keV by schedule, transport is stiff, and alpha heating (32 MW just after the cut, 55 MW by the end) replaces the 53 MW of auxiliary power.*
     3. What happens to the heating-cut episode's return if the pedestal needs P_SOL ≥ P_LH? *In the Lab it falls from about 34 to about 2: the plasma drops to L-mode, cools below 10 keV and loses the gated terms.*
-
-[← How the current gets in](3-current-diffusion.md) · [Next: limits and the operating space →](5-limits.md)

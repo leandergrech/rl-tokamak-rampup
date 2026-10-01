@@ -9,6 +9,7 @@
   const RT = window.RT, M = window.RTModel;
   if (!RT || !M) return;
   const { colors, el, controls, slider, button, chip, note, canvas, frame, line, hline, player, getJSON, FONT, FONT_SMALL } = RT;
+  const RC = window.RTControl;
   const SCRIPT_URL = document.currentScript ? document.currentScript.src : location.href;
   const SITE_ROOT = new URL("../", SCRIPT_URL);
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -601,16 +602,29 @@
   }
 
   // ================================================================== presets and their stories
+  // ctrl: "open" (a schedule: the clock turns the knobs), "feedback" (measurements turn the knobs), "human" (you).
+  // live: how the Lab can run the controller itself on its own plasma ("pi", or "policy" = exported network).
   const PRESETS = [
-    { key: "open_loop", label: "Open-loop reference", kind: "torax" },
-    { key: "pi", label: "PI controller", kind: "torax" },
-    { key: "heating_cut", label: "Heating cut at 105 s", kind: "torax" },
-    { key: "ppo_s1", label: "PPO exploit", kind: "torax" },
-    { key: "cem_audited", label: "Best audited schedule", kind: "torax" },
-    { key: "early_heat", label: "Early heating, 10 MA", kind: "lab" },
-    { key: "sandbox", label: "Sandbox: you drive", kind: "sandbox" },
+    { key: "open_loop", label: "Open-loop reference", kind: "torax", ctrl: "open" },
+    { key: "heating_cut", label: "Heating cut at 105 s", kind: "torax", ctrl: "open" },
+    { key: "cem_audited", label: "Best audited schedule", kind: "torax", ctrl: "open" },
+    { key: "early_heat", label: "Early heating, 10 MA", kind: "lab", ctrl: "open" },
+    { key: "pi", label: "PI controller", kind: "torax", ctrl: "feedback", live: "pi" },
+    { key: "ppo_res", label: "PPO on PI", kind: "torax", ctrl: "feedback", live: "policy" },
+    { key: "mbpo_res", label: "MBPO on PI", kind: "torax", ctrl: "feedback", live: "policy" },
+    { key: "ppo_s1", label: "PPO exploit", kind: "torax", ctrl: "feedback", live: "policy" },
+    { key: "sandbox", label: "Sandbox: you drive", kind: "sandbox", ctrl: "human" },
   ];
-  const EXTRA = { td3bc: "TD3+BC on noisy PI logs", mbpo_s1: "MBPO seed 1 (exploit)" };
+  const EXTRA = {
+    td3bc: { label: "TD3+BC on noisy PI logs", ctrl: "feedback", live: "policy" },
+    mbpo_s1: { label: "MBPO seed 1 (exploit)", ctrl: "feedback", live: "policy" },
+  };
+  const presetOf = (key) => PRESETS.find((x) => x.key === key) || (EXTRA[key] && { key, kind: "torax", ...EXTRA[key] });
+  const CTRL = {
+    open: { tag: "open loop", cls: "open", what: "a schedule: the clock turns the knobs" },
+    feedback: { tag: "feedback", cls: "fb", what: "measurements of the plasma turn the knobs" },
+    human: { tag: "you", cls: "you", what: "you read the screen and turn the knobs" },
+  };
   const LAB_ACTIONS = {
     early_heat: (t) => ({ Ip: Math.min(10e6, 3e6 + (t + 1) * 0.2e6), nbi: t >= 10 ? 33e6 : 0, ecrh: t >= 10 ? 20e6 : 0 }),
   };
@@ -682,13 +696,14 @@
       ],
     },
   };
-  const EXTRA_STORY = (lab) => ({ intro: `${lab}: a recorded TORAX episode replayed on the Lab model. Dashed lines are TORAX.`, events: [] });
+  const EXTRA_STORY = (lab) => ({ intro: `${lab}: a recorded TORAX episode. Dashed lines are TORAX; the knobs panel replays the knobs it set there, or runs its network live on the Lab.`, events: [] });
 
   // ================================================================== the Lab
   function wLab(root) {
     root.classList.add("rt-lab");
     const S = {
       key: null, kind: null, label: "", actions: [], recs: [], torax: null, toraxProf: null, cursor: 0, playing: false, speed: 1,
+      ctrl: "feedback", live: false, livePref: false, recorded: [], recKnobs: [], knobs: [], needle: null, liveNote: "",
       mode: "watch", running: false, drive: { rate: 0.2, nbi: 0, ecrh: 0, loc: 0.35 }, model: null,
       as: { pedMode: "scheduled", pedOn: 100, sawtooth: false, transportMul: 1, Zeff: 1.6 },
       colorBy: "Te", tab: "T", coils: false, pins: [], dirty: true,
@@ -696,22 +711,29 @@
     };
     const params = new URLSearchParams(location.search);
     let LAB = {}, PROF = {};
+    const POLICY = {}; // exported networks, fetched when live mode is first switched on
 
     // ------------------------------------------------ layout
     const top = el("div", "lab-top");
     root.appendChild(top);
-    const chipsRow = el("div", "rt-controls lab-presets");
-    top.appendChild(chipsRow);
-    const presetBtns = {};
+    const presetBox = el("div", "lab-presets");
+    top.appendChild(presetBox);
+    const presetBtns = {}, groups = {};
+    for (const c of ["open", "feedback", "human"]) {
+      const g = el("div", `lab-group ${CTRL[c].cls}`);
+      g.appendChild(el("div", "lab-group-label", `<b>${CTRL[c].tag}</b> ${CTRL[c].what}`));
+      groups[c] = el("div", "lab-group-chips");
+      g.appendChild(groups[c]);
+      presetBox.appendChild(g);
+    }
     PRESETS.forEach((p) => {
-      const b = button(chipsRow, p.label, () => load(p.key), "rt-chip lab-preset" + (p.kind === "lab" ? " lab-only" : p.kind === "sandbox" ? " lab-sand" : ""));
-      presetBtns[p.key] = b;
+      presetBtns[p.key] = button(groups[p.ctrl], p.label, () => load(p.key), "rt-chip lab-preset" + (p.kind === "lab" ? " lab-only" : ""));
     });
     const more = document.createElement("select");
     more.className = "rt-select";
-    more.innerHTML = `<option value="">more recorded episodes…</option>` + Object.entries(EXTRA).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+    more.innerHTML = `<option value="">more…</option>` + Object.entries(EXTRA).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
     more.addEventListener("change", () => more.value && load(more.value));
-    chipsRow.appendChild(more);
+    groups.feedback.appendChild(more);
     const story = el("div", "lab-story");
     top.appendChild(story);
 
@@ -817,6 +839,23 @@
     const readout = el("div", "lab-readout");
     pC.body.appendChild(readout);
 
+    // ---- the knobs: who turns them, and what they read
+    const pK = panel("lab-knobs", "The knobs: who turns them, and what they read");
+    const liveSeg = el("span", "lab-seg");
+    pK.tools.prepend(liveSeg);
+    const liveBtns = {
+      rec: button(liveSeg, "recorded on TORAX", () => setLive((S.livePref = false)), "rt-chip"),
+      live: button(liveSeg, "controller live on the Lab", () => setLive((S.livePref = true)), "rt-chip"),
+    };
+    const kBanner = el("div", "lab-kbanner");
+    pK.body.appendChild(kBanner);
+    const kGrid = el("div", "lab-kgrid");
+    pK.body.appendChild(kGrid);
+    const kLeft = el("div", ""), kRight = el("div", "");
+    kGrid.append(kLeft, kRight);
+    const kv = canvas(kLeft, 318);
+    const ks = canvas(kRight, 318);
+
     // ---- traces
     const pX = panel("lab-traces", "Traces: the episode so far (solid: Lab, dashed: TORAX)", ["fusion", "ipb98", "plh"]);
     const xv = canvas(pX.body, 560);
@@ -897,22 +936,88 @@
       sawBtn.classList.remove("on");
       resim();
     }, "rt-btn");
-    const aNote = note(pA.body, "Changing an assumption replays the same actions open-loop. A schedule cannot react to the change; a feedback policy could. Testing that difference is the ‘control level’ of the benchmark.");
+    const aNote = note(pA.body, "Changing an assumption re-runs the episode. Open-loop presets, and feedback presets in <i>recorded</i> mode, replay the same knob sequence; a feedback preset switched to <i>controller live on the Lab</i> reads the changed plasma and turns its knobs differently (watch the knobs panel). Testing that difference on TORAX is the ‘control level’ of the benchmark.");
 
     // ------------------------------------------------ simulation
     const overrides = () => ({ pedMode: S.as.pedMode, pedOn: S.as.pedOn, sawtooth: S.as.sawtooth, transportMul: S.as.transportMul, Zeff: S.as.Zeff });
+    function makeCtrl(key) {
+      const p = presetOf(key);
+      if (!RC || !p || !p.live) return null;
+      if (p.live === "pi") return RC.piController();
+      return POLICY[key] ? RC.learnedController(POLICY[key]) : null;
+    }
     function simulate() {
       const m = M.create(overrides());
       const recs = [m.state.last];
-      for (const a of S.actions) {
-        const d = m.step(a);
-        recs.push(d);
-        if (d.failed) break;
+      const ctrl = S.live && S.mode === "watch" ? makeCtrl(S.key) : null;
+      if (ctrl) {
+        // closed loop: the controller reads the Lab's plasma every second
+        ctrl.reset();
+        const acts = [], knobs = [];
+        let d = m.state.last;
+        for (let t = 0; t < 151; t++) {
+          const a = ctrl.act(d);
+          acts.push({ Ip: a.Ip, nbi: a.nbi, ecrh: a.ecrh });
+          knobs.push(a.info);
+          d = m.step(acts[t]);
+          recs.push(d);
+          if (d.failed) break;
+        }
+        S.actions = acts;
+        S.knobs = knobs;
+      } else {
+        for (const a of S.actions) {
+          const d = m.step(a);
+          recs.push(d);
+          if (d.failed) break;
+        }
+        S.knobs = S.recKnobs.slice(0, S.actions.length);
       }
       S.model = m;
       S.recs = recs;
       S.cursor = Math.min(S.cursor, recs.length - 1);
       S.dirty = true;
+    }
+    // What a recorded controller saw and proposed, where the recording allows it: PI's error and integral
+    // (re-computed from TORAX's j(0), which is exactly what it read), residual agents' PI proposal and correction.
+    function recordedKnobInfo(key, e) {
+      if (!e || !RC) return [];
+      if (key === "pi") {
+        const pi = RC.makePI(), j0 = [null, ...e.torax.j0];
+        j0[0] = e.j0_initial || e.torax.j0[0];
+        return e.actions.Ip.map((_, t) => ({ pi: pi.act(j0[t] * 1e6).sig }));
+      }
+      if (e.actions.base) {
+        const sc = e.scale;
+        return e.actions.base.map((b, t) => {
+          const u = e.actions.res[t];
+          return { base: b, u, total: b.map((v, i) => clamp(v + sc[i] * u[i], -1, 1)), scale: sc };
+        });
+      }
+      return [];
+    }
+    async function setLive(on) {
+      const p = presetOf(S.key);
+      if (on && (!p || !p.live || S.mode !== "watch")) return;
+      if (on && p.live === "policy" && !POLICY[S.key]) {
+        const key = S.key;
+        S.liveNote = "loading the network…";
+        S.dirty = true;
+        try {
+          POLICY[key] = await getJSON("policies/" + key);
+          const err = RC.selfCheck(POLICY[key]);
+          if (err > 1e-3) console.warn(`Lab: ${key} network differs from PyTorch by ${err}`);
+        } catch (e) {
+          S.liveNote = "could not load the network";
+          S.dirty = true;
+          return;
+        }
+        if (S.key !== key) return; // another preset was loaded meanwhile
+      }
+      S.liveNote = "";
+      S.live = on;
+      if (!on) S.actions = S.recorded.slice();
+      simulate();
     }
     let rsT = null;
     function resimSoon() {
@@ -927,20 +1032,26 @@
       return e.actions.Ip.map((ip, i) => ({ Ip: ip * 1e6, nbi: (e.actions.nbi[i] || 0) * 1e6, ecrh: (e.actions.ecrh[i] || 0) * 1e6 }));
     }
     function load(key) {
-      const p = PRESETS.find((x) => x.key === key) || { key, label: EXTRA[key], kind: "torax" };
+      const p = presetOf(key);
       S.key = key;
       S.kind = p.kind;
       S.label = p.label;
+      S.ctrl = p.ctrl;
+      S.recKnobs = [];
+      S.liveNote = "";
+      if (!p.live) S.live = false;
       S.running = false;
       runBtn.textContent = "Run";
       for (const k in presetBtns) presetBtns[k].classList.toggle("on", k === key);
       more.value = EXTRA[key] ? key : "";
+      more.classList.toggle("on", !!EXTRA[key]);
       S.torax = null;
       S.toraxProf = null;
       if (p.kind === "torax" && LAB[key]) {
         S.actions = actionsFromTorax(LAB[key]);
         S.torax = LAB[key];
         S.toraxProf = PROF[key] || null;
+        S.recKnobs = recordedKnobInfo(key, LAB[key]);
         S.mode = "watch";
       } else if (p.kind === "lab") {
         S.actions = Array.from({ length: 151 }, (_, t) => LAB_ACTIONS[key](t));
@@ -954,8 +1065,12 @@
         dLoc.set(0.35);
         Object.assign(S.drive, { rate: 0.2, nbi: 0, ecrh: 0, loc: 0.35 });
       }
+      S.recorded = S.actions.slice();
+      const wantLive = S.livePref && p.live;
+      S.live = false;
       simulate();
-      S.cursor = p.kind === "sandbox" ? 0 : 0;
+      if (wantLive) setLive(true); // keeps live mode across presets; replays until the network has loaded
+      S.cursor = 0;
       S.playing = false;
       playBtn.textContent = "Play";
       driveBox.hidden = S.mode !== "drive";
@@ -997,7 +1112,10 @@
     function takeControl() {
       const t = S.cursor;
       S.actions = S.actions.slice(0, t);
+      S.recKnobs = S.knobs.slice(0, t);
       S.kind = "sandbox";
+      S.ctrl = "human";
+      S.live = false;
       S.mode = "drive";
       S.label = `${S.label} → you, from t = ${t} s`;
       simulate();
@@ -1024,6 +1142,7 @@
       const ip = S.model.state.Ip;
       const a = { Ip: ip + S.drive.rate * 1e6, nbi: S.drive.nbi * 1e6, ecrh: S.drive.ecrh * 1e6, ecrhLoc: S.drive.loc };
       S.actions.push(a);
+      S.knobs.push(null);
       const d = S.model.step(a);
       S.recs.push(d);
       S.cursor = S.recs.length - 1;
@@ -1038,7 +1157,7 @@
     const PIN_COLORS = ["#8f7fe0", "#9aa0a6", "#d47fb0"];
     function pinRun() {
       if (S.pins.length >= 3) S.pins.shift();
-      S.pins.push({ label: S.label + (S.as.pedMode !== "scheduled" || S.as.transportMul !== 1 || S.as.sawtooth || S.as.pedOn !== 100 || S.as.Zeff !== 1.6 ? " (modified assumptions)" : ""), recs: S.recs.slice() });
+      S.pins.push({ label: S.label + (S.live ? " (live on the Lab)" : "") + (S.as.pedMode !== "scheduled" || S.as.transportMul !== 1 || S.as.sawtooth || S.as.pedOn !== 100 || S.as.Zeff !== 1.6 ? " (modified assumptions)" : ""), recs: S.recs.slice() });
       S.pins.forEach((p, i) => (p.color = PIN_COLORS[i]));
       S.dirty = true;
     }
@@ -1194,14 +1313,16 @@
       S.dirty = true;
     }
     let scrubbing = false;
-    xv.c.addEventListener("pointerdown", (e) => {
-      scrubbing = true;
-      scrubFrom(e, xv);
-    });
+    for (const cv of [xv, ks]) {
+      cv.c.addEventListener("pointerdown", (e) => {
+        scrubbing = cv;
+        scrubFrom(e, cv);
+      });
+      cv.c.addEventListener("pointermove", (e) => {
+        if (scrubbing === cv) scrubFrom(e, cv);
+      });
+    }
     window.addEventListener("pointerup", () => (scrubbing = false));
-    xv.c.addEventListener("pointermove", (e) => {
-      if (scrubbing) scrubFrom(e, xv);
-    });
 
     function drawProfiles() {
       const col = colors();
@@ -1378,7 +1499,8 @@
     function drawScores(sc) {
       const full = S.recs.length - 1;
       const fmtR = (s) => (s.endT ? `${s.ret.toFixed(2)}<small>ended at ${s.endT} s: ${s.why}</small>` : s.ret.toFixed(2));
-      const tor = S.torax ? `<div class="lab-score muted"><span>TORAX, benchmark</span><b>${S.torax.benchmark.toFixed(2)}</b><small>${S.kind === "sandbox" ? "the original episode, before you took over" : "same actions on the real simulator"}</small></div>` : "";
+      const torWhat = S.kind === "sandbox" ? "the original episode, before you took over" : S.live ? "the same controller on the real simulator" : "same actions on the real simulator";
+      const tor = S.torax ? `<div class="lab-score muted"><span>TORAX, benchmark</span><b>${S.torax.benchmark.toFixed(2)}</b><small>${torWhat}</small></div>` : "";
       scoreBox.innerHTML =
         `<div class="lab-score b"><span>benchmark</span><b>${fmtR(sc.b)}</b><small>IterHybrid-v0, ${full} of 151 s</small></div>` +
         `<div class="lab-score a"><span>audited</span><b>${fmtR(sc.a)}</b><small>Q ≤ 10, H-mode needs P_SOL ≥ P_LH</small></div>` +
@@ -1400,6 +1522,357 @@
         (S.as.sawtooth ? `<li class="info">• sawtooth crashes: <b>${last ? last.crashes : 0}</b></li>` : "") +
         `</ul>`;
     }
+    // ------------------------------------------------ the knobs panel
+    const KCOL = () => {
+      const dark = document.body.getAttribute("data-md-color-scheme") === "slate";
+      return { open: dark ? "#e0a93a" : "#b07d1a", feedback: dark ? "#3cc0d6" : "#0e95ad", human: colors().accent };
+    };
+    const showRecordedKnobs = () => S.torax && (S.live || S.kind === "sandbox");
+    // knob positions during the second that ends at the cursor (the action applied in it)
+    function knobAt(c) {
+      const d = S.recs[c], prev = S.recs[Math.max(0, c - 1)];
+      if (!d) return null;
+      const info = c >= 1 ? S.knobs[c - 1] || null : null;
+      const k = { t: d.t, Ip: d.Ip, rate: c >= 1 ? d.Ip - prev.Ip : 0, nbi: d.Pnbi, ecrh: d.Pecrh, info, prop: null, rec: null };
+      if (info && info.base)
+        k.prop = { Ip: clamp(prev.Ip + info.base[0] * 0.2, 3, 15), rate: info.base[0] * 0.2, nbi: ((info.base[1] + 1) / 2) * 33, ecrh: ((info.base[2] + 1) / 2) * 20 };
+      if (showRecordedKnobs() && c >= 1 && c <= S.torax.torax.Ip.length) {
+        const g = S.torax.torax;
+        k.rec = { Ip: g.Ip[c - 1], nbi: g.Pnbi[c - 1] || 0, ecrh: g.Pecrh[c - 1] || 0 };
+      }
+      return k;
+    }
+    function easeNeedles(k, dtMs) {
+      const tgt = { Ip: k.Ip, nbi: k.nbi, ecrh: k.ecrh, pIp: k.prop && k.prop.Ip, pnbi: k.prop && k.prop.nbi, pecrh: k.prop && k.prop.ecrh };
+      const a = 1 - Math.exp(-dtMs / 60);
+      const n = S.needle || (S.needle = {});
+      for (const key in tgt) n[key] = tgt[key] === null || n[key] === null || n[key] === undefined ? tgt[key] : n[key] + (tgt[key] - n[key]) * a;
+      return n;
+    }
+    function dial(ctx, col, cx, cy, r, o) {
+      // o: {max, val, prop, rec, color, label, unit, sub}
+      const ang = (v) => Math.PI + clamp(v / o.max, 0, 1) * Math.PI;
+      const arc = (a0, a1, width, color, alpha) => {
+        ctx.save();
+        ctx.globalAlpha = alpha || 1;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, Math.min(a0, a1), Math.max(a0, a1));
+        ctx.stroke();
+        ctx.restore();
+      };
+      arc(Math.PI, 2 * Math.PI, 8, col.grid);
+      arc(Math.PI, ang(o.val), 8, o.color, 0.85);
+      if (o.prop !== null && o.prop !== undefined && Math.abs(o.prop - o.val) > o.max * 0.004) arc(ang(o.prop), ang(o.val), 14, col.accent, 0.45);
+      ctx.save();
+      ctx.font = FONT_SMALL;
+      ctx.fillStyle = col.muted;
+      ctx.strokeStyle = col.muted;
+      ctx.lineWidth = 1;
+      for (const f of [0, 0.25, 0.5, 0.75, 1]) {
+        const a = Math.PI + f * Math.PI;
+        ctx.beginPath();
+        ctx.moveTo(cx + (r + 6) * Math.cos(a), cy + (r + 6) * Math.sin(a));
+        ctx.lineTo(cx + (r + 10) * Math.cos(a), cy + (r + 10) * Math.sin(a));
+        ctx.stroke();
+      }
+      ctx.textAlign = "center";
+      ctx.fillText("0", cx - r - 2, cy + 13);
+      ctx.fillText(String(o.max), cx + r + 2, cy + 13);
+      if (o.rec !== null && o.rec !== undefined) {
+        const a = ang(o.rec);
+        ctx.strokeStyle = col.fg;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([3, 2]);
+        ctx.beginPath();
+        ctx.moveTo(cx + (r - 9) * Math.cos(a), cy + (r - 9) * Math.sin(a));
+        ctx.lineTo(cx + (r + 12) * Math.cos(a), cy + (r + 12) * Math.sin(a));
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      const needle = (v, hollow) => {
+        const a = ang(v), L = r - 12;
+        ctx.save();
+        ctx.strokeStyle = hollow ? col.accent : col.fg;
+        ctx.lineWidth = hollow ? 1.6 : 3;
+        if (hollow) ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + L * Math.cos(a), cy + L * Math.sin(a));
+        ctx.stroke();
+        ctx.restore();
+      };
+      if (o.prop !== null && o.prop !== undefined) needle(o.prop, true);
+      needle(o.val, false);
+      ctx.fillStyle = col.fg;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 4.5, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.font = '600 15px "Space Grotesk", Inter, sans-serif';
+      ctx.fillText(`${o.val.toFixed(o.digits || 1)} ${o.unit}`, cx, cy + 28);
+      ctx.font = FONT_SMALL;
+      ctx.fillStyle = col.muted;
+      ctx.fillText(o.label, cx, cy + 44);
+      if (o.sub) {
+        ctx.fillStyle = o.subColor || col.muted;
+        ctx.fillText(o.sub, cx, cy + 59);
+      }
+      ctx.restore();
+    }
+    function box(ctx, col, b, stroke, title, lines) {
+      ctx.save();
+      roundRect(ctx, b.x, b.y, b.w, b.h, 9);
+      ctx.fillStyle = col.panel;
+      ctx.fill();
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      ctx.fillStyle = col.fg;
+      ctx.font = '600 13px "Space Grotesk", Inter, sans-serif';
+      ctx.textAlign = "left";
+      ctx.fillText(title, b.x + 9, b.y + 18);
+      ctx.font = FONT_SMALL;
+      ctx.fillStyle = col.muted;
+      lines.forEach((t, i) => fitText(ctx, t, b.x + 9, b.y + 35 + i * 14, b.w - 16));
+      ctx.restore();
+    }
+    function fitText(ctx, t, x, y, maxW) {
+      if (ctx.measureText(t).width <= maxW) return ctx.fillText(t, x, y);
+      while (t.length > 3 && ctx.measureText(t + "…").width > maxW) t = t.slice(0, -1);
+      ctx.fillText(t + "…", x, y);
+    }
+    function arrow(ctx, pts, color, dash, width) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = width || 1.8;
+      if (dash) ctx.setLineDash(dash);
+      ctx.beginPath();
+      pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const [a, b] = [pts[pts.length - 2], pts[pts.length - 1]];
+      const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+      ctx.beginPath();
+      ctx.moveTo(b[0], b[1]);
+      ctx.lineTo(b[0] - 9 * Math.cos(ang - 0.42), b[1] - 9 * Math.sin(ang - 0.42));
+      ctx.lineTo(b[0] - 9 * Math.cos(ang + 0.42), b[1] - 9 * Math.sin(ang + 0.42));
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    const sgn = (v, n, u) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(n)}${u ? " " + u : ""}`;
+    // what the controller read and decided in the second ending at the cursor
+    function controllerText(k) {
+      const info = k.info, t = k.t;
+      if (S.ctrl === "open") return { title: "schedule", meas: null, lines: [`knobs = f(t), t = ${Math.max(0, t - 1)} s`, "reads nothing from the plasma"] };
+      if (S.ctrl === "human") return { title: "you", meas: ["your eyes on the screen"], lines: ["reading the plots,", "moving the sliders"] };
+      const where = S.live ? "Lab" : "TORAX";
+      if (S.key === "pi" || (info && info.pi && !info.base)) {
+        const sg = info && info.pi;
+        if (!sg) return { title: "PI controller", meas: [t < 1 ? "—" : "nothing after 100 s"], lines: [t < 1 ? "acts from t = 0 s" : "I_p held at its last value", "heating on the clock (open loop)"] };
+        return {
+          title: "PI controller",
+          meas: [`j(0) = ${(sg.j0 / 1e6).toFixed(2)} MA/m² (${where})`, `target j* = ${(sg.target / 1e6).toFixed(2)}`],
+          lines: [`e = j* − j(0) = ${sgn(sg.error / 1e6, 2)} MA/m²`, `I_p = 3 MA + kp·e + ki·∫e = ${(sg.desired / 1e6).toFixed(2)} MA${sg.sat ? " (limited)" : ""}`, "heating on the clock (open loop)"],
+        };
+      }
+      const P = POLICY[S.key], nIn = P ? P.obs_dim : info && info.base ? 64 : 60;
+      if (info && info.base) {
+        const d = info.total.map((v, i) => v - info.base[i]);
+        const pr = k.prop;
+        return {
+          title: "PI + learned correction",
+          meas: [`${nIn} numbers (${where} plasma + PI state)`],
+          lines: [`PI proposes ${sgn(pr.rate, 2, "MA/s")}, NBI ${pr.nbi.toFixed(0)}, ECRH ${pr.ecrh.toFixed(0)} MW`, `network adds ${sgn(d[0] * 0.2, 2, "MA/s")}, ${sgn((d[1] / 2) * 33, 1)}, ${sgn((d[2] / 2) * 20, 1)} MW`],
+        };
+      }
+      return { title: "neural network policy", meas: [`${nIn} numbers (${where} plasma)`], lines: [`${nIn} numbers in, 3 knobs out`, "every second"] };
+    }
+    function drawKnobs(dtMs) {
+      const col = colors(), c = KCOL()[S.ctrl] || col.fg;
+      const { ctx, w, h } = kv;
+      ctx.clearRect(0, 0, w, h);
+      const k = knobAt(S.cursor);
+      if (!k) return;
+      const n = easeNeedles(k, dtMs);
+      const ct = controllerText(k);
+      // signal path: plasma -> (measurement) -> controller -> knobs -> plasma
+      const bh = 76, y0 = 22;
+      const pb = { x: 6, y: y0, w: Math.max(92, Math.min(130, w * 0.24)), h: bh };
+      const gapW = Math.max(118, w * 0.27);
+      const cb = { x: pb.x + pb.w + gapW, y: y0, w: w - (pb.x + pb.w + gapW) - 6, h: bh };
+      const plasmaSub = S.ctrl === "feedback" && !S.live ? ["TORAX, recorded", "(the Lab replays", " the knobs)"] : ["Lab model", "(this page)"];
+      box(ctx, col, pb, col.muted, "plasma", plasmaSub);
+      box(ctx, col, cb, c, ct.title, ct.lines);
+      const ym = y0 + bh / 2, x0 = pb.x + pb.w + 4, x1 = cb.x - 4;
+      ctx.save();
+      ctx.font = FONT_SMALL;
+      ctx.textAlign = "center";
+      if (!ct.meas) {
+        arrow(ctx, [[x0, ym], [x1, ym]], col.grid, [4, 4], 1.4);
+        ctx.fillStyle = col.bad;
+        ctx.font = '700 15px Inter, sans-serif';
+        ctx.fillText("✕", (x0 + x1) / 2, ym + 5);
+        ctx.font = FONT_SMALL;
+        ctx.fillStyle = col.muted;
+        ctx.fillText("not measured", (x0 + x1) / 2, ym + 22);
+        // the schedule's only input: a clock
+        const cx = cb.x + cb.w - 18, cy = cb.y + 16;
+        ctx.strokeStyle = c;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 8, 0, 2 * Math.PI);
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx, cy - 5);
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + 4, cy + 1);
+        ctx.stroke();
+      } else {
+        arrow(ctx, [[x0, ym], [x1, ym]], c, null, 2);
+        ctx.fillStyle = col.fg;
+        ct.meas.forEach((t, i) => fitText(ctx, t, (x0 + x1) / 2, ym - 8 - (ct.meas.length - 1 - i) * 13, x1 - x0 - 6));
+        // what a network sees: its normalised input vector as a strip of cells
+        const x = k.info && k.info.x;
+        if (x) {
+          const sw = x1 - x0 - 14, cw = sw / x.length;
+          x.forEach((v, i) => {
+            const u = clamp(v / 3, -1, 1);
+            ctx.fillStyle = u >= 0 ? `rgba(235,104,52,${0.15 + 0.85 * u})` : `rgba(42,120,214,${0.15 - 0.85 * u})`;
+            ctx.fillRect(x0 + 7 + i * cw, ym + 6, Math.max(1, cw - 0.4), 11);
+          });
+          ctx.fillStyle = col.muted;
+          fitText(ctx, "what it reads now", (x0 + x1) / 2, ym + 30, x1 - x0 - 6);
+        } else if (S.ctrl === "feedback" && !S.live && S.key !== "pi") {
+          ctx.fillStyle = col.muted;
+          ctx.fillText("live mode shows its inputs", (x0 + x1) / 2, ym + 18);
+        }
+      }
+      ctx.restore();
+      // the dials
+      const dy = y0 + bh + 92, r = Math.max(34, Math.min(58, w / 3 / 2 - 22));
+      const third = w / 3;
+      const rate = k.rate;
+      dial(ctx, col, third * 0.5, dy, r, { max: 15, val: n.Ip, prop: n.pIp, rec: k.rec && k.rec.Ip, color: c, label: "plasma current I_p", unit: "MA", digits: 2,
+        sub: S.cursor < 1 ? "" : rate > 0.005 ? `ramping ${sgn(rate, 2, "MA/s")}` : rate < -0.005 ? `ramping ${sgn(rate, 2, "MA/s")}` : "held", subColor: Math.abs(rate) > 0.005 ? c : col.muted });
+      dial(ctx, col, third * 1.5, dy, r, { max: 33, val: n.nbi, prop: n.pnbi, rec: k.rec && k.rec.nbi, color: "rgb(235,120,30)", label: "neutral beams P_NBI", unit: "MW" });
+      dial(ctx, col, third * 2.5, dy, r, { max: 20, val: n.ecrh, prop: n.pecrh, rec: k.rec && k.rec.ecrh, color: "rgb(40,170,210)", label: "microwaves P_ECRH", unit: "MW" });
+      // command path: controller -> knobs -> back into the plasma
+      arrow(ctx, [[cb.x + cb.w / 2, cb.y + cb.h + 2], [cb.x + cb.w / 2, dy - r - 22]], c, null, 1.8);
+      ctx.save();
+      ctx.font = FONT_SMALL;
+      ctx.fillStyle = col.muted;
+      ctx.textAlign = "right";
+      ctx.fillText("sets the knobs every second", cb.x + cb.w / 2 - 6, cb.y + cb.h + 16);
+      ctx.textAlign = "left";
+      ctx.fillText("knobs act on the plasma", 22, pb.y + pb.h + 16);
+      ctx.restore();
+      arrow(ctx, [[third * 0.5 - r - 18, dy + 8], [14, dy + 8], [14, pb.y + pb.h + 3]], col.muted, null, 1.4);
+      // legend
+      ctx.save();
+      ctx.font = FONT_SMALL;
+      ctx.fillStyle = col.muted;
+      ctx.textAlign = "left";
+      const leg = ["solid needle: applied"];
+      if (k.prop) leg.push("dashed pink: PI's proposal; pink arc: the network's correction");
+      if (k.rec) leg.push("dashed tick: what it did on TORAX");
+      fitText(ctx, leg.join(" · "), 6, h - 6, w - 12);
+      ctx.restore();
+    }
+    function drawKnobStrips() {
+      const col = colors(), c = KCOL()[S.ctrl] || col.fg;
+      const { ctx, w, h } = ks;
+      ctx.clearRect(0, 0, w, h);
+      const rows = [
+        { t: "I_p ramp rate [MA/s] (the I_p knob)", yr: [-0.22, 0.22], f: (d, p) => d.Ip - p.Ip, g: (G, i) => G.Ip[i] - (i ? G.Ip[i - 1] : 3), p: (b) => b[0] * 0.2 },
+        { t: "P_NBI [MW]", yr: [0, 34], f: (d) => d.Pnbi, g: (G, i) => G.Pnbi[i] || 0, p: (b) => ((b[1] + 1) / 2) * 33 },
+        { t: "P_ECRH [MW]", yr: [0, 21], f: (d) => d.Pecrh, g: (G, i) => G.Pecrh[i] || 0, p: (b) => ((b[2] + 1) / 2) * 20 },
+      ];
+      const pad = 40, gap = 26, rh = (h - 58 - gap * 2) / 3;
+      ks.rows = [];
+      const upto = S.cursor;
+      rows.forEach((r, i) => {
+        const bx = { x: pad, y: 18 + i * (rh + gap), w: w - pad - 10, h: rh };
+        const fr = frame(ctx, col, bx, [0, 151], r.yr, { title: r.t, noXLabels: i !== 2, xlabel: i === 2 ? "time [s]" : "" });
+        ks.rows.push([bx, fr]);
+        const P = (pts) => pts.map(([t, v]) => [fr.sx(t), fr.sy(clamp(v, r.yr[0], r.yr[1]))]);
+        const series = (recs) => recs.slice(1).map((d, j) => [d.t, r.f(d, recs[j])]);
+        S.pins.forEach((pn) => line(ctx, P(series(pn.recs)), pn.color, 1.3));
+        if (showRecordedKnobs()) {
+          const G = S.torax.torax;
+          line(ctx, P(G.Ip.map((_, j) => [j + 1, r.g(G, j)])), col.muted, 1.3, [5, 4]);
+        }
+        const cur = series(S.recs.slice(0, upto + 1));
+        const prop = S.knobs.slice(0, upto).map((info, j) => (info && info.base ? [j + 1, r.p(info.base)] : null));
+        if (prop.some(Boolean)) {
+          ctx.save();
+          ctx.fillStyle = col.accent;
+          ctx.globalAlpha = 0.28;
+          for (let j = 0; j < Math.min(prop.length, cur.length); j++) {
+            if (!prop[j]) continue;
+            const xa = fr.sx(j + 0.5), xb = fr.sx(j + 1.5);
+            const ya = fr.sy(clamp(prop[j][1], r.yr[0], r.yr[1])), yb = fr.sy(clamp(cur[j][1], r.yr[0], r.yr[1]));
+            ctx.fillRect(xa, Math.min(ya, yb), xb - xa, Math.max(1, Math.abs(yb - ya)));
+          }
+          ctx.restore();
+          line(ctx, P(prop.filter(Boolean)), col.accent, 1.2, [2, 2]);
+        }
+        line(ctx, P(cur), c, 2.2);
+        const xc = fr.sx(S.cursor);
+        ctx.save();
+        ctx.strokeStyle = col.accent;
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.moveTo(xc, bx.y);
+        ctx.lineTo(xc, bx.y + bx.h);
+        ctx.stroke();
+        ctx.restore();
+      });
+      ctx.save();
+      ctx.font = FONT_SMALL;
+      let x = pad;
+      const leg = [[c, `this run (${(CTRL[S.ctrl] || CTRL.feedback).tag})`, null]];
+      if (S.knobs.some((i) => i && i.base)) leg.push([col.accent, "PI's proposal; shaded: correction", [2, 2]]);
+      if (showRecordedKnobs()) leg.push([col.muted, "on TORAX", [5, 4]]);
+      S.pins.forEach((pn) => leg.push([pn.color, pn.label, null]));
+      for (const [lc, lab, dash] of leg) {
+        ctx.strokeStyle = lc;
+        ctx.lineWidth = 2;
+        ctx.setLineDash(dash || []);
+        ctx.beginPath();
+        ctx.moveTo(x, h - 9);
+        ctx.lineTo(x + 14, h - 9);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = col.muted;
+        const lw = Math.min(ctx.measureText(lab).width, 200);
+        fitText(ctx, lab, x + 18, h - 5, 200);
+        x += lw + 32;
+        if (x > w - 60) break;
+      }
+      ctx.restore();
+    }
+    function updateKnobBanner() {
+      const p = presetOf(S.key) || {}, c = CTRL[S.ctrl] || CTRL.feedback;
+      let txt;
+      if (S.ctrl === "open") txt = "A schedule: every knob is a function of time alone, fixed before the shot. Change the simulator assumptions below and the knobs stay where they are; only the plasma changes.";
+      else if (S.ctrl === "human") txt = "You are the feedback controller: you read the plasma on this page and set the knobs once per second.";
+      else if (S.live) {
+        const reads = S.key === "pi" ? "j(0), the central current density, against a rising target" : `${POLICY[S.key] ? POLICY[S.key].obs_dim : 60} numbers describing the plasma`;
+        txt = `<b>${S.label}, closed loop on the Lab:</b> every second it reads ${reads} from this plasma and sets the knobs from it, so they follow whatever the Lab does, including your changes to the assumptions. Dashed: what it did on TORAX.` +
+          (S.key === "pi" ? " Its heating still follows the clock: PI is feedback on I_p only." : "");
+      } else
+        txt = `<b>${S.label}:</b> the knobs it set on TORAX, while reading TORAX's plasma, replayed here without feedback.` +
+          (p.live ? " Switch to <i>controller live on the Lab</i> to let it read this plasma instead." : "");
+      kBanner.innerHTML = `<span class="lab-cls ${c.cls}">${c.tag}</span>${txt}` + (S.liveNote ? ` <em>(${S.liveNote})</em>` : "");
+      liveBtns.rec.classList.toggle("on", !S.live);
+      liveBtns.live.classList.toggle("on", S.live);
+      liveBtns.live.disabled = !p.live || S.mode !== "watch" || !RC;
+      liveBtns.live.title = S.ctrl === "open" ? "A schedule reads nothing, so there is nothing to run live: its knobs are the same on any plasma." : "";
+      liveSeg.hidden = S.ctrl !== "feedback";
+    }
+
     function drawAll() {
       const sc = scores(S.recs);
       drawReadout();
@@ -1408,6 +1881,8 @@
       drawOps();
       drawReward(sc);
       drawScores(sc);
+      updateKnobBanner();
+      drawKnobStrips();
       tSl.set(S.cursor);
       tSl.input.max = 151;
     }
@@ -1440,6 +1915,7 @@
           }
         } else acc = 0;
         drawTorus();
+        drawKnobs(dt);
         if (S.dirty) {
           S.dirty = false;
           drawAll();
@@ -1453,7 +1929,10 @@
       LAB = L;
       PROF = P;
       const pk = params.get("preset");
-      load(pk && (STORIES[pk] || EXTRA[pk]) ? pk : "pi");
+      // presets whose recorded episode is not in lab.json yet are hidden
+      PRESETS.forEach((p) => p.kind === "torax" && !LAB[p.key] && (presetBtns[p.key].hidden = true));
+      if (params.get("live") === "1") S.livePref = true;
+      load(pk && presetOf(pk) && (presetOf(pk).kind !== "torax" || LAB[pk]) ? pk : "pi");
       const t0 = +params.get("t");
       if (t0) S.cursor = clamp(t0, 0, S.recs.length - 1);
       const cb = params.get("color");
@@ -1464,6 +1943,12 @@
       if (ped === "power") pedBtns.power.click();
       else pedBtns.scheduled.classList.add("on");
       if (params.get("sawtooth") === "1") sawBtn.click();
+      const tm = +params.get("transport");
+      if (tm) {
+        S.as.transportMul = clamp(tm, 0.5, 2);
+        aChi.set(S.as.transportMul);
+        resim();
+      }
       if (params.get("play") === "1") togglePlay();
       S.dirty = true;
       requestAnimationFrame(frameLoop);
@@ -1472,6 +1957,8 @@
       redraw: () => (S.dirty = true),
       resize: () => {
         tv.fit();
+        kv.fit();
+        ks.fit();
         xv.fit();
         pv.fit();
         ov.fit();

@@ -47,5 +47,3 @@ The agent never sets q directly. q95 follows I_p almost immediately (the edge cu
     1. Doubling I_p at fixed profile shape does what to q everywhere? *Halves it.*
     2. Why is q on axis set by j(0) and not by I_p? *Near the axis, I(r) ≈ π r² j(0) (times elongation), so q(0) ≈ 2B/(μ₀ R j(0)) up to geometry: only the local current density matters.*
     3. The PI controller tracks a rising target for j(0). What does that do to q(0)? *Drives it down, through 1 at about 51 s, to 0.41 at the end.*
-
-[← The machine](1-machine.md) · [Next: how the current gets in →](3-current-diffusion.md)

@@ -1,6 +1,6 @@
-/* Left navigation: the current page's sections live under its entry (toc.integrate).
- * On wide screens they start folded; a chevron next to the page name opens them, and the choice is
- * remembered for this browser. On narrow screens Material's own drawer behaviour is left alone. */
+/* Left navigation: the current page's sections sit under its entry (toc.integrate), folded by default.
+ * A chevron next to the page name opens or closes them; the choice is remembered in this browser.
+ * The same control works in the phone drawer (opened with the menu button, top left). */
 (function () {
   "use strict";
   const KEY = "rt-toc-open";
@@ -24,16 +24,14 @@
     if (!toc || !link || !toc.querySelector(".md-nav__link")) return;
     li.dataset.rtToc = "1";
     li.classList.add("rt-has-toc");
-    const top = toc.querySelector(":scope > .md-nav__list");
-    const n = top ? top.children.length : 0;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "rt-toc-toggle";
-    btn.innerHTML = `<span class="rt-toc-count">${n}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     const apply = (open) => {
       li.classList.toggle("rt-toc-open", open);
       btn.setAttribute("aria-expanded", String(open));
-      btn.title = open ? "Hide the sections of this page" : `Show the ${n} sections of this page`;
+      btn.title = open ? "Hide the sections of this page" : "Show the sections of this page";
       btn.setAttribute("aria-label", btn.title);
     };
     btn.addEventListener("click", (e) => {
@@ -45,6 +43,13 @@
     });
     link.after(btn);
     apply(read());
+    // Phone drawer: tapping a section closes the drawer so the reader lands on it.
+    toc.addEventListener("click", (e) => {
+      if (e.target.closest("a")) {
+        const drawer = document.getElementById("__drawer");
+        if (drawer && drawer.checked) drawer.checked = false;
+      }
+    });
   }
   if (window.document$ && window.document$.subscribe) window.document$.subscribe(setup);
   else if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setup);

@@ -384,9 +384,14 @@
       for (let j = 0; j <= N; j++) Ibs += s.jbs[j] * (vol[j] / (2 * Math.PI * R));
       const Qfus = s.Pfus / Math.max(s.Paux + s.Pohm, 1e5);
       const fgw = st.nbar / greenwald(IpMA, a);
+      let TeVol = 0, TiVol = 0;
+      for (let j = 0; j <= N; j++) {
+        TeVol += (st.Te[j] * vol[j]) / V;
+        TiVol += (st.Ti[j] * vol[j]) / V;
+      }
       return {
         t, Ip: IpMA, Pnbi: st.act.nbi / 1e6, Pecrh: st.act.ecrh / 1e6, ecrhLoc: st.act.ecrhLoc,
-        Te0: st.Te[0], Ti0: st.Ti[0], j0: jj[0] / 1e6, qmin, rhoQmin: rho[jq], q95: q[j95], q0: q[0],
+        Te0: st.Te[0], Ti0: st.Ti[0], TeVol, TiVol, j0: jj[0] / 1e6, qmin, rhoQmin: rho[jq], q95: q[j95], q0: q[0],
         Q: Qfus, H98: tauE / tau98, tauE, tau98, W, fgw, nbar: st.nbar, Pfus: s.Pfus / 1e6, Palpha: s.Palpha / 1e6,
         Pohm: s.Pohm / 1e6, Prad: s.Prad / 1e6, Paux: s.Paux / 1e6, Psol: s.Psol / 1e6, PLH: s.PLH / 1e6,
         psolPlh: s.Psol / s.PLH, betaN: (betaT * a * p.B) / Math.max(IpMA, 0.1), li, Vloop: s.Vloop, flux: st.flux,

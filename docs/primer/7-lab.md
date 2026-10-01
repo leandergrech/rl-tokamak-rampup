@@ -8,19 +8,48 @@ icon: rt/lab
 
 !!! abstract "What this is"
 
-    A reduced model of the Gym-TORAX ITER hybrid ramp-up that runs in your browser: the same actuators, the same 151 one-second steps, the same reward, and physics that follows the equations of the physics chapters in simplified form. Presets **replay the recorded actions of real TORAX episodes** on the Lab model and overlay TORAX as dashed lines, so you always see how far the toy is from the real thing. The sandbox lets you be the agent. The benchmark designer lets you change the reward and the simulator assumptions and see what every policy would have scored. It is a thinking tool, not a substitute for TORAX: confirm anything interesting there.
+    A reduced model of the Gym-TORAX ITER hybrid ramp-up that runs in your browser: the same actuators, the same 151 one-second steps, the same reward, and physics that follows the equations of the physics chapters in simplified form. Presets **replay the recorded actions of real TORAX episodes** on the Lab model and overlay TORAX as dashed lines, so you always see how far the toy is from the real thing. Every preset is labelled by **who turns the knobs**: a schedule (*open loop*), a controller that reads the plasma (*feedback*), or you. The knobs panel shows the three actuators move in real time and what the controller read to move them, and feedback controllers (PI and the learned policies) can also **run live on the Lab**, closing their loop on its plasma instead of replaying what they did on TORAX. The sandbox lets you be the agent. The benchmark designer lets you change the reward and the simulator assumptions and see what every policy would have scored. It is a thinking tool, not a substitute for TORAX: confirm anything interesting there.
 
 <div class="rt-widget" data-widget="lab" data-title="The Ramp-up Lab"></div>
 
 ## How to use it
 
-- **Pick a preset** to replay a recorded episode, then press **Play** or click the time stamps in the story. Dashed lines are TORAX; solid lines are the Lab.
+- **Pick a preset** to replay a recorded episode, then press **Play** or click the time stamps in the story. Dashed lines are TORAX; solid lines are the Lab. Presets are grouped by who turns the knobs: **open loop** (amber), **feedback** (teal), **you** (pink); see [Open loop and feedback](#open-loop-and-feedback).
+- **The knobs panel** shows the three actuators as dials and as traces through the episode, with the signal path from the plasma to the controller: what it measured (PI: j(0) against its target; a network: its 60 or 64 inputs as a strip of cells), what it computed (PI's error and current request; a residual agent's PI proposal and the network's correction, in pink), and the knob settings that result.
+- **Recorded or live.** For a feedback preset, *recorded on TORAX* replays the knobs it set while it was reading TORAX; *controller live on the Lab* runs the controller itself on the Lab's plasma, every second (PI in JavaScript, learned policies through their exported networks). Schedules have no live mode: they read nothing, so they are the same on any plasma.
 - **Take the controls from here** at any moment to continue from that state yourself: one action per second, *Run* for real time or *Step 1 s* to act like `env.step(a)`. The sandbox preset starts you at t = 0.
 - **Pin this run** to keep it as a grey line while you try something else (up to three).
 - **∑ equations** on any panel opens the equations behind it, with links to the [equation sheet](equations.md) and the chapter.
-- **Simulator assumptions** change the physics and replay the same actions open-loop: the pedestal can be triggered by power instead of a clock, sawteeth can be switched on, transport and impurity content can be perturbed.
+- **Simulator assumptions** change the physics and re-run the episode: the pedestal can be triggered by power instead of a clock, sawteeth can be switched on, transport and impurity content can be perturbed. Schedules and recorded knobs are replayed unchanged; a controller running live reads the changed plasma and turns its knobs differently.
 - **Reward and benchmark designer**: the benchmark and audited returns are always shown; the *custom* column is yours (Q cap, gate, penalties, termination rules). The physics audit lists what the benchmark does not check.
-- Links can open the Lab in a given state: `?preset=heating_cut&t=110&tab=T&color=q&pedestal=power&sawtooth=1`.
+- Links can open the Lab in a given state: `?preset=heating_cut&t=110&tab=T&color=q&pedestal=power&sawtooth=1`, or with a controller live on a perturbed plasma: `?preset=pi&live=1&transport=1.5`.
+
+## Open loop and feedback {#open-loop-and-feedback}
+
+An **open-loop** controller fixes every knob setting before the shot: the knobs are a function of time alone, so they are the same whatever the plasma does. A **feedback** controller measures the plasma during the shot and computes the knobs from what it measures, so a different plasma gets different knobs. In this benchmark both kinds act once per second on the same three knobs: the I_p ramp rate (±0.2 MA/s), the NBI power (0–33 MW) and the ECRH power (0–20 MW).
+
+| Preset | Who turns the knobs | What it reads each second | Live on the Lab |
+|---|---|---|---|
+| Open-loop reference, heating cut, early heating | a schedule | the clock | – |
+| Best audited schedule | a schedule found by cross-entropy search (9 numbers) | the clock | – |
+| PI controller | PI on I_p; heating on the reference schedule | j(0), against a target rising from 0.6 to 2.0 MA/m² | JavaScript port of `controllers.py` |
+| PPO on PI, MBPO on PI | PI plus a learned correction to all three knobs | 64 numbers: the 60-number observation, PI's proposal and its integral | exported networks |
+| PPO exploit, MBPO seed 1, TD3+BC | a learned policy | the 60-number observation (time, last action, 18 scalars, 5 profiles at 7 radii) | exported networks |
+| Sandbox | you | the screen | – |
+
+Three things the knobs panel makes visible:
+
+- **A recorded feedback episode is open loop on the Lab.** In *recorded* mode, PI's knobs are the ones it set while reading TORAX's plasma; replayed on the Lab, nothing closes the loop, which is why changing an assumption moves the plasma but not the knobs. *Controller live on the Lab* closes the loop on the Lab's plasma.
+- **PI is feedback on one knob, for two thirds of the shot.** It reads j(0) and sets I_p until t = 100 s, then holds I_p; its heating follows the same clock as the open-loop reference. The residual agents (PPO on PI, MBPO on PI) correct all three knobs throughout.
+- **A learned policy reads the Lab's version of its inputs.** The Lab builds the same observation vector the RL wrapper builds from TORAX, from its own reduced physics, which differs from TORAX by up to about 20 %. A network trained on TORAX can act differently here. Live, PPO's exploit keeps 16 MW of NBI after 104 s instead of cutting it to zero, and TD3+BC turns on 16 MW of ECRH at 30 s, which it never did on TORAX. That is the sim-to-real gap in miniature: a policy learns what worked on one simulator, not a law that holds on every plasma.
+
+**Feedback is not automatically robust.** Audited score on the Lab when the transport is scaled, for each recorded episode replayed as recorded (open loop) and with its controller running live:
+
+ROBUSTNESS_TABLE
+
+PI live does not protect its audited score against the transport change any better than its replayed knobs: PI regulates j(0), not the reward, so its corrections are right for j(0) and neutral or wrong for the score. Feedback helps when what it measures and regulates is what matters. Whether learned feedback policies keep their advantage across plasmas is [Open question 3](../06-open-questions.md#3-does-feedback-matter-a-randomised-gym-torax), to be answered on TORAX, not here.
+
+**How the live controllers are checked** (`node scripts/check_lab_control.mjs fixture.json --robustness`, fixture from `python scripts/make_lab_fixture.py`): every exported network reproduces its PyTorch actions to 10⁻⁵; the PI port, fed TORAX's recorded j(0), reproduces the recorded TORAX PI commands to 4 × 10⁻⁵ MA; and the observation vector built in JavaScript from TORAX quantities matches `src/rl_tokamak/env.py` to 10⁻⁵, feature by feature. The networks are exported by `python scripts/export_lab_policies.py` and loaded only when live mode is first switched on (80–860 kB each).
 
 ## Guided experiments
 
@@ -31,9 +60,10 @@ Each one takes a few minutes. Predict first, then look.
 3. **Be the agent.** [Sandbox](7-lab.md?preset=sandbox&tab=q). Ramp at full rate with no heating until 100 s, then full heating. Pin it. Reset, and this time give 20 MW of ECRH from t = 10 s. Compare q_min at 100 s and both returns.
 4. **Exploit the benchmark yourself.** From [PI at 104 s](7-lab.md?preset=pi&t=104&tab=T), take the controls, press *Heating off* and *Run*. Watch Q, the per-second reward bars, and the audit list. Then set the custom gate to *pedestal up and P_SOL ≥ P_LH*.
 5. **Steer the ECRH.** In the sandbox, put 20 MW of ECRH at ρ̂ = 0.1 and then at ρ̂ = 0.6 during the ramp. Which keeps q_min higher, and why? ([How the current gets in](3-current-diffusion.md): heating where the current would otherwise penetrate.)
-6. **Robustness, the "control level".** Load the [best audited schedule](7-lab.md?preset=cem_audited&tab=T) and set *transport ×* to 1.5, then 0.7. A fixed schedule cannot react; how much of its score survives? Try the same with PI. This is the experiment [Open question 3](../06-open-questions.md#3-does-feedback-matter-a-randomised-gym-torax) proposes on TORAX.
+6. **Robustness, the "control level".** Load the [best audited schedule](7-lab.md?preset=cem_audited&tab=T&transport=1.5) with *transport ×* 1.5, then try 0.7. Its knobs do not move: a schedule cannot react. Now [PI live at ×1.5](7-lab.md?preset=pi&live=1&tab=j&transport=1.5): watch the knobs panel as j(0) runs ahead of its target and PI ramps I_p back down, and compare with the dashed TORAX knobs. *Predict:* does reacting help PI's audited score? (See [the table above](#open-loop-and-feedback).) This is the experiment [Open question 3](../06-open-questions.md#3-does-feedback-matter-a-randomised-gym-torax) proposes on TORAX.
 7. **Sawteeth.** Switch the sawtooth model on for [PI](7-lab.md?preset=pi&t=120&tab=T&sawtooth=1). How do T_e(0), q_min and the benchmark return change? Would the heating cut still pay with sawteeth on?
 8. **Design a reward.** Open the custom reward, add a Greenwald penalty and an end-of-episode rule at f_GW > 1.2. Go through the presets and write down the ranking. Does any honest policy beat PI? Does any exploit survive?
+9. **Same network, another plasma.** Load the [PPO exploit](7-lab.md?preset=ppo_s1&t=110&tab=T) and play it in *recorded* mode, then switch the knobs panel to *controller live on the Lab*. *Predict* before you switch: will it cut the heating at 104 s as it did on TORAX? Watch the strip of cells under "what it reads now" around 100 s and compare the two benchmark returns.
 
 ## Model card {#model-card}
 
@@ -66,4 +96,4 @@ The table was computed with Node.js (`scripts/calibrate_lab_model.mjs` uses the 
 
 **What it is good for.** Building intuition for the mechanisms (current penetration, stiffness, the pedestal, the reward's leaks), ranking the effect of a benchmark change on the recorded policies before implementing it, and generating hypotheses to test on TORAX. **What it is not good for:** reporting a number. Every result in [Designs and results](../04-designs.md) comes from TORAX.
 
-[← From physics to reward](6-reward.md) · [Equation sheet](equations.md) · [Gaps, status and glossary →](8-field.md)
+See also the [equation sheet](equations.md).

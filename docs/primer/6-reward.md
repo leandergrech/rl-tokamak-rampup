@@ -69,5 +69,3 @@ A benchmark is a reward, a termination rule, a simulator configuration and a pro
     1. Why does capping Q at 10 alone not close the loophole? *A capped Q still pays 1/50 per second once Q ≥ 10, and the gated H98 term still pays; the plasma with no heating still counts as H-mode. The gate has to change too.*
     2. Which lever would make the PI baseline itself score worse? *A q_min < 1 or Greenwald penalty, or a termination on f_GW > 1: PI violates both.*
     3. Which lever turns the benchmark into a feedback-control problem? *Randomising the plasma (transport, pedestal timing, initial state): only then can a policy that reacts beat the best fixed schedule.*
-
-[← Limits and the operating space](5-limits.md) · [Next: the Ramp-up Lab →](7-lab.md)

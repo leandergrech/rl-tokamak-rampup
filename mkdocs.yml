@@ -15,7 +15,6 @@ theme:
   favicon: assets/logo.svg
   features:
     - navigation.sections
-    - navigation.footer
     - navigation.top
     - toc.follow
     - toc.integrate
@@ -92,6 +91,7 @@ extra_css:
 extra_javascript:
   - javascripts/widgets.js
   - javascripts/tokamak-model.js
+  - javascripts/lab-control.js
   - javascripts/lab.js
   - javascripts/nav.js
   - javascripts/mathjax.js

@@ -105,6 +105,8 @@ All learned policies see the wrapper defaults unless an ablation says otherwise:
 | TD3+BC | `rl_tokamak.agents.offline` | 256-256 actor and twin critics | α = 2.5, policy noise 0.2, delay 2, dataset state normalisation ([R21](07-references.md#r21)) | same |
 | MOPO | `rl_tokamak.agents.offline` | MBPO's ensemble and SAC | penalty λ = 1 on max-member predictive σ norm, horizon 5, 5 % real data ([R20](07-references.md#r20)) | same |
 | CEM open-loop search | `rl_tokamak.agents.cem` | none | 9-parameter schedule (two ramp rates and switch time, I_p ceiling, pre-heating power and start, flat-top powers), population 16, 4 elites | 45 min, 8 workers |
+| PPO on PI (residual) | SB3 PPO on `rl_tokamak.residual.ResidualEnv` | MLP 64-64, action head initialised near zero | action = PI action + (1, 2, 2) × correction; 64-d observation (adds PI's proposal and integral); audited training reward, normalised (VecNormalize); 5 envs, n_steps 64, batch 64, initial log σ −1; best checkpoint by audited score | 75 min wall clock |
+| MBPO on PI (residual) | `rl_tokamak.agents.mbpo` on `ResidualEnv` | as MBPO; actor output initialised to zero mean, log σ −1 | as MBPO, plus: initial entropy weight 0.1; model rollouts scored with the exact reward formula on the predicted state, ended by Gym-TORAX's bounds rule, and given PI's known heating and hold features; audited training reward; best checkpoint by audited score | 25 simulator episodes, 75 min cap |
 
 
 How the MBPO baseline spends simulator steps:

@@ -57,5 +57,3 @@ flowchart LR
     1. Which field does the agent control, B_φ or B_θ? *B_θ, through I_p. B_φ is fixed by the coils.*
     2. Why can't a real controller ramp I_p as fast as it likes? *The solenoid's flux swing and voltage are finite, and a fast ramp makes a hollow current profile ([How the current gets in](3-current-diffusion.md)). Gym-TORAX enforces only the 0.2 MA/s rate limit.*
     3. Which actuator would you use to put current at one specific radius? *ECCD: its deposition is narrow and steerable.*
-
-[Next: the safety factor q →](2-safety-factor.md)

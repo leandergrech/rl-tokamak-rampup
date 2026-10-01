@@ -869,10 +869,10 @@
     const cv = canvas(root, 380);
     const info = note(root, "Loading results…");
     getJSON("results").then((rows) => {
-      const groupsOf = (g) => (g === "classical" || g === "reference" ? "reference" : g === "offline" ? "offline" : "online");
-      const groups = ["reference", "online", "offline"];
-      const on = { reference: true, online: true, offline: true };
-      const labels = { reference: "classical and open-loop search", online: "online RL (incl. ablations)", offline: "offline RL" };
+      const groupsOf = (g) => (g === "classical" || g === "reference" ? "reference" : g === "offline" || g === "residual" ? g : "online");
+      const groups = ["reference", "online", "offline", "residual"].filter((g) => g !== "residual" || rows.some((r) => r.group === g));
+      const on = { reference: true, online: true, offline: true, residual: true };
+      const labels = { reference: "classical and open-loop search", online: "online RL (incl. ablations)", offline: "offline RL", residual: "RL on top of PI (residual)" };
       groups.forEach((g, i) => chip(chips, labels[g], colors().series[i], true, (v) => ((on[g] = v), draw())));
       let hover = null;
       function draw() {

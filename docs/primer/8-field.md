@@ -67,5 +67,3 @@ The Gym-TORAX paper says TORAX's hypotheses "limit its use to preliminary invest
 | hybrid scenario | reduced-current H-mode with q_min just above 1 and broad low shear | [:rt-limits:](5-limits.md#the-iter-hybrid-scenario "Limits and the operating space") |
 | QLKNN | neural-network surrogate for turbulent transport used by TORAX | [:rt-fusion:](4-heat-and-fusion.md "Heat, confinement and fusion") |
 | RAPTOR, FGE | control-oriented transport code (EPFL); free-boundary equilibrium simulator used for TCV RL (licensed) | [:rt-limits:](5-limits.md "Limits and the operating space") |
-
-[← The Ramp-up Lab](7-lab.md) · [Back to the start](../02-primer.md)
