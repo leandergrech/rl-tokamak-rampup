@@ -66,8 +66,9 @@ Each algorithm needed more. PPO normalises the training reward (otherwise its va
 | PPO on PI, 5 seeds, final policies | 4.02–4.48 (mean 4.23) | **3.632 ± 0.037** (3.57–3.66) | ≈ 30,000 each; above PI after 2,360–23,060 |
 | MBPO on PI, 5 seeds, final policies | 3.88–8.77 (mean 7.01) | **3.619 ± 0.070** (3.51–3.69) | ≈ 3,000 each; above PI after 302–604 |
 | MBPO on PI, 5 seeds, best checkpoints | – | 3.711 (3.66–3.76) | |
+| PPO on PI, 2 long runs, final policies | 12.66 / 5.70 | **3.73 / 3.74** | 120,000 each |
 
-Every final policy is at or above PI's audited score. MBPO's high benchmark returns come from trimming the flat-top heating (Q up to about 300), which the audited cap makes neutral. Per-seed numbers, learning curves and the failed attempts are in [Designs and results](04-designs.md#what-the-numbers-say), item 7.
+Every final policy is at or above PI's audited score, and four times more PPO training adds about 0.1 more. MBPO's high benchmark returns come from trimming the flat-top heating (Q up to about 300), which the audited cap makes neutral. Per-seed numbers, learning curves and the failed attempts are in [Designs and results](04-designs.md#what-the-numbers-say), item 7.
 
 All ten final policies learned the same core correction: **heat during the ramp** (3–27 MW on average before 100 s, from the first seconds). PPO seed 0 adds mostly ECRH, seed 1 mostly NBI. A hotter plasma conducts better, so the current reaches the core later: q_min stays above 1 until 52–67 s instead of 51 s, and the seed that heats least gains least. After a three-second burst at full power while the scheduled pedestal rises, seed 0 settles at about 22 MW of NBI and 7 MW of ECRH, enough to keep P_SOL above P_LH. This is the hybrid-scenario recipe (heating early to shape the current profile) found from the reward alone. MBPO's best checkpoint heats fully from 50 s and ramps I_p down in the flat-top, which raises H98 partly because H98's yardstick τ_98 ∝ I_p^0.93 falls with the current.
 

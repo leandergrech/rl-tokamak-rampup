@@ -3,7 +3,7 @@ repo: https://github.com/leandergrech/rl-tokamak-rampup
 pages: https://leandergrech.github.io/rl-tokamak-rampup/
 step: 7
 state: done
-updated: 2026-10-01T16:40:00Z
+updated: 2026-10-01T17:30:00Z
 blockers: none
 next: Leander reviews the site and docs/upstream drafts; first experiment = randomised Gym-TORAX on the audited reward (notebooks/03)
 log:
@@ -27,6 +27,7 @@ log:
 - 2026-10-01T14:20:00Z Ramp-up Lab: presets grouped open loop / feedback / you; knobs panel (signal path plasma -> controller -> knobs, dials with PI proposal and correction, knob strips with TORAX and pins); feedback presets run live on the Lab (docs/javascripts/lab-control.js: PI port, observation builder, exported networks via scripts/export_lab_policies.py; node scripts/check_lab_control.mjs: networks 1e-6, PI 4e-5 MA, observation 8e-6); robustness table and new guided experiments on the Lab page; residual figures and results on the designs page
 - 2026-10-01T16:40:00Z residual RL seeds 2-4 on a rented vast.ai CPU (personal account, EPYC 7K62, 48 cores; same budgets in steps/episodes; laptop re-evaluation matches to 2e-5): PPO on PI final audited 3.632 +- 0.037 over 5 seeds (all above PI 3.50), MBPO on PI 3.619 +- 0.070 (best checkpoints 3.66-3.76, above PI after 302-604 steps); MBPO seeds 2-4 trim flat-top heating to 14-20 MW (Q 75-310, benchmark 7.2-8.8), neutral under the audited cap. Long PPO runs (120k steps, seeds 5-6) still training
 - 2026-10-01T16:40:00Z Ramp-up Lab redesign: presets above, sticky side pane (playback, episode timeline, controller hyper-controls: PI gains, j(0) target, network correction; salient plasma parameters; outcome sparklines), full simulation parameters and reward designer below; new panels: space-time maps (Lab vs TORAX), power and current balance, reward by term through the episode; TORAX profiles recorded for PPO/MBPO on PI; keyboard stepping; new page docs/04a-rl-on-pi.md
+- 2026-10-01T17:30:00Z long PPO-on-PI runs (120k steps, seeds 5-6, cloud): final audited 3.728 / 3.737 (3.645 / 3.62 at 30k), benchmark 12.66 / 5.70 (seed 5 trims flat-top heating to 4.6 MW, I_p 10.2 MA); laptop re-evaluation matches; vast instance destroyed, spend $0.65 on the personal account
 
 ## Fork task
 repo: https://github.com/leandergrech/gymtorax (branch fix/audited-iter-hybrid-reward; pinned backport branch fix/audited-iter-hybrid-reward-v1.0 off tag v1.0.0)

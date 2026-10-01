@@ -32,6 +32,8 @@
 | MOPO on pi_det (seed 0) | offline | 3.94 | 2.29 | 3.94 |  |  |  | 0 online, 151 logged | 32.4 | 15.0 | 0.69 | 59 | 1.04 | 15.9 |
 | MOPO on pi_noisy_0.1 (seed 0) | offline | 2.88 | 2.01 | 2.88 |  |  |  | 0 online, 3,020 logged | 24.1 | 3.6 | 2.49 | 0 | 0.88 | 1.2 |
 | MOPO on pi_noisy_0.3 (seed 0) | offline | 2.01 | 2.01 | 2.01 |  |  |  | 0 online, 3,020 logged | 21.5 | 13.0 | 2.68 | 0 | 0.89 | 1.8 |
+| PPO (SB3) on PI (residual, audited reward, long run: 120k steps) (seed 5) | residual | 12.66 | 3.73 | 35.78 | 6,590 | 3.74 | 6,590 | 120,000 | 78.0 | 10.2 | 0.54 | 80 | 1.21 | 90.1 |
+| PPO (SB3) on PI (residual, audited reward, long run: 120k steps) (seed 6) | residual | 5.70 | 3.74 | 5.70 | 6,665 | 3.75 | 6,665 | 120,000 | 78.5 | 15.0 | 0.57 | 76 | 1.18 | 26.2 |
 | PPO (SB3) on PI (residual, audited reward) (seed 0) | residual | 4.47 | 3.64 | 4.47 | 11,215 | 3.66 | 11,215 | 29,535 | 82.2 | 14.8 | 0.49 | 91 | 1.19 | 19.6 |
 | PPO (SB3) on PI (residual, audited reward) (seed 1) | residual | 4.02 | 3.64 | 4.05 | 2,360 | 3.66 | 2,360 | 29,390 | 82.2 | 14.8 | 0.50 | 85 | 1.20 | 14.2 |
 | PPO (SB3) on PI (residual, audited reward) (seed 2) | residual | 4.48 | 3.66 | 4.48 | 6,605 | 3.66 | 6,605 | 30,080 | 22.3 | 14.2 | 0.50 | 89 | 1.20 | 21.1 |
