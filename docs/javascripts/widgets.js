@@ -978,6 +978,15 @@
     attributes: true,
     attributeFilter: ["data-md-color-scheme"],
   });
+  // Shared toolkit for the widgets defined in other files (lab.js): they register here and reuse the helpers.
+  window.RT = {
+    register(name, fn) {
+      WIDGETS[name] = fn;
+      if (document.readyState !== "loading") mountAll();
+    },
+    mountAll, colors, el, controls, slider, button, chip, note, canvas, frame, line, hline, player, getJSON, fmtNum,
+    FONT, FONT_SMALL, isDark,
+  };
   if (window.document$ && window.document$.subscribe) window.document$.subscribe(mountAll);
   else if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountAll);
   else mountAll();

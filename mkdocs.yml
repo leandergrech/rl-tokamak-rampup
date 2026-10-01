@@ -38,7 +38,17 @@ nav:
   - Home: index.md
   - For Leander: for-leander.md
   - 1. The control problem: 01-problem.md
-  - 2. Domain primer: 02-primer.md
+  - 2. Domain primer:
+      - Start here: 02-primer.md
+      - 2.1 The machine: primer/1-machine.md
+      - 2.2 The safety factor q: primer/2-safety-factor.md
+      - 2.3 How the current gets in: primer/3-current-diffusion.md
+      - 2.4 Heat, confinement and fusion: primer/4-heat-and-fusion.md
+      - 2.5 Limits and the operating space: primer/5-limits.md
+      - 2.6 From physics to reward: primer/6-reward.md
+      - 2.7 The Ramp-up Lab: primer/7-lab.md
+      - 2.8 Gaps, status and glossary: primer/8-field.md
+      - Equation sheet: primer/equations.md
   - 3. Timeline 2018–2026: 03-timeline.md
   - 4. Designs and results: 04-designs.md
   - 5. Limitations: 05-limitations.md
@@ -69,5 +79,7 @@ extra_css:
 
 extra_javascript:
   - javascripts/widgets.js
+  - javascripts/tokamak-model.js
+  - javascripts/lab.js
   - javascripts/mathjax.js
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

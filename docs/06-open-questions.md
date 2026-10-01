@@ -55,7 +55,7 @@ Positions are this repo's judgement, not measurements; the effort estimates unde
 
 ## 4. Physics-constrained ramp-up: q_min ≥ 1 and f_GW < 1 as constraints
 
-**Why open.** The benchmark reward lets the PI baseline run 101 s with q_min < 1 (lowest 0.41) and end at Greenwald fraction 1.19 ([Limitations](05-limitations.md)). A hybrid scenario is defined by q_min just above 1 ([R27](07-references.md#r27), [primer §5](02-primer.md#5-the-iter-hybrid-scenario)). No fusion RL paper reports hard-constraint satisfaction; they all shape rewards ([designs](04-designs.md#published-designs-side-by-side)).
+**Why open.** The benchmark reward lets the PI baseline run 101 s with q_min < 1 (lowest 0.41) and end at Greenwald fraction 1.19 ([Limitations](05-limitations.md)). A hybrid scenario is defined by q_min just above 1 ([R27](07-references.md#r27), [primer, chapter 5](primer/5-limits.md#the-iter-hybrid-scenario)). No fusion RL paper reports hard-constraint satisfaction; they all shape rewards ([designs](04-designs.md#published-designs-side-by-side)).
 
 **What a first paper would show.** A constrained MDP version (Lagrangian SAC or a safety layer that projects actions using a learned or TORAX-based one-step model), and the Pareto front of benchmark score against constraint violation-seconds. The `qmin_safe` reward mode here is the unconstrained-penalty baseline for it.
 
@@ -87,7 +87,7 @@ Positions are this repo's judgement, not measurements; the effort estimates unde
 
 ## 8. Transfer across simulator versions and machines
 
-**Why open.** Cross-device transfer is the gap every published controller shares ([primer §8](02-primer.md#8-what-has-been-solved-and-what-has-not)). Inside TORAX there are two cheap proxies: gymtorax 1.0 → 1.1 (different TORAX physics and action semantics) and ITER → STEP once UKAEA's public benchmark cases appear ([R5](07-references.md#r5)).
+**Why open.** Cross-device transfer is the gap every published controller shares ([primer, chapter 8](primer/8-field.md#what-has-been-solved-and-what-has-not)). Inside TORAX there are two cheap proxies: gymtorax 1.0 → 1.1 (different TORAX physics and action semantics) and ITER → STEP once UKAEA's public benchmark cases appear ([R5](07-references.md#r5)).
 
 **What a first paper would show.** Zero-shot and few-shot transfer of policies trained on one TORAX configuration to another, against re-training from scratch.
 

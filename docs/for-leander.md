@@ -5,7 +5,7 @@
     **Suggested reading order (about 3 hours):**
 
     1. This page, then [The control problem](01-problem.md) with the reward explorer.
-    2. [Primer](02-primer.md) sections 2 and 3 with the four animations.
+    2. [Primer](02-primer.md) chapters 2–6 with their animations, then the [Ramp-up Lab](primer/7-lab.md) guided experiments.
     3. [Designs and results](04-designs.md), especially *How every number is produced and checked*.
     4. [Limitations](05-limitations.md) section 1 (the loophole), then [Open questions](06-open-questions.md).
 
@@ -24,7 +24,7 @@ You know the RL side: PPO, SAC and TD3 in SB3, Gymnasium plumbing, sample-effici
 ## What is new
 
 - **PDE dynamics with separated time scales.** The I_p action is a boundary condition on a diffusion equation for the current, and the "diffusivity" depends on temperature, which your other actions control. Actions show up in the reward 50–100 s later. Plan γ and critic learning accordingly (this repo uses γ = 0.995).
-- **Physics vocabulary is dense but finite.** Learn q, q95, q_min, β_N, f_GW, H98, Q, L-/H-mode, sawtooth, tearing mode, disruption. The [primer glossary](02-primer.md#9-glossary) has all of them.
+- **Physics vocabulary is dense but finite.** Learn q, q95, q_min, β_N, f_GW, H98, Q, L-/H-mode, sawtooth, tearing mode, disruption. The [primer glossary](primer/8-field.md#glossary) has all of them, and the [equation sheet](primer/equations.md) every formula.
 - **The benchmark is deterministic with a fixed initial state.** Any deterministic policy has exactly one return, and the best open-loop schedule is the optimal policy. Beating PI is a trajectory-optimisation result until someone randomises the environment.
 - **The reward is a proxy with holes.** "H-mode" means T_e(0) and T_i(0) above 10 keV; the pedestal is scheduled in time; q < 1 costs at most 1/150 per second. Read [Limitations](05-limitations.md) before you optimise hard.
 - **Version drift.** The published numbers need gymtorax 1.0.0 + torax 1.0.3; the current gymtorax 1.1.1 gives different returns and the paper's PI gains crash on it.
@@ -60,7 +60,7 @@ Each day is about 2 hours of reading and 2–4 hours of coding. Commands assume 
 
 | Day | Read | Do |
 |---|---|---|
-| 1 | [Primer](02-primer.md) §1–3; Gym-TORAX paper ([R1](07-references.md#r1)) | Run `notebooks/01-explore.ipynb`. Reproduce PI = 3.79 with `python scripts/evaluate.py --classical --n-random 4`. |
+| 1 | [Primer](02-primer.md) chapters 1–3 and Lab experiments 1–3; Gym-TORAX paper ([R1](07-references.md#r1)) | Run `notebooks/01-explore.ipynb`. Reproduce PI = 3.79 with `python scripts/evaluate.py --classical --n-random 4`. |
 | 2 | TORAX paper §II–III ([R4](07-references.md#r4)) and the equation summary ([R4b](07-references.md#r4b)) | Current-diffusion experiment: hold I_p at 3 MA, step it to 5 MA at t = 20 s, plot j(ρ̂) every 5 s. Repeat with 20 MW ECRH on from t = 0 and compare how fast j(0) rises. |
 | 3 | Degrave et al. 2022 including Methods ([R6](07-references.md#r6)) | Read `src/rl_tokamak/env.py` end to end. Add a reward mode of your own (e.g. a Greenwald penalty) and a unit test for it. |
 | 4 | Seo et al. 2024 ([R8](07-references.md#r8)); Char et al. 2023 ([R15e](07-references.md#r15-timeline-sources)) | Read `agents/mbpo.py` and `agents/ensemble.py`. Measure the ensemble's multi-step prediction error on `data/offline/pi_noisy_0.3.npz` for k = 1, 5, 20. |

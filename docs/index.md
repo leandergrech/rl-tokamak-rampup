@@ -71,9 +71,9 @@ What this repo found:
 
     ---
 
-    Current diffusion, the safety factor, Greenwald and IPB98 scalings, H-mode: with four animations.
+    Eight short chapters from the machine to the reward, an equation sheet, and the **Ramp-up Lab**: replay TORAX episodes on a calibrated in-browser model, drive the plasma yourself, redesign the reward.
 
-    [:octicons-arrow-right-24: The physics](02-primer.md)
+    [:octicons-arrow-right-24: The physics](02-primer.md) · [:octicons-arrow-right-24: The Lab](primer/7-lab.md)
 
 -   :material-timeline-clock-outline: **3. Timeline 2019–2026**
 

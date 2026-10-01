@@ -18,7 +18,7 @@ The PI controller that sets the published bar (3.79) produces this plasma (`data
 |---|---|---|---|
 | I_p at the end | 15.0 MA (reached at t = 61 s) | 12.5 MA | hybrid scenario: 11.2–12.5 MA at q95 ≈ 4 ([R27](07-references.md#r27)) |
 | q95 at the end | 3.31 | 4.09 | ≈ 4 for the hybrid scenario ([R27](07-references.md#r27)) |
-| q_min, lowest | 0.41 | 0.62 | just above 1: that is the definition of a hybrid scenario ([primer §5](02-primer.md#5-the-iter-hybrid-scenario)) |
+| q_min, lowest | 0.41 | 0.62 | just above 1: that is the definition of a hybrid scenario ([primer, chapter 5](primer/5-limits.md#the-iter-hybrid-scenario)) |
 | seconds with q_min < 1 | 101 of 151 | 83 of 151 | 0 |
 | peak Greenwald fraction | 1.19 | 1.19 | < 1 ([R28](07-references.md#r28)) |
 | Q at the end | 14.6 | 7.7 | ITER design goals: Q ≥ 10 at 15 MA, Q = 5 in the hybrid scenario ([R26](07-references.md#r26), [R27](07-references.md#r27)) |
@@ -34,7 +34,7 @@ The **H-mode test is a temperature threshold**, T_e(0) > 10 keV and T_i(0) > 10 
 
 ### The Q loophole, found by RL
 
-The fusion-gain term pays (Q/10)/50 per second with no cap, and Q = P_fus / P_aux has the auxiliary heating power in its denominator. Because the pedestal is scheduled in time rather than predicted from the heating power, the core stays above the 10 keV "H-mode" test after the heating is switched off. MBPO found this within 600–1,500 simulator steps in two of the runs in this repo:
+The fusion-gain term pays (Q/10)/50 per second with no cap, and Q = P_fus / (P_aux + P_ohm) has the auxiliary heating power in its denominator. Because the pedestal is scheduled in time rather than predicted from the heating power, the core stays above the 10 keV "H-mode" test after the heating is switched off. MBPO found this within 600–1,500 simulator steps in two of the runs in this repo:
 
 ```mermaid
 flowchart TD
