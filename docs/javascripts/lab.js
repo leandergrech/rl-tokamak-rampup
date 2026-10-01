@@ -922,6 +922,8 @@
       playBtn.textContent = "Play";
       S.dirty = true;
     });
+    const tl = canvas(sPlay, 58);
+    tl.c.title = "The episode at a glance: click or drag to jump. Keys: space plays or pauses, ← → step 1 s (with shift 10 s).";
     // controller
     const sCtl = section("Controller");
     const liveSeg = el("div", "lab-seg lab-seg-wide");
@@ -1001,7 +1003,7 @@
     const sOut = section("Outcome");
     const scoreBox = el("div", "lab-scores lab-scores-side");
     sOut.appendChild(scoreBox);
-    const sv = canvas(sOut, 147);
+    const sv = canvas(sOut, 136);
 
     // ================================================ the visual panels
     // ---- torus
@@ -2084,6 +2086,85 @@
       if (S.liveNote) ctlNote.innerHTML += ` <em>(${S.liveNote})</em>`;
     }
 
+    // ------------------------------------------------ side pane: the episode at a glance
+    const LANES = [
+      ["heating", (d) => (d.Pnbi + d.Pecrh) / 53, "rgb(235,120,30)"],
+      ["H-mode paid", (d) => (d.Te0 > 10 && d.Ti0 > 10 ? (d.psolPlh >= 1 ? 1 : 0.5) : 0), "#1baf7a"],
+      ["q_min < 1", (d) => (d.qmin < 1 ? 1 : 0), "#e34948"],
+      ["f_GW > 1", (d) => (d.fgw > 1 ? 1 : 0), "#c98500"],
+    ];
+    function drawTimeline() {
+      const col = colors();
+      const { ctx, w, h } = tl;
+      ctx.clearRect(0, 0, w, h);
+      const x0 = 66, x1 = w - 2, lh = 9, gap = 4, y0 = 4;
+      const sx = (t) => x0 + ((x1 - x0) * t) / 151;
+      const recs = S.recs.slice(1);
+      LANES.forEach(([lab, f, c], i) => {
+        const y = y0 + i * (lh + gap);
+        ctx.fillStyle = col.grid;
+        ctx.fillRect(x0, y, x1 - x0, lh);
+        ctx.fillStyle = c;
+        for (const d of recs) {
+          const v = clamp(f(d), 0, 1);
+          if (v <= 0) continue;
+          ctx.globalAlpha = 0.25 + 0.75 * v;
+          ctx.fillRect(sx(d.t - 1), y, Math.max(1, sx(d.t) - sx(d.t - 1)), lh);
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = col.muted;
+        ctx.font = FONT_SMALL;
+        ctx.textBaseline = "middle";
+        ctx.fillText(lab, 0, y + lh / 2);
+      });
+      if (S.as.pedMode === "scheduled") {
+        ctx.strokeStyle = col.muted;
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath();
+        ctx.moveTo(sx(S.as.pedOn), y0 - 2);
+        ctx.lineTo(sx(S.as.pedOn), h - 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.strokeStyle = col.accent;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx(S.cursor), 0);
+      ctx.lineTo(sx(S.cursor), h);
+      ctx.stroke();
+      tl.box = { x0, x1 };
+    }
+    let tlDrag = false;
+    const tlScrub = (e) => {
+      const r = tl.c.getBoundingClientRect(), b = tl.box || { x0: 66, x1: r.width };
+      S.cursor = clamp(Math.round((151 * (e.clientX - r.left - b.x0)) / (b.x1 - b.x0)), 0, S.recs.length - 1);
+      S.playing = false;
+      playBtn.textContent = "Play";
+      S.dirty = true;
+    };
+    tl.c.addEventListener("pointerdown", (e) => ((tlDrag = true), tlScrub(e)));
+    tl.c.addEventListener("pointermove", (e) => tlDrag && tlScrub(e));
+    window.addEventListener("pointerup", () => (tlDrag = false));
+    // keys: space plays or pauses, arrows step (shift: 10 s); ignored while typing in a control
+    document.addEventListener("keydown", (e) => {
+      const tag = (e.target && e.target.tagName) || "";
+      if (/INPUT|SELECT|TEXTAREA|BUTTON/.test(tag) && e.key === " ") return;
+      if (/SELECT|TEXTAREA/.test(tag) || !root.isConnected) return;
+      if (!visible) return;
+      if (e.key === " ") {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+        if (tag === "INPUT") return;
+        e.preventDefault();
+        const step = (e.shiftKey ? 10 : 1) * (e.key === "ArrowRight" ? 1 : -1);
+        S.cursor = clamp(S.cursor + step, 0, S.recs.length - 1);
+        S.playing = false;
+        playBtn.textContent = "Play";
+        S.dirty = true;
+      }
+    });
+
     // ------------------------------------------------ side pane: outcomes as sparklines
     const SPARK = [
       { k: "qmin", lab: "q_min", yr: [0, 4], thr: 1, ok: (v) => v >= 1, f: (v) => v.toFixed(2) },
@@ -2397,6 +2478,7 @@
       updateKnobBanner();
       drawKnobStrips();
       drawSpark();
+      drawTimeline();
       drawMaps();
       drawBalance();
       tSl.set(S.cursor);
@@ -2471,6 +2553,7 @@
         kv.fit();
         ks.fit();
         sv.fit();
+        tl.fit();
         mv.fit();
         bv.fit();
         ra.fit();
