@@ -2,6 +2,7 @@
 
 python scripts/evaluate.py --classical            # PI, open-loop, Gym-TORAX's own PIDAgent, random (N seeds)
 python scripts/evaluate.py --runs data/runs/*     # re-evaluate stored RL checkpoints
+python scripts/evaluate.py --best data/runs/ppo_res_s0   # score a run's best-during-training checkpoint
 python scripts/evaluate.py --summary              # collect everything into data/results/summary.{json,md}
 
 Outputs go to data/results/ and per-episode trajectories to data/trajectories/.
@@ -76,6 +77,17 @@ def classical(n_random: int, workers: int) -> dict:
     RESULTS.mkdir(parents=True, exist_ok=True)
     (RESULTS / "classical.json").write_text(json.dumps(out, indent=2, default=float))
     return out
+
+
+def best(paths: list[str]) -> None:
+    """Score the best-during-training checkpoint of each run (writes best_episode.csv and best_result.json)."""
+    from rl_tokamak.evaluate import evaluate_run
+
+    for p in map(Path, paths):
+        if (p / "policy_best.pt").exists() or (p / "policy_best.zip").exists():
+            res = evaluate_run(p, which="best")
+            (p / "best_result.json").write_text(json.dumps(res, indent=2, default=float))
+            print(f"{p.name} best: benchmark {res['benchmark_return']:.4f}, audited {res['audited_return']:.4f}", flush=True)
 
 
 def runs(paths: list[str], tol: float = 1e-6) -> None:
@@ -154,10 +166,14 @@ def summary() -> None:
             variant.append(f"ip={ec['ip_mode']}")
         if not offline and abs(ec.get("ip_min", 3e6) - 3e6) > 1:
             variant.append(f"I_p floor {ec['ip_min'] / 1e6:.0f} MA")
-        if variant:
+        residual = (ec.get("extra") or {}).get("residual")
+        if residual:  # residual RL on the PI controller: its own group, not an ablation
+            group = "residual"
+            tag += " on PI (residual" + (", audited reward" if ec["reward_mode"] == "patched" else "") + ")"
+        elif variant:
             group = "ablation"
             tag += " [" + ", ".join(variant) + "]"
-        best, beat_pi = None, None
+        best, beat_pi, best_aud, beat_pi_aud = None, None, None, None
         curve_path = res_path.parent / "curve.json"
         if curve_path.exists():
             ev = [r for r in json.loads(curve_path.read_text())["eval"] if "eval_return" in r]
@@ -167,9 +183,14 @@ def summary() -> None:
                 if xk:
                     pi_ret = cl["pi"]["benchmark_return"] if "pi" in cl else PAPER["pi"]
                     beat_pi = next((r[xk] for r in ev if r["eval_return"] > pi_ret), None)
+                if "eval_audited" in ev[0]:
+                    best_aud = max(r["eval_audited"] for r in ev)
+                    pi_aud = _audited_csv(TRAJ / "pi.csv") or 3.5016
+                    beat_pi_aud = next((r[xk] for r in ev if r["eval_audited"] > pi_aud), None) if xk else None
         rows.append({"policy": LABELS.get(cfg["algo"], cfg["algo"]) + tag + f" (seed {cfg['seed']})", "group": group,
                      "run": res_path.parent.name, "return": res["benchmark_return"], "paper": None,
                      "best_during_training": best, "steps_to_beat_pi": beat_pi,
+                     "best_audited_during_training": best_aud, "steps_to_beat_pi_audited": beat_pi_aud,
                      "env_steps": cfg.get("env_steps"), "dataset_transitions": cfg.get("dataset_transitions"),
                      "minutes": res.get("total_minutes", cfg.get("train_minutes")),
                      "failed": res["failed"], "q_min_final": res.get("q_min_final"), "fGW_max": res.get("fGW_max"),
@@ -195,15 +216,17 @@ def summary() -> None:
         return "" if x is None else f"{int(x):,}"
 
     lines = ["| Policy | Group | Return (final policy) | Audited score | Best during training | Sim. steps to beat PI "
+             "| Best audited during training | Sim. steps to beat PI's audited score "
              "| Sim. steps used | Wall time (min) | I_p end (MA) | q_min end | s with q_min<1 | max f_GW | Q end |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         ret = f(r["return"]) + (f" ± {f(r['return_std'])}" if "return_std" in r else "")
         if r.get("paper") is not None:
             ret += f" (paper {f(r['paper'])})"
         used = n(r.get("env_steps")) if not r.get("dataset_transitions") else f"0 online, {n(r['dataset_transitions'])} logged"
         lines.append(f"| {r['policy']} | {r['group']} | {ret} | {f(r.get('audited'))} | {f(r.get('best_during_training'))} | "
-                     f"{n(r.get('steps_to_beat_pi'))} | {used} | {f(r['minutes'], 1)} | {f(r.get('Ip_final_MA'), 1)} | "
+                     f"{n(r.get('steps_to_beat_pi'))} | {f(r.get('best_audited_during_training'))} | "
+                     f"{n(r.get('steps_to_beat_pi_audited'))} | {used} | {f(r['minutes'], 1)} | {f(r.get('Ip_final_MA'), 1)} | "
                      f"{f(r.get('q_min_final'))} | {n(r.get('t_q_min_below_1_s'))} | {f(r.get('fGW_max'))} | "
                      f"{f(r.get('Q_final'), 1)} |")
     (RESULTS / "summary.md").write_text("\n".join(lines) + "\n")
@@ -216,12 +239,15 @@ def main(argv=None):
     p.add_argument("--n-random", type=int, default=20)
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--runs", nargs="*", default=None)
+    p.add_argument("--best", nargs="*", default=None, help="score these runs' best-during-training checkpoints")
     p.add_argument("--summary", action="store_true")
     a = p.parse_args(argv)
     if a.classical:
         classical(a.n_random, a.workers)
     if a.runs:
         runs(a.runs)
+    if a.best:
+        best(a.best)
     if a.summary:
         summary()
 

@@ -9,8 +9,14 @@ The ensemble is refit after every real episode. The time feature is advanced exa
 (it is known), so the model only has to learn the plasma response and the reward.
 
 Everything that matters for the data-efficiency question is logged: real simulator
-steps used for training, wall time, and the benchmark return of the deterministic
-policy after each evaluation.
+steps used for training, wall time, and the benchmark and audited returns of the
+deterministic policy after each evaluation. The best checkpoint is chosen by the
+audited return when the training reward is the audited one (``reward_mode="patched"``).
+
+In residual mode (``ResidualEnv``: the agent corrects the PI controller) the actor's
+output layer starts at zero mean and a small spread, so the first episodes are PI
+episodes with small perturbations rather than uniform random actions, and the PI
+features of model rollouts are advanced exactly where they are known.
 """
 
 from __future__ import annotations
@@ -23,6 +29,7 @@ import torch
 
 from ..env import RampupEnv
 from ..evaluate import run_policy
+from ..residual import ResidualAdvance, ResidualEnv
 from .ensemble import Ensemble
 from .sac_core import SAC, Buffer
 
@@ -46,7 +53,69 @@ class MBPOConfig:
     gamma: float = 0.995
     lr: float = 3e-4
     eval_every_episodes: int = 2
+    residual_init: bool = False  # zero-mean actor output and log_std = init_log_std; no uniform-random first episode
+    init_log_std: float = -1.0
+    init_alpha: float = 1.0  # SAC entropy weight at the start (residual runs: 0.1, so entropy does not push far from PI)
+    failure_rule: bool = False  # end model rollouts that leave Gym-TORAX's bounds, with the failure reward
+    known_reward: bool = False  # score model rollouts with the reward formula on the predicted state (KnownReward)
     seed: int = 0
+
+
+class FailureRule:
+    """Gym-TORAX's bounds file (envs/iter_hybrid.json) inside model rollouts: T_e, T_i <= 35 keV and q <= 100,
+    otherwise the step returns -1000 and the episode ends. The observation set "profiles" carries T_e(0), T_i(0)
+    and q at the edge, so a model rollout can end the same way a real episode does. Other observation sets: no rule.
+    """
+
+    def __init__(self, env: RampupEnv):
+        from ..env import PROFILE_IDX, SCALAR_KEYS
+
+        self.active = env.cfg.obs_set == "profiles" and env._stats is not None
+        n0 = 1 + 3 + len(SCALAR_KEYS)  # time, last action, scalars
+        k = len(PROFILE_IDX)
+        self.idx = np.array([n0, n0 + 1, n0 + 3 + 4 * k - 1])  # T_e(0), T_i(0), q(rho=1)
+        self.limit = np.array([35.0, 35.0, 100.0])
+        if self.active:
+            self.mu, self.sd = env._stats[0][self.idx], env._stats[1][self.idx]
+        self.penalty = -1000.0 if env.cfg.reward_mode == "benchmark" else env.cfg.failure_penalty
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        if not self.active:
+            return np.zeros(len(x), dtype=bool)
+        return (x[:, self.idx] * self.sd + self.mu > self.limit).any(axis=1)
+
+
+class KnownReward:
+    """The training reward is a known function of the next observation: Gym-TORAX's four reward terms, or the audited
+    ones, times ``reward_scale``. Model rollouts can therefore score their predicted states exactly instead of using
+    the learned reward head, which cannot represent the H-mode gate (a step in T_e(0), T_i(0) and, audited,
+    P_SOL - P_LH) and gets exploited. Needs the observation sets "profiles" or "scalars", which carry every input.
+    """
+
+    KEYS = ("Q_fusion", "H98", "q_min", "q95", "P_SOL_total", "P_LH")
+
+    def __init__(self, env: RampupEnv):
+        from ..env import SCALAR_KEYS
+
+        cfg = env.cfg
+        self.active = (env._stats is not None and cfg.obs_set in ("profiles", "scalars")
+                       and cfg.reward_mode in ("scaled", "patched", "benchmark"))
+        n0 = 1 + 3  # time, last action
+        self.idx = np.array([n0 + SCALAR_KEYS.index(k) for k in self.KEYS] + [n0 + len(SCALAR_KEYS), n0 + len(SCALAR_KEYS) + 1])
+        if self.active:
+            self.mu, self.sd = env._stats[0][self.idx], env._stats[1][self.idx]
+        self.audited = cfg.reward_mode == "patched"
+        self.scale = 1.0 if cfg.reward_mode == "benchmark" else cfg.reward_scale
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        q, h98, qmin, q95, p_sol, p_lh, te0, ti0 = (x[:, self.idx] * self.sd + self.mu).T
+        h = (te0 > 10) & (ti0 > 10)
+        if self.audited:
+            h &= p_sol >= p_lh
+            q = np.minimum(q, 10.0)
+        r = (np.where(h, q / 10, 0.0) + np.where(h, np.minimum(h98, 1.0), 0.0)) / 50
+        r += (np.minimum(qmin, 1.0) + np.minimum(q95 / 3, 1.0)) / 150
+        return (self.scale * r).astype(np.float32)
 
 
 class TimeAdvance:
@@ -82,11 +151,26 @@ def train_mbpo(env: RampupEnv, cfg: MBPOConfig, log=print, eval_env: RampupEnv |
     eval_env = eval_env or env
     od, ad = env.observation_space.shape[0], env.action_space.shape[0]
     agent = SAC(od, ad, cfg.hidden, cfg.lr, cfg.gamma, seed=cfg.seed)
+    with torch.no_grad():
+        agent.log_alpha.fill_(float(np.log(cfg.init_alpha)))
+    if cfg.residual_init:
+        head = agent.actor.net[-1]
+        with torch.no_grad():
+            head.weight.zero_()
+            head.bias.zero_()
+            head.bias[ad:] = cfg.init_log_std
     model = Ensemble(od, ad, cfg.ensemble_size, cfg.model_hidden, seed=cfg.seed)
     real = Buffer(od, ad, cfg.real_episodes * env.horizon + 10)
     model_cap = cfg.rollout_batch * cfg.k_max * cfg.model_retain_rollouts
     mbuf = Buffer(od, ad, model_cap)
     advance = TimeAdvance(env)
+    if isinstance(env, ResidualEnv):
+        advance = ResidualAdvance(env, advance)
+    select = "audited_return" if env.cfg.reward_mode == "patched" else "benchmark_return"
+    rule = FailureRule(env) if cfg.failure_rule else None
+    reward_fn = KnownReward(env) if cfg.known_reward else None
+    if reward_fn is not None and not reward_fn.active:
+        reward_fn = None
     t0 = time.time()
     curve, real_steps, model_fitted = [], 0, False
     best_eval = -np.inf
@@ -95,7 +179,7 @@ def train_mbpo(env: RampupEnv, cfg: MBPOConfig, log=print, eval_env: RampupEnv |
         x, _ = env.reset()
         done, ep_ret = False, 0.0
         while not done:
-            a = agent.act(x) if real_steps > 0 or model_fitted else env.action_space.sample()
+            a = agent.act(x) if real_steps > 0 or model_fitted or cfg.residual_init else env.action_space.sample()
             x2, r, term, trunc, info = env.step(a)
             done = term or trunc
             ep_ret += info["benchmark_reward"]
@@ -104,7 +188,7 @@ def train_mbpo(env: RampupEnv, cfg: MBPOConfig, log=print, eval_env: RampupEnv |
             real_steps += 1
             if model_fitted and real_steps % cfg.rollout_every == 0:
                 _branch(agent, model, real, mbuf, advance, k_for_episode(cfg, ep), cfg.rollout_batch, rng,
-                        penalty_lambda, env.cfg.clip_obs)
+                        penalty_lambda, env.cfg.clip_obs, rule, reward_fn)
             if model_fitted and mbuf.n > cfg.batch:
                 for _ in range(cfg.utd):
                     nr = int(cfg.batch * cfg.real_ratio)
@@ -115,15 +199,16 @@ def train_mbpo(env: RampupEnv, cfg: MBPOConfig, log=print, eval_env: RampupEnv |
         fit = model.fit(o_, a_, r_, o2_, rng=rng)
         model_fitted = True
         _branch(agent, model, real, mbuf, advance, k_for_episode(cfg, ep), cfg.rollout_batch, rng,
-                penalty_lambda, env.cfg.clip_obs)
+                penalty_lambda, env.cfg.clip_obs, rule, reward_fn)
         minutes = (time.time() - t0) / 60
         row = {"episode": ep + 1, "real_steps": real_steps, "minutes": minutes, "train_return": ep_ret,
                "model_holdout_mse": fit["holdout_mse_norm"], "k": k_for_episode(cfg, ep)}
         if (ep + 1) % cfg.eval_every_episodes == 0 or ep == cfg.real_episodes - 1 or minutes > cfg.max_minutes:
             ev = run_policy(eval_env, lambda o: agent.act(o, deterministic=True))
-            row.update({"eval_return": ev["benchmark_return"], "eval_failed": ev["failed"]})
-            if ev["benchmark_return"] > best_eval:
-                best_eval = ev["benchmark_return"]
+            row.update({"eval_return": ev["benchmark_return"], "eval_audited": ev["audited_return"],
+                        "eval_failed": ev["failed"]})
+            if ev[select] > best_eval:
+                best_eval = ev[select]
                 if on_best is not None:
                     on_best(agent)
         curve.append(row)
@@ -135,7 +220,8 @@ def train_mbpo(env: RampupEnv, cfg: MBPOConfig, log=print, eval_env: RampupEnv |
 
 
 def _branch(agent: SAC, model: Ensemble, real: Buffer, mbuf: Buffer, advance: TimeAdvance, k: int, n: int,
-            rng: np.random.Generator, penalty_lambda: float, clip: float) -> None:
+            rng: np.random.Generator, penalty_lambda: float, clip: float, rule: FailureRule | None = None,
+            reward_fn: KnownReward | None = None) -> None:
     o = real.sample(n, rng)[0]
     alive = np.ones(n, dtype=bool)
     for _ in range(k):
@@ -145,7 +231,13 @@ def _branch(agent: SAC, model: Ensemble, real: Buffer, mbuf: Buffer, advance: Ti
         o2, r, unc = model.predict(o, a, rng)
         o2 = np.clip(o2, -clip, clip)
         d = advance(o, o2)
+        if reward_fn is not None:
+            r = reward_fn(o2)
         r = r - penalty_lambda * unc
+        if rule is not None:
+            fail = rule(o2)
+            r = np.where(fail, rule.penalty, r)
+            d = np.maximum(d, fail.astype(np.float32))
         mbuf.add_batch(o[alive], a[alive], r[alive], o2[alive], d[alive])
         alive &= d < 0.5
         if not alive.any():

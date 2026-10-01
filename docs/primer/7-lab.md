@@ -45,9 +45,19 @@ Three things the knobs panel makes visible:
 
 **Feedback is not automatically robust.** Audited score on the Lab when the transport is scaled, for each recorded episode replayed as recorded (open loop) and with its controller running live:
 
-ROBUSTNESS_TABLE
+| Preset | Recorded knobs, transport × 0.7 | × 1 | × 1.5 | Controller live, × 0.7 | × 1 | × 1.5 |
+|---|---|---|---|---|---|---|
+| Open-loop reference | 3.52 | 3.41 | 3.29 | – | – | – |
+| Best audited schedule | 3.56 | 3.50 | 3.40 | – | – | – |
+| Heating cut at 105 s | 2.93 | 2.30 | 1.89 | – | – | – |
+| PI controller | 3.39 | 3.32 | 3.22 | 3.40 | 3.33 | 3.14 |
+| PPO on PI | 3.62 | 3.54 | 3.45 | 3.56 | 3.48 | 3.35 |
+| MBPO on PI (best checkpoint) | 3.73 | 3.63 | 3.50 | 3.69 | 3.59 | 3.48 |
+| TD3+BC on noisy PI logs | 3.48 | 3.40 | 3.30 | 3.43 | 3.34 | 3.26 |
+| PPO exploit | 3.73 | 3.62 | 2.91 | 3.80 | 3.74 | 3.64 |
+| MBPO seed 1 (exploit) | 1.89 | 1.85 | 1.83 | 2.06 | 2.06 | 2.08 |
 
-PI live does not protect its audited score against the transport change any better than its replayed knobs: PI regulates j(0), not the reward, so its corrections are right for j(0) and neutral or wrong for the score. Feedback helps when what it measures and regulates is what matters. Whether learned feedback policies keep their advantage across plasmas is [Open question 3](../06-open-questions.md#3-does-feedback-matter-a-randomised-gym-torax), to be answered on TORAX, not here.
+Three readings. PI live does not protect its audited score against the transport change any better than its replayed knobs: PI regulates j(0), not the reward, so its corrections are right for j(0) and neutral or wrong for the score. The residual agents keep their margin over PI when they run live, 0.15–0.34 at every transport setting, so what they learned on TORAX (heat during the ramp) carries over to a different plant. But on the Lab they do not beat their own replayed TORAX knobs: their networks were trained on TORAX's plasma, and here they read a slightly different one. Feedback helps when what it measures and regulates is what matters, and when it was learned on the plant it runs on. Whether learned feedback policies keep their advantage across plasmas is [Open question 3](../06-open-questions.md#3-does-feedback-matter-a-randomised-gym-torax), to be answered on TORAX, not here.
 
 **How the live controllers are checked** (`node scripts/check_lab_control.mjs fixture.json --robustness`, fixture from `python scripts/make_lab_fixture.py`): every exported network reproduces its PyTorch actions to 10⁻⁵; the PI port, fed TORAX's recorded j(0), reproduces the recorded TORAX PI commands to 4 × 10⁻⁵ MA; and the observation vector built in JavaScript from TORAX quantities matches `src/rl_tokamak/env.py` to 10⁻⁵, feature by feature. The networks are exported by `python scripts/export_lab_policies.py` and loaded only when live mode is first switched on (80–860 kB each).
 
@@ -63,7 +73,8 @@ Each one takes a few minutes. Predict first, then look.
 6. **Robustness, the "control level".** Load the [best audited schedule](7-lab.md?preset=cem_audited&tab=T&transport=1.5) with *transport ×* 1.5, then try 0.7. Its knobs do not move: a schedule cannot react. Now [PI live at ×1.5](7-lab.md?preset=pi&live=1&tab=j&transport=1.5): watch the knobs panel as j(0) runs ahead of its target and PI ramps I_p back down, and compare with the dashed TORAX knobs. *Predict:* does reacting help PI's audited score? (See [the table above](#open-loop-and-feedback).) This is the experiment [Open question 3](../06-open-questions.md#3-does-feedback-matter-a-randomised-gym-torax) proposes on TORAX.
 7. **Sawteeth.** Switch the sawtooth model on for [PI](7-lab.md?preset=pi&t=120&tab=T&sawtooth=1). How do T_e(0), q_min and the benchmark return change? Would the heating cut still pay with sawteeth on?
 8. **Design a reward.** Open the custom reward, add a Greenwald penalty and an end-of-episode rule at f_GW > 1.2. Go through the presets and write down the ranking. Does any honest policy beat PI? Does any exploit survive?
-9. **Same network, another plasma.** Load the [PPO exploit](7-lab.md?preset=ppo_s1&t=110&tab=T) and play it in *recorded* mode, then switch the knobs panel to *controller live on the Lab*. *Predict* before you switch: will it cut the heating at 104 s as it did on TORAX? Watch the strip of cells under "what it reads now" around 100 s and compare the two benchmark returns.
+9. **What RL adds to PI.** Load [PPO on PI](7-lab.md?preset=ppo_res&t=60&tab=q) and watch the pink correction in the knobs panel: where does it add heating, and what does that do to q_min compared with [PI at the same time](7-lab.md?preset=pi&t=60&tab=q)? Then load [MBPO on PI](7-lab.md?preset=mbpo_res&t=135&tab=T): what does its I_p ramp-down after 109 s do to H98, and why should that make you wary of H98 as a reward term? ([Designs and results](../04-designs.md), item 7.)
+10. **Same network, another plasma.** Load the [PPO exploit](7-lab.md?preset=ppo_s1&t=110&tab=T) and play it in *recorded* mode, then switch the knobs panel to *controller live on the Lab*. *Predict* before you switch: will it cut the heating at 104 s as it did on TORAX? Watch the strip of cells under "what it reads now" around 100 s and compare the two benchmark returns.
 
 ## Model card {#model-card}
 
@@ -82,14 +93,16 @@ Each one takes a few minutes. Predict first, then look.
 | TD3+BC on noisy PI logs | 4.01 | 3.61 | 3.40 | 56 | 65 | 0.43 / 0.41 | 27.3 / 20.2 | 16.9 / 14.7 | 1.20 / 1.17 |
 | MBPO seed 1 (exploit) | 18.42 | 12.84 | 1.85 | 53 | 70 | 0.67 / 0.60 | 22.5 / 16.1 | 123 / 125 | 1.06 / 1.12 |
 | PPO seed 1 (exploit) | 48.98 | 35.92 | 3.62 | 93 | 96 | 0.71 / 0.78 | 27.3 / 21.0 | 755 / 415 | 1.23 / 1.13 |
+| PPO on PI, seed 0 | 4.47 | 4.02 | 3.54 | 61 | 69 | 0.49 / 0.49 | 26.8 / 21.0 | 19.6 / 18.4 | 1.19 / 1.15 |
+| MBPO on PI, seed 0, best checkpoint | 3.92 | 3.73 | 3.63 | 52 | 73 | 0.57 / 0.58 | 31.4 / 21.7 | 10.6 / 11.4 | 1.19 / 1.41 |
 
-The table was computed with Node.js (`scripts/calibrate_lab_model.mjs` uses the same model file). Browsers implement `exp` and `pow` slightly differently, and the stiff transport amplifies that on the exploit episodes, so the Lab may show returns about 1 % different from the table there.
+The table was computed with Node.js (`scripts/calibrate_lab_model.mjs` uses the same model file; the last two rows were added after the calibration, which did not see them). Browsers implement `exp` and `pow` slightly differently, and the stiff transport amplifies that on the exploit episodes, so the Lab may show returns about 1 % different from the table there.
 
 **Where it is wrong, and why.**
 
 - **The flat-top core runs cooler than TORAX on the highest-current trajectories** (PI: 23 keV against 27.5 keV at the end), while Q stays close (14.6 on both) because density and ion temperature compensate. Treat absolute temperatures as ±20 %.
 - **q_min crosses 1 a few seconds late** for the fastest ramps (PI: 57 s against 51 s) and much later for MBPO seed 1 (70 s against 53 s).
-- **Heating during the ramp** (PPO, MBPO, TD3+BC heat from the first seconds): the Lab keeps the current out of the core longer than TORAX (PPO at 99 s: j(0) = 0.9 against 1.5 MA/m²), so q_min stays high for longer. Bootstrap and ECCD at low current are the least constrained parts of the model.
+- **Heating during the ramp** (PPO, MBPO, TD3+BC and both residual agents heat before 100 s): the Lab keeps the current out of the core longer than TORAX (PPO at 99 s: j(0) = 0.9 against 1.5 MA/m²; MBPO on PI: q_min < 1 from 73 s against 52 s), so q_min stays high for longer. With full NBI from 50 s, MBPO on PI also shows the Lab's beam fuelling at its worst: f_GW 1.41 at the end against TORAX's 1.19. Bootstrap and ECCD at low current are the least constrained parts of the model.
 - **The low-current exploit is only partly reproduced.** MBPO seed 1 ends at 3 MA with the heating off, and TORAX still reports T_e(0) ≈ 22 keV and H98 ≈ 4.2: its turbulent transport nearly vanishes at low current and power. The Lab keeps a floor diffusivity, so this episode scores 12.8 there instead of 18.4. An H98 of 4 is itself a reason to distrust that corner of the benchmark.
 - **Exploit returns differ in size but not in rank**: the heating cut scores 34.4 on the Lab against 22.7 on TORAX, PPO's episode 35.9 against 49.0. On both simulators every exploit scores far above every honest policy on the benchmark reward, and between 1.9 and 3.6 on the audited one.
 - **Not modelled at all:** particle transport (density is 0-D), rotation, fast-ion physics, impurity transport, the low-density branch of the L–H threshold, and the TORAX bounds file (the Lab never returns −1000 unless the custom reward's termination rules say so).

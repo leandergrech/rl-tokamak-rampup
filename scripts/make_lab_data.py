@@ -2,6 +2,8 @@
 
 For each recorded TORAX episode: the action sequence (I_p set-point, P_NBI, P_ECRH per 1 s step), so the Lab
 can replay it on its reduced model, and the TORAX traces, so the Lab can draw them as dashed "ghost" lines.
+Residual agents (an RL correction on top of PI) also get the PI proposal and the correction at every step, in
+normalised action units, so the Lab's knobs panel can show which part of each knob movement came from which.
 No simulation here; everything comes from CSVs under data/.
 
 python scripts/make_lab_data.py
@@ -24,7 +26,10 @@ EPISODES = {  # key: (label, csv)
     "td3bc": ("TD3+BC on noisy PI logs", "data/runs/td3bc_pi_noisy_0.3_s0/final_episode.csv"),
     "mbpo_s1": ("MBPO seed 1 (exploit)", "data/runs/mbpo_s1/final_episode.csv"),
     "ppo_s1": ("PPO seed 1 (exploit)", "data/runs/ppo_s1/final_episode.csv"),
+    "ppo_res": ("PPO on PI (residual, audited reward)", "data/runs/ppo_res_s0/final_episode.csv"),
+    "mbpo_res": ("MBPO on PI (residual, audited reward, best checkpoint)", "data/runs/mbpo_res_s0/best_episode.csv"),
 }
+J0_INITIAL = 0.38294746  # MA/m^2, TORAX's j_total(rho=0) at reset (the ITER hybrid initial state is fixed)
 TRACES = {
     "Ip": "Ip_MA", "Pnbi": "P_NBI_MW", "Pecrh": "P_ECRH_MW", "Te0": "T_e0", "Ti0": "T_i0", "j0": "j0_MA_m2",
     "qmin": "q_min", "q95": "q95", "Q": "Q_fusion", "H98": "H98", "fgw": "fgw_n_e_line_avg", "betaN": "beta_N",
@@ -54,6 +59,12 @@ def main() -> None:
         }
         entry["torax"]["psolPlh"] = [_r(float(v)) for v in d["P_SOL_total"] / d["P_LH"]]
         entry["torax"]["cum"] = [_r(float(v)) for v in d["r_bench"].cumsum()]
+        entry["j0_initial"] = J0_INITIAL
+        if "base_ip" in d:
+            cfg = json.loads((Path(path).parent / "config.json").read_text())
+            entry["scale"] = cfg["env_config"]["extra"]["residual"]["scale"]
+            entry["actions"]["base"] = [[_r(float(r[f"base_{k}"]), 5) for k in ("ip", "nbi", "ecrh")] for _, r in d.iterrows()]
+            entry["actions"]["res"] = [[_r(float(r[f"res_{k}"]), 5) for k in ("ip", "nbi", "ecrh")] for _, r in d.iterrows()]
         out[key] = entry
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(out, separators=(",", ":")))

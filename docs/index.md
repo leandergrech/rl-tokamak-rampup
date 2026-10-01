@@ -33,6 +33,8 @@ Code: <https://github.com/leandergrech/rl-tokamak-rampup>. Written for Leander G
 | MBPO trained on the audited reward, 3 seeds | −997.92, 2.98, 3.16 | −997.96, 2.98, 3.12 | ≈ 3,700 |
 | TD3+BC on noisy PI logs (σ 0.3) | 4.01 | 3.56 | 0 online |
 | CEM open-loop schedule, audited objective | 3.87 | 3.63 | 24,160 |
+| PPO on PI (residual, audited reward), seed 0 / seed 1 | 4.47 / 4.02 | **3.64** / **3.64** | 29,535 / 29,390 |
+| MBPO on PI (residual, audited reward), seed 0 / seed 1, final (best checkpoint) | 3.88 / 6.59 | 3.51 (**3.72**) / 3.63 (3.66) | 3,020 / 3,020 (302 / 604 to beat PI) |
 
 <div class="rt-widget" data-widget="results" data-title="Interactive: every policy, benchmark return against audited score"></div>
 
@@ -40,8 +42,9 @@ What this repo found:
 
 1. **The published PI and open-loop numbers reproduce exactly on gymtorax 1.0.0 / TORAX 1.0.3; the random-policy number (−10.79) does not** (3.23 ± 0.06, no failures in 20 episodes), and the current gymtorax 1.1.1 changes all three ([details](01-problem.md#which-version-is-the-benchmark)).
 2. **The benchmark reward is exploitable.** Its fusion-gain term Q/10 is uncapped and its H-mode test is a core-temperature threshold under a time-scheduled pedestal, so switching the heating off after t = 105 s sends Q = P_fus/P_aux into the hundreds. A fixed open-loop sequence scores 22.74; MBPO, SAC and PPO found variants of it on their own (18.42, 27.08, 48.98) ([mechanism](05-limitations.md#the-q-loophole-found-by-rl)).
-3. **Under an audited score** (Q capped at 10, H-mode only while P_SOL ≥ P_LH), the best learned policy scores 3.69 against PI's 3.50 and the best open-loop schedule found 3.63: the real headroom above PI is a few tenths.
-4. A fork of Gym-TORAX with an additive `IterHybridAudited-v0` environment, tests and a baseline table is on [`leandergrech/gymtorax`, branch `fix/audited-iter-hybrid-reward`](https://github.com/leandergrech/gymtorax/tree/fix/audited-iter-hybrid-reward).
+3. **Under an audited score** (Q capped at 10, H-mode only while P_SOL ≥ P_LH), the best policy learned from scratch scores 3.69 against PI's 3.50 and the best open-loop schedule found 3.63: the real headroom above PI is a few tenths.
+4. **RL on top of PI beats it without the loophole.** With the agent outputting a correction to the PI controller's action, trained and checkpointed on the audited score, both PPO seeds end at 3.64 audited (4.47 and 4.02 on the benchmark) after about 29,500 simulator steps, and MBPO passes PI after 302–604 steps (best checkpoint 3.72, final policies 3.51 and 3.63). The agents heat during the ramp, which keeps q_min above 1 about 10 s longer, and trim the flat-top heating ([details](04-designs.md)). The [Ramp-up Lab](primer/7-lab.md) shows every controller's knobs live, separates feedback from open-loop control, and runs PI and the learned policies closed-loop on its own plasma.
+5. A fork of Gym-TORAX with an additive `IterHybridAudited-v0` environment, tests and a baseline table is on [`leandergrech/gymtorax`, branch `fix/audited-iter-hybrid-reward`](https://github.com/leandergrech/gymtorax/tree/fix/audited-iter-hybrid-reward).
 
 ![Where each policy's return comes from](figures/reward_components.png)
 

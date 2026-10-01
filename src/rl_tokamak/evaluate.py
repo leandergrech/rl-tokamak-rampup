@@ -16,7 +16,7 @@ from typing import Any, Callable
 
 import numpy as np
 
-from .env import RampupEnv
+from .env import RampupEnv, make_env
 
 
 def run_controller(env: RampupEnv, controller, collect: bool = False) -> dict[str, Any]:
@@ -71,12 +71,14 @@ def run_policy(env: RampupEnv, policy: Callable[[np.ndarray], np.ndarray]) -> di
         done = term or trunc
         ret += info["benchmark_reward"]
         steps += 1
+    log = info.get("episode_log", [])
     return {
         "benchmark_return": ret,
+        "audited_return": audited_return(log),
         "failed": bool(info.get("failed", False)),
         "steps": steps,
         "wall_s": time.time() - t0,
-        "log": info.get("episode_log", []),
+        "log": log,
     }
 
 
@@ -151,21 +153,24 @@ def write_episode_csv(log: list[dict[str, float]], path: str | Path) -> None:
         w.writerows(log)
 
 
-def evaluate_run(run_dir: str | Path, env: RampupEnv | None = None) -> dict[str, Any]:
-    """Reload a stored policy and score one deterministic episode on the benchmark."""
+def evaluate_run(run_dir: str | Path, env: RampupEnv | None = None, which: str = "final") -> dict[str, Any]:
+    """Reload a stored policy (final or best-during-training) and score one deterministic episode on the benchmark.
+
+    The episode goes to ``final_episode.csv`` or ``best_episode.csv`` in the run directory."""
     from dataclasses import asdict
 
     from .policies import load_policy
 
     run_dir = Path(run_dir)
-    env_cfg, pi = load_policy(run_dir)
+    env_cfg, pi = load_policy(run_dir, which)
     if env is None or asdict(env.cfg) | {"log_dir": None} != asdict(env_cfg) | {"log_dir": None}:
-        env = RampupEnv(env_cfg)
+        env = make_env(env_cfg)
     ep = run_policy(env, pi)
-    write_episode_csv(ep["log"], run_dir / "final_episode.csv")
+    write_episode_csv(ep["log"], run_dir / f"{which}_episode.csv")
     meta = json.loads((run_dir / "config.json").read_text())
     return {
         "run": run_dir.name,
+        "checkpoint": which,
         "algo": meta["algo"],
         "seed": meta["seed"],
         "benchmark_return": ep["benchmark_return"],

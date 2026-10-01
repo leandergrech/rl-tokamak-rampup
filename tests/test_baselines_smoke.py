@@ -26,6 +26,16 @@ def test_mbpo(tmp_path):
     assert cfg["env_steps"] == 16
 
 
+@pytest.mark.parametrize("algo", ["ppo", "mbpo"])
+def test_residual_on_pi(tmp_path, algo):
+    extra = ["--n-envs", "1", "--norm-reward"] if algo == "ppo" else ["--real-episodes", "2", "--utd", "1"]
+    cfg = _run(tmp_path, "--algo", algo, "--residual", "pi", "--reward-mode", "patched", *extra,
+               minutes="10" if algo == "mbpo" else "0.05")
+    assert cfg["env_config"]["extra"]["residual"]["scale"] == [1.0, 2.0, 2.0]
+    if algo == "mbpo":
+        assert cfg["algo_config"]["residual_init"] and cfg["algo_config"]["failure_rule"]
+
+
 @pytest.mark.parametrize("algo", ["bc", "td3bc", "mopo"])
 def test_offline(tmp_path, tiny_dataset, algo):
     cfg = _run(tmp_path, "--algo", algo, "--dataset", tiny_dataset, "--steps", "20")

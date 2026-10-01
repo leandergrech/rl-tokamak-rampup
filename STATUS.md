@@ -3,7 +3,7 @@ repo: https://github.com/leandergrech/rl-tokamak-rampup
 pages: https://leandergrech.github.io/rl-tokamak-rampup/
 step: 7
 state: done
-updated: 2026-10-01T08:38:36Z
+updated: 2026-10-01T14:20:00Z
 blockers: none
 next: Leander reviews the site and docs/upstream drafts; first experiment = randomised Gym-TORAX on the audited reward (notebooks/03)
 log:
@@ -23,6 +23,8 @@ log:
 - 2026-10-01T15:00:00Z docs theme: custom stroke-icon family overrides/.icons/rt (18 icons: tokamak, flux surfaces, cutaway, field line, current, fusion, gauge, reward, lab flask, ...) used for page icons in the navigation, page headings, home and primer cards and chapter links; numbering removed from nav and headings; home page no longer hides the navigation
 - 2026-10-01T16:00:00Z navigation: four labelled sections (Overview, The benchmark, Domain primer, Reference); toc.integrate puts each page's sections under its entry in the left nav, folded by default with a chevron toggle (docs/javascripts/nav.js, remembered per browser); hooks/strip_svg_metadata.py strips provenance metadata blocks that file transfer adds to the icon SVGs
 - 2026-10-01T17:00:00Z navigation polish: section fold toggle is a plain chevron (no count) and also works inside the phone drawer (menu button, top left; tapping a section closes the drawer); previous/next buttons at the top and bottom of every page with page icons (overrides/main.html), replacing the manual chapter links and the footer pager
+- 2026-10-01T14:20:00Z residual RL on PI (rl_tokamak.residual; agent outputs a correction to PI's action, zero correction = PI episode 3.7919/3.5016), audited training reward, best checkpoint by audited score. PPO (5 envs, n_steps 64, VecNormalize reward, 75 min): final audited 3.64/3.64, benchmark 4.47/4.02, ~29.5k steps. MBPO (exact reward and Gym-TORAX bounds rule in model rollouts, entropy 0.1, I_p correction +-0.1 MA/s, 3,020 steps): final 3.51/3.63, best 3.72/3.66, beats PI after 302/604 steps. 2 PPO and 4 MBPO attempts (logs .runs/*attempt*); env logs fail_reason on -1000 steps. pytest 24 passed
+- 2026-10-01T14:20:00Z Ramp-up Lab: presets grouped open loop / feedback / you; knobs panel (signal path plasma -> controller -> knobs, dials with PI proposal and correction, knob strips with TORAX and pins); feedback presets run live on the Lab (docs/javascripts/lab-control.js: PI port, observation builder, exported networks via scripts/export_lab_policies.py; node scripts/check_lab_control.mjs: networks 1e-6, PI 4e-5 MA, observation 8e-6); robustness table and new guided experiments on the Lab page; residual figures and results on the designs page
 
 ## Fork task
 repo: https://github.com/leandergrech/gymtorax (branch fix/audited-iter-hybrid-reward; pinned backport branch fix/audited-iter-hybrid-reward-v1.0 off tag v1.0.0)

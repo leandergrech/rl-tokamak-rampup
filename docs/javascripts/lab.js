@@ -679,6 +679,25 @@
         [151, "Q ≈ 14 with less heating than PI. Its benchmark return beats PI because the denominator of Q is smaller."],
       ],
     },
+    ppo_res: {
+      intro: "The PI controller plus a correction to all three knobs, learned by PPO on the audited reward (29,535 simulator steps, seed 0). It keeps PI's ramp, adds heating during it, and trims the flat-top heating once the core is hot. TORAX: benchmark 4.47 and audited 3.64, against PI's 3.79 and 3.50. Open the knobs panel: pink is the network's correction.",
+      events: [
+        [1, "From the first second the network adds a few MW of ECRH that PI would not use, and from 28 s NBI as well. PI still ramps I_p at its 0.2 MA/s limit."],
+        [51, "PI's q_min crosses 1 here on TORAX. With the extra heating the plasma is hotter and conducts better, so the current reaches the core later: q_min stays above 1 until 61 s."],
+        [100, "Full power for three seconds as the scheduled pedestal rises: it takes the core past 10 keV with P_SOL above P_LH, which the audited H-mode gate needs."],
+        [105, "Then down to about 22 MW of NBI and 7 MW of ECRH: P_SOL stays above P_LH, and Q passes 10 with less power in its denominator."],
+        [151, "End on TORAX: Q ≈ 20, q_min ≈ 0.49 (PI 0.41), f_GW ≈ 1.19 as for PI. Most of the gain over PI is the q_min term (later current penetration), the rest the fusion term."],
+      ],
+    },
+    mbpo_res: {
+      intro: "The PI controller plus a correction learned by MBPO on the audited reward: the best checkpoint of seed 0, reached after only 302 simulator steps (the same run's final policy scored 3.51). It switches on full heating at 50 s, as q_min is about to fall below 1, and ramps I_p down in the flat-top. TORAX: benchmark 3.92 and audited 3.72, against PI's 3.79 and 3.50.",
+      events: [
+        [49, "Full NBI and ECRH from 50 s, fifty seconds before PI heats. The current keeps diffusing inward, but slowly: q_min is 0.93 at 61 s, where PI's is about 0.8."],
+        [102, "The scheduled pedestal rises into a plasma that is already hot: both core temperatures pass 10 keV and the gated terms switch on."],
+        [109, "From here the network ramps I_p down at its 0.1 MA/s limit, to 11.4 MA at the end. H98 rises from 0.9 to 1.2, partly because its yardstick τ_98 ∝ I_p^0.93 shrinks with the current: not all of that is a better plasma."],
+        [151, "End on TORAX: Q ≈ 10.6, H98 ≈ 1.22, q_min ≈ 0.57, T_e(0) ≈ 31 keV, 4 keV below the 35 keV bound that would end the episode."],
+      ],
+    },
     early_heat: {
       intro: "A hybrid-style idea tried only on the Lab model: stop the ramp at 10 MA and heat with full power from 10 s (33 MW NBI + 20 MW ECRH), so the hot core slows current penetration and q_min stays near 1. Not run on TORAX: a candidate experiment, not a result.",
       events: [
@@ -1631,10 +1650,10 @@
       ctx.fillStyle = col.fg;
       ctx.font = '600 13px "Space Grotesk", Inter, sans-serif';
       ctx.textAlign = "left";
-      ctx.fillText(title, b.x + 9, b.y + 18);
+      fitText(ctx, title, b.x + 9, b.y + 18, b.w - 16);
       ctx.font = FONT_SMALL;
       ctx.fillStyle = col.muted;
-      lines.forEach((t, i) => fitText(ctx, t, b.x + 9, b.y + 35 + i * 14, b.w - 16));
+      lines.forEach((t, i) => b.y + 35 + i * 14 <= b.y + b.h - 3 && fitText(ctx, t, b.x + 9, b.y + 35 + i * 14, b.w - 16));
       ctx.restore();
     }
     function fitText(ctx, t, x, y, maxW) {
@@ -1684,11 +1703,11 @@
         const pr = k.prop;
         return {
           title: "PI + learned correction",
-          meas: [`${nIn} numbers (${where} plasma + PI state)`],
+          meas: [`${nIn} numbers from ${where}`],
           lines: [`PI proposes ${sgn(pr.rate, 2, "MA/s")}, NBI ${pr.nbi.toFixed(0)}, ECRH ${pr.ecrh.toFixed(0)} MW`, `network adds ${sgn(d[0] * 0.2, 2, "MA/s")}, ${sgn((d[1] / 2) * 33, 1)}, ${sgn((d[2] / 2) * 20, 1)} MW`],
         };
       }
-      return { title: "neural network policy", meas: [`${nIn} numbers (${where} plasma)`], lines: [`${nIn} numbers in, 3 knobs out`, "every second"] };
+      return { title: "neural network policy", meas: [`${nIn} numbers from ${where}`], lines: [`${nIn} numbers in, 3 knobs out`, "every second"] };
     }
     function drawKnobs(dtMs) {
       const col = colors(), c = KCOL()[S.ctrl] || col.fg;
@@ -1699,11 +1718,13 @@
       const n = easeNeedles(k, dtMs);
       const ct = controllerText(k);
       // signal path: plasma -> (measurement) -> controller -> knobs -> plasma
-      const bh = 76, y0 = 22;
-      const pb = { x: 6, y: y0, w: Math.max(92, Math.min(130, w * 0.24)), h: bh };
-      const gapW = Math.max(118, w * 0.27);
+      const narrow = w < 520; // phones: measurement text below the boxes, short labels, no secondary arrows
+      const bh = narrow ? 64 : 76, y0 = 22;
+      const pb = { x: 6, y: y0, w: narrow ? 80 : Math.max(92, Math.min(130, w * 0.24)), h: bh };
+      const gapW = narrow ? 34 : Math.max(118, w * 0.27);
       const cb = { x: pb.x + pb.w + gapW, y: y0, w: w - (pb.x + pb.w + gapW) - 6, h: bh };
-      const plasmaSub = S.ctrl === "feedback" && !S.live ? ["TORAX, recorded", "(the Lab replays", " the knobs)"] : ["Lab model", "(this page)"];
+      const replayFb = S.ctrl === "feedback" && !S.live;
+      const plasmaSub = narrow ? (replayFb ? ["TORAX,", "recorded"] : ["Lab model"]) : replayFb ? ["TORAX, recorded", "(the Lab replays", " the knobs)"] : ["Lab model", "(this page)"];
       box(ctx, col, pb, col.muted, "plasma", plasmaSub);
       box(ctx, col, cb, c, ct.title, ct.lines);
       const ym = y0 + bh / 2, x0 = pb.x + pb.w + 4, x1 = cb.x - 4;
@@ -1717,7 +1738,7 @@
         ctx.fillText("✕", (x0 + x1) / 2, ym + 5);
         ctx.font = FONT_SMALL;
         ctx.fillStyle = col.muted;
-        ctx.fillText("not measured", (x0 + x1) / 2, ym + 22);
+        if (!narrow) ctx.fillText("not measured", (x0 + x1) / 2, ym + 22);
         // the schedule's only input: a clock
         const cx = cb.x + cb.w - 18, cy = cb.y + 16;
         ctx.strokeStyle = c;
@@ -1732,32 +1753,37 @@
       } else {
         arrow(ctx, [[x0, ym], [x1, ym]], c, null, 2);
         ctx.fillStyle = col.fg;
-        ct.meas.forEach((t, i) => fitText(ctx, t, (x0 + x1) / 2, ym - 8 - (ct.meas.length - 1 - i) * 13, x1 - x0 - 6));
-        // what a network sees: its normalised input vector as a strip of cells
+        // where the measurement text and the input strip go: between the boxes, or below them on a phone
+        const mx = narrow ? w / 2 : (x0 + x1) / 2, mw = narrow ? w - 12 : x1 - x0 - 6;
+        const my = narrow ? y0 + bh + 14 : ym - 8 - (ct.meas.length - 1) * 13;
+        ct.meas.forEach((t, i) => fitText(ctx, (narrow && !i ? "reads: " : "") + t, mx, my + i * 13, mw));
+        const sy = narrow ? my + ct.meas.length * 13 - 6 : ym + 6;
         const x = k.info && k.info.x;
         if (x) {
-          const sw = x1 - x0 - 14, cw = sw / x.length;
+          // what a network sees: its normalised input vector as a strip of cells
+          const sx0 = mx - mw / 2 + 4, cw = (mw - 8) / x.length;
           x.forEach((v, i) => {
             const u = clamp(v / 3, -1, 1);
             ctx.fillStyle = u >= 0 ? `rgba(235,104,52,${0.15 + 0.85 * u})` : `rgba(42,120,214,${0.15 - 0.85 * u})`;
-            ctx.fillRect(x0 + 7 + i * cw, ym + 6, Math.max(1, cw - 0.4), 11);
+            ctx.fillRect(sx0 + i * cw, sy, Math.max(1, cw - 0.4), 11);
           });
           ctx.fillStyle = col.muted;
-          fitText(ctx, "what it reads now", (x0 + x1) / 2, ym + 30, x1 - x0 - 6);
-        } else if (S.ctrl === "feedback" && !S.live && S.key !== "pi") {
+          fitText(ctx, "what it reads now", mx, sy + 24, mw);
+        } else if (S.ctrl === "feedback" && !S.live && S.key !== "pi" && !narrow) {
           ctx.fillStyle = col.muted;
-          ctx.fillText("live mode shows its inputs", (x0 + x1) / 2, ym + 18);
+          ctx.fillText("live mode shows its inputs", mx, ym + 18);
         }
       }
       ctx.restore();
       // the dials
-      const dy = y0 + bh + 92, r = Math.max(34, Math.min(58, w / 3 / 2 - 22));
+      const dy = y0 + bh + (narrow ? 112 : 92), r = Math.max(30, Math.min(58, w / 3 / 2 - 22));
       const third = w / 3;
       const rate = k.rate;
-      dial(ctx, col, third * 0.5, dy, r, { max: 15, val: n.Ip, prop: n.pIp, rec: k.rec && k.rec.Ip, color: c, label: "plasma current I_p", unit: "MA", digits: 2,
-        sub: S.cursor < 1 ? "" : rate > 0.005 ? `ramping ${sgn(rate, 2, "MA/s")}` : rate < -0.005 ? `ramping ${sgn(rate, 2, "MA/s")}` : "held", subColor: Math.abs(rate) > 0.005 ? c : col.muted });
-      dial(ctx, col, third * 1.5, dy, r, { max: 33, val: n.nbi, prop: n.pnbi, rec: k.rec && k.rec.nbi, color: "rgb(235,120,30)", label: "neutral beams P_NBI", unit: "MW" });
-      dial(ctx, col, third * 2.5, dy, r, { max: 20, val: n.ecrh, prop: n.pecrh, rec: k.rec && k.rec.ecrh, color: "rgb(40,170,210)", label: "microwaves P_ECRH", unit: "MW" });
+      dial(ctx, col, third * 0.5, dy, r, { max: 15, val: n.Ip, prop: n.pIp, rec: k.rec && k.rec.Ip, color: c, label: narrow ? "I_p" : "plasma current I_p", unit: "MA", digits: 2,
+        sub: S.cursor < 1 ? "" : Math.abs(rate) > 0.005 ? `${narrow ? "" : "ramping "}${sgn(rate, 2, "MA/s")}` : "held", subColor: Math.abs(rate) > 0.005 ? c : col.muted });
+      dial(ctx, col, third * 1.5, dy, r, { max: 33, val: n.nbi, prop: n.pnbi, rec: k.rec && k.rec.nbi, color: "rgb(235,120,30)", label: narrow ? "P_NBI" : "neutral beams P_NBI", unit: "MW" });
+      dial(ctx, col, third * 2.5, dy, r, { max: 20, val: n.ecrh, prop: n.pecrh, rec: k.rec && k.rec.ecrh, color: "rgb(40,170,210)", label: narrow ? "P_ECRH" : "microwaves P_ECRH", unit: "MW" });
+      if (narrow) return; // the arrows and the legend below need the width
       // command path: controller -> knobs -> back into the plasma
       arrow(ctx, [[cb.x + cb.w / 2, cb.y + cb.h + 2], [cb.x + cb.w / 2, dy - r - 22]], c, null, 1.8);
       ctx.save();
@@ -1774,9 +1800,9 @@
       ctx.font = FONT_SMALL;
       ctx.fillStyle = col.muted;
       ctx.textAlign = "left";
-      const leg = ["solid needle: applied"];
-      if (k.prop) leg.push("dashed pink: PI's proposal; pink arc: the network's correction");
-      if (k.rec) leg.push("dashed tick: what it did on TORAX");
+      const leg = ["needle: applied"];
+      if (k.prop) leg.push("pink needle: PI's proposal, arc: the correction");
+      if (k.rec) leg.push("tick: on TORAX");
       fitText(ctx, leg.join(" · "), 6, h - 6, w - 12);
       ctx.restore();
     }

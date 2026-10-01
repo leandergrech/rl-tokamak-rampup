@@ -8,6 +8,10 @@ python scripts/train.py --algo mbpo --out data/runs/mbpo_s0 --minutes 50 --real-
 python scripts/train.py --algo td3bc --dataset data/offline/pi_noisy_0.1.npz --out data/runs/td3bc_noisy01_s0
 python scripts/train.py --algo mopo  --dataset data/offline/pi_det.npz --out data/runs/mopo_det_s0
 
+Residual RL on the PI controller, trained and checkpointed on the audited reward:
+python scripts/train.py --algo ppo  --residual pi --reward-mode patched --norm-reward --out data/runs/ppo_res_s0 --n-envs 6
+python scripts/train.py --algo mbpo --residual pi --reward-mode patched --out data/runs/mbpo_res_s0 --real-episodes 25
+
 Each run directory gets config.json, policy.{zip,pt}, curve.json, result.json and
 final_episode.csv (the deterministic evaluation episode, one row per second).
 """
@@ -21,7 +25,7 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
-from rl_tokamak.env import EnvConfig, RampupEnv, gymtorax_version, set_single_thread
+from rl_tokamak.env import EnvConfig, gymtorax_version, make_env, set_single_thread
 
 
 def _host_info() -> dict:
@@ -54,6 +58,18 @@ def parse(argv=None):
     p.add_argument("--steps", type=int, default=60_000, help="offline gradient steps")
     p.add_argument("--penalty-lambda", type=float, default=1.0, help="MOPO uncertainty penalty")
     p.add_argument("--ip-min-ma", type=float, default=3.0, help="floor of the I_p command [MA]")
+    p.add_argument("--residual", default="none", choices=["none", "pi"],
+                   help="pi: the agent outputs a correction added to the PI controller's action (ppo, sac, mbpo)")
+    p.add_argument("--residual-scale", type=float, nargs=3, default=None, metavar=("IP", "NBI", "ECRH"),
+                   help="correction range in normalised action units (default 1 2 2)")
+    p.add_argument("--log-std-init", type=float, default=None, help="initial log std of the PPO / residual-MBPO policy")
+    p.add_argument("--norm-reward", action="store_true", help="PPO/SAC: normalise the training reward (VecNormalize)")
+    p.add_argument("--failure-rule", action="store_true",
+                   help="MBPO: end model rollouts that leave Gym-TORAX's bounds (always on with --residual)")
+    p.add_argument("--known-reward", action="store_true",
+                   help="MBPO: score model rollouts with the reward formula on the predicted state (always on with --residual)")
+    p.add_argument("--ppo-n-steps", type=int, default=None, help="PPO rollout length per worker (default 128)")
+    p.add_argument("--ppo-batch", type=int, default=None, help="PPO minibatch size (default 256)")
     p.add_argument("--max-steps", type=int, default=None, help=argparse.SUPPRESS)  # smoke tests only
     return p.parse_args(argv)
 
@@ -66,8 +82,14 @@ def main(argv=None) -> dict:
     args = parse(argv)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    extra = {}
+    if args.residual != "none":
+        from rl_tokamak.residual import DEFAULT_SCALE
+
+        extra["residual"] = {"base": args.residual, "scale": list(args.residual_scale or DEFAULT_SCALE)}
     env_cfg = EnvConfig(obs_set=args.obs_set, action_set=args.action_set, ip_mode=args.ip_mode,
-                        reward_mode=args.reward_mode, max_steps=args.max_steps, ip_min=args.ip_min_ma * 1e6)
+                        reward_mode=args.reward_mode, max_steps=args.max_steps, ip_min=args.ip_min_ma * 1e6,
+                        extra=extra)
     log_f = open(out / "train.log", "a")
 
     def log(row):
@@ -85,7 +107,13 @@ def main(argv=None) -> dict:
 
         cfg = SB3Config(algo=args.algo, max_minutes=args.minutes, seed=args.seed,
                         n_envs=args.n_envs or (12 if args.algo == "ppo" else 8),
-                        net_arch=(64, 64) if args.algo == "ppo" else (256, 256))
+                        net_arch=(64, 64) if args.algo == "ppo" else (256, 256), norm_reward=args.norm_reward)
+        if args.log_std_init is not None:
+            cfg.ppo["log_std_init"] = args.log_std_init
+        if args.ppo_n_steps:
+            cfg.ppo["n_steps"] = args.ppo_n_steps
+        if args.ppo_batch:
+            cfg.ppo["batch_size"] = args.ppo_batch
         res = train_sb3(env_cfg, cfg, log, best_path=out / "policy_best.zip")
         res["model"].save(out / "policy.zip")
         from rl_tokamak.policies import compact_sb3
@@ -101,8 +129,13 @@ def main(argv=None) -> dict:
         from rl_tokamak.agents.mbpo import MBPOConfig, train_mbpo
         from rl_tokamak.policies import save_torch_actor
 
-        env = RampupEnv(env_cfg)
-        cfg = MBPOConfig(real_episodes=args.real_episodes, max_minutes=args.minutes, seed=args.seed, utd=args.utd)
+        env = make_env(env_cfg)
+        cfg = MBPOConfig(real_episodes=args.real_episodes, max_minutes=args.minutes, seed=args.seed, utd=args.utd,
+                         residual_init=args.residual != "none", init_alpha=0.1 if args.residual != "none" else 1.0,
+                         failure_rule=args.residual != "none" or args.failure_rule,
+                         known_reward=args.residual != "none" or args.known_reward)
+        if args.log_std_init is not None:
+            cfg.init_log_std = args.log_std_init
         od, ad = env.observation_space.shape[0], env.action_space.shape[0]
         res = train_mbpo(env, cfg, log, on_best=lambda ag: save_torch_actor(out / "policy_best.pt", "sac_actor",
                                                                             ag.actor, od, ad, cfg.hidden))
@@ -122,7 +155,7 @@ def main(argv=None) -> dict:
         if not args.dataset:
             sys.exit("--dataset is required for offline algorithms")
         data = load_dataset(args.dataset)
-        env = RampupEnv(env_cfg)
+        env = make_env(env_cfg)
         cfg = OfflineConfig(algo=args.algo, steps=args.steps, max_minutes=args.minutes, seed=args.seed,
                             penalty_lambda=args.penalty_lambda)
         res = train_offline(data, cfg, eval_fn=lambda pi: run_policy(env, pi)["benchmark_return"], env=env, log=log)

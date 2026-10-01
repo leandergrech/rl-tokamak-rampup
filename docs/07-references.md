@@ -200,6 +200,12 @@ All opened on the publisher or arXiv page (IOP pages sit behind a bot wall, so t
 ### R25
 **Towers M., Kwiatkowski A., Terry J., et al.** "Gymnasium: A Standard Interface for Reinforcement Learning Environments." arXiv:2407.17032 (2024). <https://arxiv.org/abs/2407.17032>. **verified**; MIT licence.
 
+### R31
+**Johannink T., Bahl S., Nair A., Luo J., Kumar A., Loskyll M., Aparicio Ojea J., Solowjow E., Levine S.** "Residual Reinforcement Learning for Robot Control." arXiv:1812.03201 (2018). <https://arxiv.org/abs/1812.03201>. **verified**: "The final control policy is a superposition of both control signals", a conventional feedback controller and "the residual which is solved with RL".
+
+### R32
+**Silver T., Allen K., Tenenbaum J., Kaelbling L.** "Residual Policy Learning." arXiv:1812.06298 (2018). <https://arxiv.org/abs/1812.06298>. **verified**: "learning a residual on top of the initial controller can yield substantial improvements".
+
 ## Tokamak physics background
 
 ### R26

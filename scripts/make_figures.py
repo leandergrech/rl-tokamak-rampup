@@ -241,8 +241,9 @@ def audit_scatter() -> None:
         d = pd.read_csv(p)
         if d["r_bench"].lt(-100).any():
             continue
-        algo = json.loads((p.parent / "config.json").read_text())["algo"]
-        grp = "offline" if algo in ("bc", "td3bc", "mopo") else "online"
+        cfg = json.loads((p.parent / "config.json").read_text())
+        residual = (cfg["env_config"].get("extra") or {}).get("residual")
+        grp = "offline" if cfg["algo"] in ("bc", "td3bc", "mopo") else "residual" if residual else "online"
         pts.append((p.parent.name, float(d["r_bench"].sum()), _audit(p), grp))
     f = "data/trajectories/mbpo_raw_reward_best.csv"
     if Path(f).exists():
@@ -258,7 +259,7 @@ def audit_scatter() -> None:
              "cem_benchmark": ("CEM, benchmark objective", (8, 4)), "cem_audited": ("CEM, audited objective", (8, 4))}
     fig, ax = plt.subplots(figsize=(8.5, 5))
     groups = {"classical": (SERIES[0], "o", 70), "online": (SERIES[1], "s", 45), "offline": (SERIES[2], "^", 50),
-              "reference": (SERIES[3], "D", 55)}
+              "reference": (SERIES[3], "D", 55), "residual": ("#d6368f", "P", 70)}
     for g, (c, m, size) in groups.items():
         xs = [p[1] for p in pts if p[3] == g]
         ys = [p[2] for p in pts if p[3] == g]
@@ -399,8 +400,74 @@ def physics_audit() -> None:
     plt.close(fig)
 
 
+RESIDUAL_EPISODES = {  # label: episode CSV of the checkpoint shown on the site (see docs/04-designs.md)
+    "PPO on PI": "data/runs/ppo_res_s0/final_episode.csv",
+    "MBPO on PI, best checkpoint": "data/runs/mbpo_res_s0/best_episode.csv",
+}
+
+
+def residual() -> None:
+    """Residual RL on PI: audited learning curves, and what the corrections do to the knobs and the score."""
+    from rl_tokamak.evaluate import audited_return
+
+    runs = sorted(Path("data/runs").glob("*_res_s*"))
+    if not runs:
+        return
+    pi_aud = _audit("data/trajectories/pi.csv")
+    fig, ax = plt.subplots(figsize=(8.5, 4.2))
+    for rd in runs:
+        ev = [r for r in json.loads((rd / "curve.json").read_text())["eval"] if "eval_audited" in r]
+        xk = "env_steps" if "env_steps" in ev[0] else "real_steps"
+        i = 1 if rd.name.startswith("ppo") else 2
+        ls = STYLES[0] if rd.name.endswith("s0") else STYLES[1]
+        ax.plot([r[xk] for r in ev], [max(r["eval_audited"], FLOOR) for r in ev], color=SERIES[i], ls=ls,
+                marker=MARKERS[i], ms=4, label=f"{'PPO' if i == 1 else 'MBPO'} on PI, seed {rd.name[-1]}")
+    ax.axhline(pi_aud, color=SERIES[0], lw=1.4, label=f"PI controller ({pi_aud:.2f})")
+    cem = _audit("data/trajectories/cem_best_audited.csv")
+    ax.axhline(cem, color=SERIES[3], lw=1.4, ls=":", label=f"best open-loop schedule, CEM ({cem:.2f})")
+    ax.set_xscale("log")
+    ax.set_ylim(2.8, 3.9)
+    ax.set_xlabel("simulator steps used for training")
+    ax.set_ylabel("audited score of the deterministic policy")
+    ax.legend(fontsize=8.5, ncol=2, loc="lower right")
+    fig.tight_layout()
+    fig.savefig(OUT / "residual_curves.png", dpi=150)
+    plt.close(fig)
+
+    eps = {f"PI controller ({pi_aud:.2f})": "data/trajectories/pi.csv"}
+    for lab, f in RESIDUAL_EPISODES.items():
+        if Path(f).exists():
+            eps[f"{lab} ({_audit(f):.2f})"] = f
+    eps[f"best open-loop schedule ({cem:.2f})"] = "data/trajectories/cem_best_audited.csv"
+    dfs = {k: pd.read_csv(v) for k, v in eps.items()}
+    panels = [("Ip_MA", "I_p [MA]"), ("P_NBI_MW", "P_NBI [MW]"), ("P_ECRH_MW", "P_ECRH [MW]"),
+              ("q_min", "q_min"), ("H98", "H98"), ("gain", "audited score gained over PI (cumulative)")]
+    pi_cum = np.cumsum([audited_return([r]) for r in dfs[next(iter(dfs))].to_dict("records")])
+    fig, axes = plt.subplots(2, 3, figsize=(12, 6.2), sharex=True)
+    for ax, (col, label) in zip(axes.flat, panels):
+        for i, (name, df) in enumerate(dfs.items()):
+            if col == "gain":
+                cum = np.cumsum([audited_return([r]) for r in df.to_dict("records")])
+                n = min(len(cum), len(pi_cum))
+                ax.plot(df["t"][:n], cum[:n] - pi_cum[:n], color=SERIES[i], ls=STYLES[i], lw=1.8, label=name)
+            else:
+                ax.plot(df["t"], df[col], color=SERIES[i], ls=STYLES[i], lw=1.8, label=name)
+        ax.set_title(label, fontsize=10, color=INK, loc="left")
+        ax.axvline(100, color=MUTED, lw=0.8, ls=":")
+        if col in ("q_min", "H98"):
+            ax.axhline(1.0, color=MUTED, lw=1.0, ls="--")
+    for ax in axes[-1]:
+        ax.set_xlabel("time [s]")
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=len(labels), fontsize=9)
+    fig.tight_layout(rect=(0, 0.06, 1, 1))
+    fig.savefig(OUT / "residual_knobs.png", dpi=150)
+    plt.close(fig)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
+    residual()
     trajectories()
     learning_curves()
     offline()

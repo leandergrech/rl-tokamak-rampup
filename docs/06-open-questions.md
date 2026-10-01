@@ -43,7 +43,7 @@ Positions are this repo's judgement, not measurements; the effort estimates unde
 
 ## 2. The first RL baseline on Gym-TORAX, done properly
 
-**Why open.** The benchmark was published in October 2025 with PI, open-loop and random baselines only ([R1](07-references.md#r1)); no RL number has been published on it. This repo's single-seed runs are a first answer, not a publishable one.
+**Why open.** The benchmark was published in October 2025 with PI, open-loop and random baselines only ([R1](07-references.md#r1)); no RL number has been published on it. This repo's single-seed runs are a first answer, not a publishable one; so are its two-seed residual runs (RL on top of PI, [item 7](04-designs.md#what-the-numbers-say)).
 
 **What a first paper would show.** PPO, SAC, MBPO and offline RL on gymtorax 1.0.0 with 5 seeds each, compute reported in CPU-hours and simulator steps, the open-loop optimum as an upper reference (CEM here; gradient-based through TORAX's JAX as a stronger one), the same study repeated on gymtorax 1.1.1 with re-tuned PI gains, and the physics audit of every policy (q_min, f_GW, heating energy; [Limitations](05-limitations.md)). A short benchmark paper (e.g. a workshop or *Software Impacts*-style companion) or a section of opening 3.
 

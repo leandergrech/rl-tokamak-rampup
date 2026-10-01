@@ -150,6 +150,26 @@ def audited_components(q: float, h98: float, qmin: float, q95: float, te0: float
     }
 
 
+def bounds_violations(space: gym.spaces.Dict, obs: dict, limit: int = 3) -> list[str]:
+    """Which observation variables left Gym-TORAX's observation space (the -1000 rule), e.g. 'profiles.T_e max 36.2 > 35'."""
+    out: list[str] = []
+    for group, sub in space.spaces.items():
+        for key, box in getattr(sub, "spaces", {}).items():
+            v = np.ravel(np.asarray(obs.get(group, {}).get(key, np.nan), dtype=np.float64))
+            lo, hi = np.ravel(box.low), np.ravel(box.high)
+            if v.size == 0:
+                continue
+            if not np.all(np.isfinite(v)):
+                out.append(f"{group}.{key} not finite")
+            elif np.any(v > hi):
+                out.append(f"{group}.{key} max {v.max():.4g} > {hi.max():.4g}")
+            elif np.any(v < lo):
+                out.append(f"{group}.{key} min {v.min():.4g} < {lo.min():.4g}")
+            if len(out) >= limit:
+                return out
+    return out
+
+
 def audited_reward_from_obs(obs: dict) -> float:
     s, p = obs["scalars"], obs["profiles"]
     return sum(audited_components(_scalar(s, "Q_fusion"), _scalar(s, "H98"), _scalar(s, "q_min"), _scalar(s, "q95"),
@@ -294,6 +314,11 @@ class RampupEnv(gym.Env):
             row.update({k: _scalar(s, k) for k in ("Q_fusion", "H98", "q_min", "q95", "beta_N", "li3", "fgw_n_e_line_avg", "P_LH", "P_SOL_total",
                                           "P_alpha_total", "P_ohmic_e", "P_aux_total")})
             row.update({"T_e0": float(p["T_e"][0]), "T_i0": float(p["T_i"][0]), "j0_MA_m2": float(p["j_total"][0]) / 1e6})
+        else:
+            try:
+                row["fail_reason"] = "; ".join(bounds_violations(self.inner.observation_space, obs)) or "solver"
+            except Exception:  # diagnostics only; never let them break an episode
+                row["fail_reason"] = "unknown"
         self._episode.append(row)
         reward = self.training_reward(r_bench, None if failed else obs)
         info = dict(info)
@@ -328,8 +353,13 @@ class RampupEnv(gym.Env):
 
 
 def make_env(config: EnvConfig | dict | None = None) -> RampupEnv:
+    """Build the env a config describes: ``extra["residual"]`` selects the residual-on-PI variant."""
     if isinstance(config, dict):
         config = EnvConfig(**config)
+    if config is not None and config.extra.get("residual"):
+        from .residual import ResidualEnv
+
+        return ResidualEnv(config)
     return RampupEnv(config)
 
 
