@@ -1,5 +1,11 @@
 # Timeline 2018–2026
 
+!!! abstract "In short"
+
+    - 2019–2021: deep learning **predicts** disruptions across machines; first RL studies of q-profile and β_N control, mostly in simulation.
+    - 2022: DeepMind and EPFL put an RL policy in the **10 kHz magnetic control loop** of TCV.
+    - 2023–2026: profile-level control on DIII-D, KSTAR, HL-3, EAST and TCV, nearly always through a **learned dynamics model**; open simulators (TORAX) and benchmarks (Gym-TORAX, RL4F) appear.
+
 Results in machine learning and reinforcement learning for tokamak control, with the headline number each paper reports. Every row links to the page that was opened; details and quotes are in [References](07-references.md). "Sim" means the result is in simulation only.
 
 | Date | Group | Device | Method | Headline number | Link |

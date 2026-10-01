@@ -1,5 +1,12 @@
 # The control problem
 
+!!! abstract "In short"
+
+    - **State:** four radial profiles (T_i, T_e, n_e, ψ) evolved by TORAX; the agent sees 1,735 numbers, or a 60-number summary in this repo's wrapper.
+    - **Action:** once per second, the plasma current set-point (rate-limited to 0.2 MA/s) and the NBI and ECRH heating powers.
+    - **Reward:** four terms per second (fusion gain and H98 only when the core is above 10 keV, plus q_min and q95 terms); −1000 and the episode ends if the state leaves the bounds file.
+    - **Benchmark score:** the undiscounted return of one 151-step episode on gymtorax 1.0.0 / TORAX 1.0.3, the only stack that reproduces the paper.
+
 This page states the Gym-TORAX ITER hybrid ramp-up task as an MDP, exactly as the code implements it, then says what is and is not modelled and what "solved" should mean. Physics background is in the [primer](02-primer.md); sources are in [References](07-references.md).
 
 ## In one paragraph
@@ -26,7 +33,7 @@ The only published scores (PI 3.79, open-loop 3.40, random −10.79; [R1](07-ref
 |---|---|---|---|
 | PI controller, k_p = 0.700, k_i = 34.257 | 3.79 | **3.7919** | −998.67 (fails at step 105) |
 | Open-loop reference | 3.40 | **3.4086** | 3.2629 |
-| Random, one episode, seed 0 | −10.79 (mean) | 3.1693 | 3.1028 |
+| Random, one episode, seed 0 | −10.79 (mean of an unstated number of episodes) | 3.2314 | 3.1028 |
 
 The v1.0 stack reproduces the paper to the second decimal, so **every number in this repo is on gymtorax 1.0.0 / torax 1.0.3 / jax 0.11.2** (pinned in `pyproject.toml`). The random-policy mean over 20 seeds is in [Designs and results](04-designs.md#classical-baselines-reproduced). The v1.1.1 column is produced by `scripts/probe_versions.py` run in a separate virtual environment with gymtorax 1.1.1 (output in `data/results/probe_gymtorax_1.1.1.json`); porting the baselines to v1.1 is listed as an opening in [Open questions](06-open-questions.md).
 
@@ -83,9 +90,16 @@ $$
 
 and r_t = −1000 (episode ends) if TORAX fails or the observation leaves the bounds in `iter_hybrid.json`. The objective is J(π) = Σ_t r_t over one episode with γ = 1. The two q terms can add at most 2/150 ≈ 0.0133 per second, 2.0 over an episode; the H-mode terms have no upper bound through Q.
 
-![Reward per second of the PI episode, split into its four terms](figures/reward_timeline.png)
+<figure markdown="span">
+  ![Reward per second of the PI episode](figures/reward_timeline.png)
+  <figcaption><strong>Reward per second of the PI episode, stacked by term.</strong> The q95 and q_min terms (bottom) are paid every second; the q_min term shrinks once q_min falls below 1 at about 50 s. The two gated terms (top) appear only after the scheduled pedestal heats the core above 10 keV at 102 s, and the fusion-gain term keeps growing with Q. Source: <code>data/trajectories/pi.csv</code>.</figcaption>
+</figure>
 
 The PI episode above earns the q terms throughout, loses part of the q_min term once q_min drops below 1 at about t = 50 s, and earns the gated terms only after the scheduled pedestal lifts the core above 10 keV at t = 102 s: roughly 55 % of its return arrives in the last third of the episode.
+
+<div class="rt-widget" data-widget="reward" data-title="Interactive: what one second of plasma is worth"></div>
+
+Try the presets. At t = 140 s the PI controller (Q = 14.5, P_SOL/P_LH = 2.1) earns 0.057 per second under `IterHybrid-v0` and 0.048 under the audited score, which caps its Q at 10. At the same time the heating-cut sequence (Q ≈ 250, P_SOL/P_LH = 0.67) earns 0.52 per second under `IterHybrid-v0`, nine times PI, and 0.011 under the audited score, because without enough power to stay above the L-H threshold it no longer counts as H-mode. The bars are the formula above, evaluated live.
 
 For training, the wrapper can rescale the reward (`reward_mode=scaled`: ×100, failure → −100) or add a physics penalty (`qmin_safe`: −(1 − q_min)⁺ per step on top of `scaled`). Evaluation always reports the unmodified Gym-TORAX return, carried in `info["benchmark_reward"]`.
 

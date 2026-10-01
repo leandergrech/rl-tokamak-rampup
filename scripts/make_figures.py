@@ -75,7 +75,7 @@ def trajectories() -> None:
     handles, labels = axes[0, 0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", ncol=len(labels), fontsize=9)
     fig.tight_layout(rect=(0, 0.05, 1, 1))
-    fig.savefig(OUT / "trajectories.png", dpi=110)
+    fig.savefig(OUT / "trajectories.png", dpi=150)
     plt.close(fig)
 
 
@@ -116,7 +116,7 @@ def learning_curves() -> None:
             fontsize=8, color=MUTED)
     ax.legend(loc="upper left", fontsize=9)
     fig.tight_layout()
-    fig.savefig(OUT / "learning_curves.png", dpi=110)
+    fig.savefig(OUT / "learning_curves.png", dpi=150)
     plt.close(fig)
 
 
@@ -148,7 +148,7 @@ def offline() -> None:
     ax.set_ylabel("benchmark return (final policy)")
     ax.legend(loc="upper left", fontsize=9, ncol=3)
     fig.tight_layout()
-    fig.savefig(OUT / "offline.png", dpi=110)
+    fig.savefig(OUT / "offline.png", dpi=150)
     plt.close(fig)
 
 
@@ -181,7 +181,7 @@ def classical() -> None:
     ax.set_xlabel("benchmark return (undiscounted, one episode)")
     ax.legend(loc="lower right", fontsize=8)
     fig.tight_layout()
-    fig.savefig(OUT / "classical.png", dpi=110)
+    fig.savefig(OUT / "classical.png", dpi=150)
     plt.close(fig)
 
 
@@ -225,7 +225,7 @@ def reward_components() -> None:
     ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), fontsize=8, ncol=5)
     ax.set_xlim(0, max(float(d["r_bench"].sum()) for _, d in rows) * 1.3)
     fig.tight_layout()
-    fig.savefig(OUT / "reward_components.png", dpi=110)
+    fig.savefig(OUT / "reward_components.png", dpi=150)
     plt.close(fig)
 
 
@@ -281,7 +281,7 @@ def audit_scatter() -> None:
     ax.set_ylabel("audited score\n(Q capped at 10, H-mode needs P_SOL ≥ P_LH)")
     ax.legend(loc="upper right", fontsize=8)
     fig.tight_layout()
-    fig.savefig(OUT / "audit_scatter.png", dpi=110)
+    fig.savefig(OUT / "audit_scatter.png", dpi=150)
     plt.close(fig)
 
 
@@ -316,7 +316,7 @@ def exploit() -> None:
     h, l = axes[0, 0].get_legend_handles_labels()
     fig.legend(h, l, loc="lower center", ncol=3, fontsize=9)
     fig.tight_layout(rect=(0, 0.06, 1, 1))
-    fig.savefig(OUT / "exploit.png", dpi=110)
+    fig.savefig(OUT / "exploit.png", dpi=150)
     plt.close(fig)
 
 
@@ -326,13 +326,14 @@ def profiles() -> None:
     if not f.exists():
         return
     z = np.load(f)
-    times = z["times"]
+    times = np.array([5, 20, 40, 60, 100, 150])
+    idx = [int(np.where(z["pi_time"] == t)[0][0]) for t in times]
     ramp = plt.get_cmap("Blues")(np.linspace(0.35, 1.0, len(times)))  # sequential: one hue, light -> dark = later
     fig, axes = plt.subplots(1, 2, figsize=(11, 4))
     for k, (key, title) in enumerate((("j_total", "current density j [MA/m²]"), ("q", "safety factor q"))):
         ax = axes[k]
         for i, t in enumerate(times):
-            y = z[f"pi_{key}"][i] / (1e6 if key == "j_total" else 1)
+            y = z[f"pi_{key}"][idx[i]] / (1e6 if key == "j_total" else 1)
             ax.plot(np.linspace(0, 1, len(y)), y, color=ramp[i], label=f"t = {t} s")
         ax.set_title(f"PI controller: {title}", fontsize=10, loc="left", color=INK)
         ax.set_xlabel("normalised radius ρ̂ (0 = axis, 1 = edge)")
@@ -341,7 +342,7 @@ def profiles() -> None:
             ax.set_ylim(0, 8)
     axes[0].legend(fontsize=8)
     fig.tight_layout()
-    fig.savefig(OUT / "profiles.png", dpi=110)
+    fig.savefig(OUT / "profiles.png", dpi=150)
     plt.close(fig)
 
 
@@ -362,7 +363,7 @@ def reward_timeline() -> None:
     h, l = ax.get_legend_handles_labels()
     ax.legend(h[::-1], l[::-1], loc="upper left", bbox_to_anchor=(0.0, 0.85), fontsize=8)
     fig.tight_layout()
-    fig.savefig(OUT / "reward_timeline.png", dpi=110)
+    fig.savefig(OUT / "reward_timeline.png", dpi=150)
     plt.close(fig)
 
 
@@ -394,7 +395,7 @@ def physics_audit() -> None:
     axes[0].set_yticks(y)
     axes[0].set_yticklabels([r[0] for r in rows])
     fig.tight_layout()
-    fig.savefig(OUT / "physics_audit.png", dpi=110)
+    fig.savefig(OUT / "physics_audit.png", dpi=150)
     plt.close(fig)
 
 

@@ -48,6 +48,8 @@ if [[ "${1:-}" == "--full" ]]; then
       $PY scripts/train.py --algo $algo --dataset data/offline/$ds.npz --out data/runs/${algo}_${ds}_s0 --steps 20000 --minutes 25 --seed 0
     done
   done
+  echo "== radial profiles for the animations (PI, open-loop, heating cut)"
+  $PY scripts/profile_snapshots.py
   echo "== open-loop optimum estimate"
   $PY scripts/open_loop_search.py --workers 8 --population 16 --generations 10 --minutes 45 --objective benchmark
   $PY scripts/open_loop_search.py --workers 8 --population 16 --generations 10 --minutes 45 --objective audited
@@ -63,5 +65,6 @@ fi
 echo "== summary table"
 $PY scripts/evaluate.py --summary
 
-echo "== figures"
+echo "== figures and interactive-widget data"
 $PY scripts/make_figures.py
+$PY scripts/make_widget_data.py

@@ -1,5 +1,11 @@
 # Open questions you could attack
 
+!!! abstract "In short"
+
+    - **Do first:** publish the reward audit (fork branch and draft issue/PR are ready), then a properly seeded RL baseline on the audited reward.
+    - **Biggest scientific question:** does feedback beat the best open-loop schedule once the plasma is randomised?
+    - **Natural fits for you:** constrained RL for q_min and Greenwald limits, model-based data efficiency, and realistic noisy diagnostics.
+
 Ranked by (value of a first paper) × (probability you can deliver it on a laptop CPU in 2–3 months), for someone with your background. Effort assumes the code in this repo as the starting point. Numbers quoted from this repo come from `data/results/summary.json` and are explained in [Designs and results](04-designs.md).
 
 ```mermaid

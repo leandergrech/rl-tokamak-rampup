@@ -3,7 +3,7 @@ repo: https://github.com/leandergrech/rl-tokamak-rampup
 pages: https://leandergrech.github.io/rl-tokamak-rampup/
 step: 7
 state: done
-updated: 2026-10-01T01:21:52Z
+updated: 2026-10-01T08:38:36Z
 blockers: none
 next: Leander reviews the site and docs/upstream drafts; first experiment = randomised Gym-TORAX on the audited reward (notebooks/03)
 log:
@@ -18,6 +18,7 @@ log:
 - 2026-09-30T21:35:02Z vast.ai: rented instance 53588773 (approved offer 47588726, $0.21/h); image pull stalled ~20 min, destroyed; ~$0.003 spent; offer no longer listed, jobs moved back to the laptop. Diagrams + 10 figures added; 3 theme options sent for review
 - 2026-09-30T23:20:24Z vast.ai instance 53597337 (EPYC 7R13, 48 cores, $0.161/h) ran 12 jobs 00:29-01:20 CEST, destroyed; total vast spend ~$0.15. Idle-machine runs: PPO s1 48.98 and SAC s1 27.08 (both Q-farming, audited 3.53/..), MBPO s4 10.82 (exploit), MBPO obs=full s1 final 5.63 raw / 3.69 audited, audited-reward MBPO s0-s2 -998/2.98/3.16; CEM open-loop 4.08 raw (3.57 audited), CEM on audited objective 3.63 audited
 - 2026-10-01T01:21:52Z step 5-6 done: docs 04-06, for-leander, index, README with final numbers, 14 diagrams/figures, theme A (Plasma); notebooks 01-03 executed; pytest 15 passed; reproduce.sh 32/32 checkpoints OK (55 min, busy laptop); mkdocs --strict clean; tracked data 19.0 MB
+- 2026-10-01T08:38:36Z docs pass: 7 interactive widgets (q field lines, current-diffusion toy, TORAX profile player, reward explorer, episode replay, Greenwald/IPB98 calculator, results explorer), In-short boxes, figure captions, home hero + cards, logo, 'how every number is checked' section; audit fixes (random seed-0 value, MBPO/CEM settings, 61 s, heating step convention)
 
 ## Fork task
 repo: https://github.com/leandergrech/gymtorax (branch fix/audited-iter-hybrid-reward; pinned backport branch fix/audited-iter-hybrid-reward-v1.0 off tag v1.0.0)

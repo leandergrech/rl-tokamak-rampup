@@ -1,5 +1,13 @@
 # Designs and results
 
+!!! abstract "In short"
+
+    - **Literature:** model-free RL works where a trustworthy simulator exists (TCV magnetics); profile-level results on real machines all go through learned models.
+    - **This repo:** PI and open-loop numbers reproduce exactly; the random-policy number does not.
+    - PPO and SAC plateau near 3.0 with little data and **exploit the reward** with more (27–49).
+    - MBPO beats PI within about 1,400–2,400 simulator steps, mostly via the same loophole.
+    - Under the **audited score** the best learned policy reaches 3.69 against PI's 3.50.
+
 Two parts: the published RL/ML control designs side by side, then this repo's baselines on Gym-TORAX with their numbers. Every literature number links to [References](07-references.md); every number of ours comes from a file under `data/`.
 
 ## Published designs side by side
@@ -58,7 +66,7 @@ All runs use gymtorax 1.0.0 / torax 1.0.3 (the paper's stack, see [The control p
 | Policy | Paper (v1.0) | This repo | Notes |
 |---|---|---|---|
 | PI controller, k_p = 0.700, k_i = 34.257 (re-implemented in `rl_tokamak.controllers`) | 3.79 | **3.7919** | identical to Gym-TORAX's own `PIDAgent` (3.791923 both) |
-| Open-loop reference (I_p 3 → 12.5 MA over 100 s, 33 MW NBI + 20 MW ECRH from 99 s) | 3.40 | **3.4086** | |
+| Open-loop reference (I_p 3 → 12.5 MA over 100 s, 33 MW NBI + 20 MW ECRH from the step 99 → 100 s) | 3.40 | **3.4086** | |
 | Random (uniform over the Gym-TORAX action dict), 20 seeds | −10.79 | **3.23 ± 0.06**, 0 failures | **not reproduced**: see below |
 
 The paper's random-policy mean is not reproduced. A uniform random policy never triggered the −1000 failure in 20 episodes here (returns 3.10–3.33). The paper's −10.79 would follow from a failure rate of about 1.4 % with otherwise similar returns; the number of episodes and seeds behind it is not stated in the paper ([R1](07-references.md#r1)), and small numerical differences in the JAX stack can decide whether a marginal state leaves the bounds file. Report random-policy numbers with their failure rate.
@@ -73,9 +81,12 @@ Where the PI controller's advantage over the open-loop reference comes from (sum
 | q95 | 1.01 | 1.01 |
 | **total** | **3.79** | **3.41** |
 
-The PI policy wins entirely on fusion gain, by reaching 15 MA at t = 60 s, and pays for it with q_min (0.41 at the end).
+The PI policy wins entirely on fusion gain, by reaching 15 MA at t = 61 s, and pays for it with q_min (0.41 at the end).
 
-![Paper versus this repo for the three published baselines](figures/classical.png)
+<figure markdown="span">
+  ![Paper versus this repo](figures/classical.png)
+  <figcaption><strong>The three published baselines.</strong> Hollow: the paper (Gym-TORAX 1.0). Filled: this repo on gymtorax 1.0.0 / TORAX 1.0.3. PI and open-loop agree to 0.01; the random policy scores 3.23 here, not −10.79, because none of 20 episodes hit the −1000 failure.</figcaption>
+</figure>
 
 ### Baseline designs
 
@@ -85,11 +96,11 @@ All learned policies see the wrapper defaults unless an ablation says otherwise:
 |---|---|---|---|---|
 | PPO | Stable-Baselines3 2.9.0 | MLP 64-64 (actor and critic) | 8 envs, n_steps 128, batch 256, 10 epochs, lr 3e-4, GAE λ 0.95, clip 0.2, initial log σ −0.5 | 45 min wall clock |
 | SAC | Stable-Baselines3 2.9.0 | MLP 256-256 | 8 envs, 1 gradient step per transition, buffer 300k, 3k warm-up steps, automatic entropy | 45 min wall clock |
-| MBPO | `rl_tokamak.agents.mbpo` | ensemble of 5 Gaussian MLPs 3×200 (SiLU), bootstrapped, 10 % hold-out early stopping; SAC 256-256 | model refit after every episode; every 50 real steps branch 1,000 rollouts of length k = 1 → 5 (ramped over episodes 4–20); 10 SAC updates per real step on 10 % real + 90 % model data; time feature advanced exactly | 20–30 simulator episodes, 50–55 min cap |
+| MBPO | `rl_tokamak.agents.mbpo` | ensemble of 5 Gaussian MLPs 3×200 (SiLU), bootstrapped, 10 % hold-out early stopping; SAC 256-256 | model refit after every episode; every 50 real steps branch 1,000 rollouts of length k = 1 → 5 (ramped over episodes 4–20); 10 SAC updates per real step on 10 % real + 90 % model data; time feature advanced exactly | 15–40 simulator episodes (see each run's `config.json`), 50–55 min cap |
 | BC | `rl_tokamak.agents.offline` | MLP 256-256, tanh output | MSE to logged actions | 60k (pi_det) or 20k steps, 25 min cap |
 | TD3+BC | `rl_tokamak.agents.offline` | 256-256 actor and twin critics | α = 2.5, policy noise 0.2, delay 2, dataset state normalisation ([R21](07-references.md#r21)) | same |
 | MOPO | `rl_tokamak.agents.offline` | MBPO's ensemble and SAC | penalty λ = 1 on max-member predictive σ norm, horizon 5, 5 % real data ([R20](07-references.md#r20)) | same |
-| CEM open-loop search | `rl_tokamak.agents.cem` | none | 9-parameter schedule (two ramp rates and switch time, I_p ceiling, pre-heating power and start, flat-top powers), population 12, 4 elites | 45 min, 4 workers |
+| CEM open-loop search | `rl_tokamak.agents.cem` | none | 9-parameter schedule (two ramp rates and switch time, I_p ceiling, pre-heating power and start, flat-top powers), population 16, 4 elites | 45 min, 8 workers |
 
 
 How the MBPO baseline spends simulator steps:
@@ -167,13 +178,27 @@ Runs whose `config.json` lists host `AMD EPYC 7R13` (MBPO seeds 3–5, the audit
 
 "Return" is the benchmark score of the final policy (one deterministic episode). "Best during training" is the highest deterministic evaluation seen during training; with a deterministic environment and no held-out test set, it is selected on the benchmark itself and should be read as an optimistic anytime number. "Sim. steps to beat PI" is the number of simulator steps used for training when a deterministic evaluation first exceeded 3.7919. Wall times were measured on a 16-thread laptop CPU that was **shared with two other heavy workloads** for most of the session (load average 20–40); on an idle machine the same runs are 3–10× faster, so the step counts, not the minutes, are the comparable quantity.
 
-![Where each policy's return comes from, with its audited score](figures/reward_components.png)
+<figure markdown="span">
+  ![Where each policy's return comes from](figures/reward_components.png)
+  <figcaption><strong>Each policy's benchmark return split into its four reward terms</strong>, with its audited score as a black tick. The q95 and q_min terms can add at most 2.0; everything above about 4 is the uncapped fusion-gain term, which the exploiting policies (PPO and SAC seed 1, MBPO seed 1, MBPO raw reward) inflate by cutting the heating.</figcaption>
+</figure>
 
-![Learning curves](figures/learning_curves.png)
+<figure markdown="span">
+  ![Learning curves](figures/learning_curves.png)
+  <figcaption><strong>Deterministic-policy return against simulator steps, every default-configuration run, log-log.</strong> MBPO (blue) crosses the PI line within a few thousand steps; SAC and PPO need tens of thousands, and then keep climbing far above it, which is only possible through the Q loophole. Failed evaluation episodes are drawn at the bottom of the axis.</figcaption>
+</figure>
 
-![Trajectories](figures/trajectories.png)
+<figure markdown="span">
+  ![Trajectories](figures/trajectories.png)
+  <figcaption><strong>Nine quantities through the episode</strong> for the PI controller, the open-loop reference, the best final policy among the default-configuration online runs, and the CEM schedule. Dashed lines mark q_min = 1 and Greenwald fraction = 1; the dotted line marks t = 100 s.</figcaption>
+</figure>
 
-![Offline RL](figures/offline.png)
+<figure markdown="span">
+  ![Offline RL](figures/offline.png)
+  <figcaption><strong>Offline RL from PI-controller logs.</strong> Bars: final policies of BC, TD3+BC and MOPO on the three datasets; black ticks: the mean return of the behaviour data. With one deterministic trajectory TD3+BC fails; with noisy data the imitation learners match their behaviour policy.</figcaption>
+</figure>
+
+<div class="rt-widget" data-widget="results" data-title="Interactive: every policy, benchmark return against audited score"></div>
 
 ### What the numbers say
 
@@ -187,7 +212,51 @@ Runs whose `config.json` lists host `AMD EPYC 7R13` (MBPO seeds 3–5, the audit
 
 **5. The open-loop optimum is not far above PI once the loophole is closed.** CEM over a 9-parameter schedule reached 4.08 on the benchmark objective (96 episodes, 45.8 min, audited 3.57) and 3.87 when optimising the audited score directly (160 episodes, 41.4 min, audited 3.63). Neither search found the Q loophole within its budget. On the audited score the ranking is MBPO full-observation seed 1 (3.69) > CEM (3.63) > imitation of noisy PI (3.56) > PI (3.50) > open-loop (3.41): a spread of 0.28, small next to the 1–45 points the loophole is worth.
 
+Replay any of the stored episodes and watch where the return comes from:
+
+<div class="rt-widget" data-widget="replay" data-title="Interactive: replay real TORAX episodes"></div>
+
 **6. Ablations.** Observation set (MBPO): `scalars` failed (seed 0, −999.32) or plateaued (seed 1, 2.97); `full` reached 3.12 (seed 0, 735 steps on the loaded laptop) and 5.63 (seed 1). Reward: the raw benchmark reward led to the exploit in 594 steps on seed 0 (best 8.85) but not on seeds 1–2 (3.06, 2.27); `qmin_safe` kept q_min above 1 throughout and ended at 3.00. With one to three seeds each and returns inside the MBPO seed spread, only the reward effect (exploit or not) is clear.
 
 **What longer training changes.** The cloud runs answer part of this already: 5–8× more simulator steps took PPO and SAC from the plateau straight into the loophole. On the benchmark reward, more compute makes the scores larger, not more meaningful. On the audited score, the room above PI appears to be a few tenths (CEM 3.63, best learned 3.69); finding out whether feedback policies can use more of it is the point of [opening 3](06-open-questions.md#3-does-feedback-matter-a-randomised-gym-torax).
 
+## How every number here is produced and checked
+
+Every number on this site comes from a file under `data/`, written by one script and checked by another. Nothing is copied by hand from a terminal.
+
+```mermaid
+flowchart TB
+    T["scripts/train.py<br/>(one run, wall-clock capped)"] --> RD[("data/runs/&lt;run&gt;/<br/>config.json · curve.json<br/>policy.pt · result.json<br/>final_episode.csv")]
+    C["scripts/evaluate.py --classical"] --> CJ[("data/results/classical.json<br/>data/trajectories/pi.csv, open_loop.csv")]
+    D["scripts/make_datasets.py"] --> OD[("data/offline/*.npz")] --> T
+    CEM["scripts/open_loop_search.py"] --> CR[("data/results/cem_open_loop*.json")]
+    RD --> RE["scripts/evaluate.py --runs<br/>re-runs every checkpoint:<br/>must match result.json to 10⁻⁶ (relative)"]
+    RD --> S["scripts/evaluate.py --summary<br/>(benchmark + audited score)"]
+    CJ --> S
+    CR --> S
+    S --> SM[("data/results/summary.md / .json")]
+    SM --> F["scripts/make_figures.py<br/>scripts/make_widget_data.py"] --> DOCS["figures and interactive widgets"]
+```
+
+`bash scripts/reproduce.sh` runs the classical evaluation, asserts the paper's PI and open-loop numbers, re-evaluates all 32 stored checkpoints, and rebuilds the summary and figures (55 min on a busy 16-thread laptop; `--full` retrains everything).
+
+| Number | Produced by | Checked by |
+|---|---|---|
+| PI 3.7919, open-loop 3.4086 | `evaluate.py --classical` (this repo's controllers) | `reproduce.sh` asserts both within 0.01 of the paper and that Gym-TORAX's own `PIDAgent` gives the identical PI return; `tests/test_controllers.py` checks that both controllers issue the same actions as Gym-TORAX's agents |
+| Random 3.23 ± 0.06 | 20 episodes, seeds 0–19, same script | the fork's `examples/baselines_audited.py` reproduces it independently (3.23 ± 0.06) with Gym-TORAX's `RandomAgent` |
+| Every RL return | `train.py` → `result.json` (one deterministic episode of the final policy) | `reproduce.sh` re-runs each checkpoint; the environment is deterministic, so the return must match to a relative 10⁻⁶ (cloud-trained runs differ by at most 4 × 10⁻⁶ in absolute terms, from CPU-specific floating point) |
+| "Best during training", "steps to beat PI" | `curve.json` (periodic deterministic evaluations during training) | recomputed by `evaluate.py --summary` |
+| Audited score | `rl_tokamak.evaluate.audited_return` applied to each `final_episode.csv` | the fork's `IterHybridAudited-v0` environment, an independent implementation, gives the same values for PI (3.50), TD3+BC (3.56) and MBPO full-observation seed 1 (3.69) |
+| Version comparison (gymtorax 1.1.1) | `scripts/probe_versions.py` in a separate environment | the fork's baseline table on its `main` branch (TORAX 1.4.2) agrees on the PI failure and the open-loop value to within 0.01 |
+
+### The test suite
+
+`pytest` runs 15 tests in about 5 minutes (CI runs them on every push, together with `mkdocs build --strict`):
+
+| File | Tests | What each one checks |
+|---|---|---|
+| `tests/test_env.py` | 6 | observation and action shapes and the 151-step horizon of gymtorax 1.0.0; a step returns finite features and the benchmark reward equals the sum of its four recomputed terms (and the training reward is exactly 100× it); episodes truncate where configured; a full positive I_p action moves the current by exactly the 0.2 MA ramp limit and maps back to the same action; the three training-reward modes give the documented values; the four reward terms on a hand-built state |
+| `tests/test_controllers.py` | 2 | this repo's PI and open-loop controllers issue identical action dicts to Gym-TORAX's `PIDAgent` and `IterHybridAgent` over six steps of the real simulator |
+| `tests/test_baselines_smoke.py` | 7 | PPO, SAC, MBPO, BC, TD3+BC and MOPO each train for a few steps through `scripts/train.py` and leave a run directory that reloads and re-evaluates without failure; the CEM schedule controller runs |
+
+The fork adds `tests/test_audited_env.py` (10 tests) to Gym-TORAX: four reward-level tests on synthetic states (identical to `IterHybrid-v0` when Q ≤ 10 and P_SOL ≥ P_LH, identical in L-mode, Q capped, H-mode gated by P_SOL ≥ P_LH), four full-episode tests (the heating-cut sequence more than doubles the `IterHybrid-v0` return; the audited environment scores it below the open-loop reference; the Q cap alone and the P_SOL gate alone each lower it), and two that only run with TORAX 1.0 (PI = 3.79 on `IterHybrid-v0`, 3.50 on the audited environment).

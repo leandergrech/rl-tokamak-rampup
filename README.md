@@ -63,9 +63,10 @@ The environment wrapper is `rl_tokamak.env.RampupEnv` (flat 60-d observation, 3-
 ## Layout
 
 ```
-docs/          the review (MkDocs Material), published to GitHub Pages
+docs/          the review (MkDocs Material, with interactive widgets in docs/javascripts/widgets.js), on GitHub Pages
 src/rl_tokamak env wrapper, PI/open-loop controllers, MBPO, TD3+BC, MOPO, SB3 runner, CEM, plotting
-scripts/       train.py, evaluate.py, reproduce.sh, make_datasets.py, open_loop_search.py, make_figures.py
+scripts/       train.py, evaluate.py, reproduce.sh, make_datasets.py, open_loop_search.py, make_figures.py,
+               make_widget_data.py, profile_snapshots.py, score_upstream_envs.py, failure_probe.py, probe_versions.py
 notebooks/     01-explore, 02-baseline, 03-first-experiment
 data/          offline datasets, trajectories, results, every run's config/curve/checkpoint (< 20 MB)
 tests/         env sanity tests and baseline smoke tests

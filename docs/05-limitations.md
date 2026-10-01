@@ -1,5 +1,13 @@
 # Limitations: what fails, and by how much
 
+!!! abstract "In short"
+
+    - The benchmark pays for plasmas no operator would run: the PI baseline spends 101 s with q_min < 1 and peaks at Greenwald fraction 1.19.
+    - **The fusion-gain term is uncapped and the H-mode test ignores the heating power**, so cutting the heating after the scheduled pedestal multiplies the score; RL finds this on its own.
+    - TORAX here has no sawtooth, tearing or disruption model and a fixed-in-time pedestal.
+    - Published RL control results skip start-up, give no disruption guarantees and are trained per machine.
+    - This repo's runs are few-seed and CPU-bound; simulator steps, not minutes, are the comparable unit.
+
 Four kinds of limitation matter for anyone building on this benchmark: what the benchmark rewards that it should not, what the simulator cannot represent, what the published RL results do not cover, and what this repo's CPU-bounded baselines cannot tell you. Numbers from this repo come from `data/trajectories/*.csv`, `data/results/*.json` and `data/runs/*/`; literature numbers link to [References](07-references.md).
 
 ## 1. The benchmark rewards plasmas that would not be operated
@@ -8,14 +16,17 @@ The PI controller that sets the published bar (3.79) produces this plasma (`data
 
 | Quantity | PI controller | Open-loop reference | What an operator would require |
 |---|---|---|---|
-| I_p at the end | 15.0 MA (reached at t = 60 s) | 12.5 MA | hybrid scenario: 11.2–12.5 MA at q95 ≈ 4 ([R27](07-references.md#r27)) |
+| I_p at the end | 15.0 MA (reached at t = 61 s) | 12.5 MA | hybrid scenario: 11.2–12.5 MA at q95 ≈ 4 ([R27](07-references.md#r27)) |
 | q95 at the end | 3.31 | 4.09 | ≈ 4 for the hybrid scenario ([R27](07-references.md#r27)) |
 | q_min, lowest | 0.41 | 0.62 | just above 1: that is the definition of a hybrid scenario ([primer §5](02-primer.md#5-the-iter-hybrid-scenario)) |
 | seconds with q_min < 1 | 101 of 151 | 83 of 151 | 0 |
 | peak Greenwald fraction | 1.19 | 1.19 | < 1 ([R28](07-references.md#r28)) |
 | Q at the end | 14.6 | 7.7 | ITER design goals: Q ≥ 10 at 15 MA, Q = 5 in the hybrid scenario ([R26](07-references.md#r26), [R27](07-references.md#r27)) |
 
-![Physics audit of the classical and learned policies](figures/physics_audit.png)
+<figure markdown="span">
+  ![Physics audit](figures/physics_audit.png)
+  <figcaption><strong>Three physics checks the reward does not make</strong>, for every policy shown: seconds with q_min below 1 (zero in a hybrid scenario), the peak Greenwald fraction (limit 1), and the flat-top ratio P_SOL / P_LH (H-mode needs at least 1). The exploiting policies keep q_min above 1 but sit far below the L-H threshold.</figcaption>
+</figure>
 
 Why the reward allows it: the q_min term is worth at most 1/150 per second, so running the whole episode at q_min = 0.41 costs (1 − 0.41) × 151/150 ≈ 0.59 of return, while the extra current buys more fusion gain (the PI episode collects 1.19 from the Q term against 0.60 for the open-loop reference; `data/results/classical.json`). Nothing in the reward sees density. Nothing ends the episode at q < 1 or f_GW > 1, because the simulator has no sawtooth or disruption model enabled ([R4b](07-references.md#r4b)).
 
@@ -35,7 +46,12 @@ flowchart TD
     C --> G["P_SOL / P_LH falls to about 0.2:<br/>a real plasma would drop back to L-mode,<br/>but the prescribed pedestal cannot"]
 ```
 
-![How the Q loophole plays out in time](figures/exploit.png)
+<figure markdown="span">
+  ![How the Q loophole plays out in time](figures/exploit.png)
+  <figcaption><strong>The loophole in time.</strong> The exploiting policies heat hard before the pedestal (top left) and switch the heating off right after it; Q (top right) jumps to 75–750 while P_SOL / P_LH (bottom left) drops to about 0.2. The core temperature (bottom right) stays above the reward's 10 keV H-mode test because the pedestal is prescribed.</figcaption>
+</figure>
+
+<div class="rt-widget" data-widget="replay" data-title="Interactive: replay the PI controller against three exploits" data-select="pi,heating_cut,mbpo_s1,ppo_s1"></div>
 
 | Policy | Benchmark return | Flat-top P_aux | Q at end | Flat-top P_SOL / P_LH | Audited score |
 |---|---|---|---|---|---|
@@ -45,7 +61,10 @@ flowchart TD
 
 The **audited score** used throughout this repo (`rl_tokamak.evaluate.audited_return`) closes both holes with two changes and nothing else: Q is capped at 10 (ITER's design goal, [R26](07-references.md#r26)) and the H-mode gate also requires P_SOL ≥ P_LH, using the L-H threshold TORAX itself reports. It leaves the PI controller at 3.50 and the open-loop reference unchanged at 3.41, and sends both exploits below the open-loop reference. The same two changes, as an additive `gymtorax/IterHybridAudited-v0` environment with tests, a deterministic reproduction (`examples/reward_exploit.py`: the open-loop reference with heating off from 105 s scores 22.74 on v0 and 1.91 audited) and a baseline table for both gymtorax versions, are on the fork branch [`fix/audited-iter-hybrid-reward`](https://github.com/leandergrech/gymtorax/tree/fix/audited-iter-hybrid-reward).
 
-![Benchmark return against audited score for every policy](figures/audit_scatter.png)
+<figure markdown="span">
+  ![Benchmark return against audited score](figures/audit_scatter.png)
+  <figcaption><strong>Benchmark return (log scale) against audited score for every policy that finished its episode.</strong> Points far to the right and low are exploits; the policies that genuinely improve on PI sit just above it on both axes.</figcaption>
+</figure>
 
 ### Other benchmark caveats
 

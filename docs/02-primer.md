@@ -1,5 +1,13 @@
 # Domain primer: tokamak current ramp-up for an RL researcher
 
+!!! abstract "In short"
+
+    - The plasma current is driven at the edge and **diffuses inward** on the resistive time, which is long in a hot plasma and short in a cold one; heating therefore shapes the current profile.
+    - The **safety factor q** measures how field lines twist; q < 1 in the core means sawteeth, low q95 means disruptions.
+    - **Greenwald fraction, β_N, H98 and Q** are the dimensionless numbers the reward and the limits are written in.
+    - The simulator **prescribes the pedestal in time** and has no sawtooth, tearing or disruption model; this is what makes the benchmark's reward exploitable.
+    - DeepMind solved **magnetic shape control on one machine**; start-up, disruptions, profile control and transfer are open.
+
 This page is the physics you need to read the Gym-TORAX task critically: what the state variables mean, why the reward terms were chosen, what the simulator leaves out, and where the hard problems in fusion control are. It assumes nothing about plasma physics and everything about RL. Numbers from the simulator come from this repo's own rollouts (`data/trajectories/*.csv`); everything else links to [References](07-references.md).
 
 ## 1. The machine as a control system
@@ -50,6 +58,10 @@ What the symbols mean for you:
 
 The last point is the key to the ramp-up for an RL person. **Your I_p action is a Neumann boundary condition on a diffusion equation whose diffusivity is 1/σ_∥.** Current appears at the edge and diffuses inward on the resistive time, which is long when the plasma is hot (high σ_∥) and short when it is cold. Heating early "freezes" the current profile in place (slower penetration, broader or hollow current, higher central q); ramping fast relative to diffusion gives a hollow current profile; ramping slowly in a cold plasma lets current pile up in the centre (peaked current, low central q). Shaping q(ρ̂) during the ramp is the real control objective of a ramp-up, and the actuators act on it only through this diffusion.
 
+Play with the mechanism in a toy model first. It solves the cylindrical current-diffusion equation for the enclosed current, ∂I/∂t = r ∂/∂r[(η/μ₀r) ∂I/∂r], with I_p imposed at the edge and a Spitzer-like resistivity η ∝ T_e^{−3/2} on a fixed temperature profile. Press Play with the defaults (0.2 MA/s, 2 keV): q on axis falls below 1 after about 30 s. Raise the core temperature, as heating would, and the current penetrates more slowly: q drops below 1 only after about 54 s at 5 keV and 78 s at 8 keV, and at 8 keV the current density peaks off axis (a hollow profile) for the first minute. A slower ramp delays it as well (about 75 s at 0.05 MA/s). These times are the toy's, not TORAX's; TORAX's PI run crosses q = 1 at about 50 s.
+
+<div class="rt-widget" data-widget="diffusion" data-title="Interactive toy: current diffusion during the ramp"></div>
+
 The whole chain from actuators to reward, as the environment implements it:
 
 ```mermaid
@@ -75,9 +87,16 @@ flowchart TB
 
 The dotted arrows are the loophole [Limitations](05-limitations.md#1-the-benchmark-rewards-plasmas-that-would-not-be-operated) documents: auxiliary power sits in the denominator of the rewarded Q.
 
-You can see the diffusion in this repo's PI rollout (`data/trajectories/pi.csv`): I_p goes from 3 MA to its 15 MA ceiling by t = 60 s at the maximum ramp rate, but the central current density keeps rising for another 90 s, from 0.41 MA/m² at t = 1 s to 3.0 MA/m² at t = 100 s and 3.1 MA/m² at t = 150 s.
+You can see the diffusion in this repo's PI rollout (`data/trajectories/pi.csv`): I_p goes from 3 MA to its 15 MA ceiling by t = 61 s at the maximum ramp rate, but the central current density keeps rising for another 90 s, from 0.41 MA/m² at t = 1 s to 3.0 MA/m² at t = 100 s and 3.1 MA/m² at t = 150 s.
 
-![Current density and q profiles of the PI episode at six times](figures/profiles.png)
+<figure markdown="span">
+  ![Current density and q profiles of the PI episode](figures/profiles.png)
+  <figcaption><strong>TORAX profiles of the PI episode at six times.</strong> Left: the current density fills in from the edge and peaks on axis as the ramp proceeds. Right: q on axis crosses 1 between 40 and 60 s and ends at 0.41. Source: <code>data/trajectories/profiles.npz</code>.</figcaption>
+</figure>
+
+The same data, every second, for three policies. Compare the PI controller with the open-loop reference (slower ramp to 12.5 MA) and with the heating-cut sequence that exploits the reward (scrub past 105 s: the core stays above 10 keV although the heating is off):
+
+<div class="rt-widget" data-widget="profiles" data-title="Interactive: TORAX profiles, second by second"></div>
 
 The current profile peaks on axis as the ramp proceeds, and q on axis falls below 1 between t = 40 s and t = 60 s (data in `data/trajectories/profiles.npz`, from `scripts/profile_snapshots.py`).
 
@@ -89,7 +108,11 @@ $$
 q(r) \approx \frac{r\,B_\varphi}{R\,B_\theta(r)} = \frac{2\pi r^2 B_\varphi}{\mu_0 R\, I(r)},
 $$
 
-where I(r) is the current enclosed within radius r. More current inside r means lower q there. Two numbers summarise the profile:
+where I(r) is the current enclosed within radius r. More current inside r means lower q there. The animation shows what the number means geometrically:
+
+<div class="rt-widget" data-widget="q" data-title="Interactive: what the safety factor q measures"></div>
+
+Two numbers summarise the profile:
 
 - **q95**, q at the surface enclosing 95 % of the poloidal flux, is set mostly by total I_p and the shape. Low q95 risks disruptions (the usual rule of thumb is to stay above about 3; textbook value, unverified here), which is why the reward pays min(q95/3, 1). In the PI rollout q95 falls from 15.6 at t = 1 s to 3.31 at 15 MA.
 - **q_min**, the minimum of q, usually on or near the axis. Where q < 1 the core is unstable to an internal kink that produces **sawteeth**: periodic crashes that flatten the central temperature and current every few seconds and can seed more dangerous modes (textbook description, unverified here). The reward pays min(q_min, 1).
@@ -116,7 +139,10 @@ $$
 \tau_{E}^{\mathrm{IPB98(y,2)}} = 0.0562\, I_p^{0.93} B^{0.15} n^{0.41} P^{-0.69} R^{1.97} \kappa^{0.78} \varepsilon^{0.58} M^{0.19}
 $$
 
-(I_p in MA, B in T, n in 10¹⁹ m⁻³, P in MW, R in m, κ elongation, ε = a/R, M ion mass in amu). **H98 = τ_E / τ_E^IPB98**. H98 ≈ 1 is standard H-mode; the hybrid scenario aims somewhat above 1. The reward pays min(H98, 1) in "H-mode". Note the I_p^0.93: more current, better confinement. That is the main reason every good policy in this benchmark drives I_p to its 15 MA ceiling.
+(I_p in MA, B in T, n in 10¹⁹ m⁻³, P in MW, R in m, κ elongation, ε = a/R, M ion mass in amu). **H98 = τ_E / τ_E^IPB98**. Both scalings for an ITER-sized machine, live:
+
+<div class="rt-widget" data-widget="scalings" data-title="Interactive: Greenwald limit and the IPB98(y,2) confinement time"></div>
+ H98 ≈ 1 is standard H-mode; the hybrid scenario aims somewhat above 1. The reward pays min(H98, 1) in "H-mode". Note the I_p^0.93: more current, better confinement. That is why the PI controller and the policies that imitate it drive I_p to the 15 MA ceiling (the exploiting policies of [Limitations](05-limitations.md#the-q-loophole-found-by-rl) do not need to).
 
 **Fusion gain.** Q = P_fusion / P_aux, with P_aux the externally injected heating power. ITER's goal is Q ≥ 10 at 500 MW of fusion power for 50 MW injected ([R26](07-references.md#r26)); its long-pulse hybrid goal is Q = 5 for 1000 s ([R27](07-references.md#r27)). The reward pays (Q/10)/50 per second in "H-mode", which is uncapped.
 
@@ -129,7 +155,7 @@ TORAX 1.0 does not predict the pedestal. It imposes it through "an adaptive sour
 - the L-H transition happens at t = 100–105 s whatever the agent does, even if the heating is off (P_SOL < P_LH);
 - the reward's "H-mode" test is not the pedestal but T_e(0) > 10 keV and T_i(0) > 10 keV. A policy that heats the core above 10 keV early is paid as if it were in H-mode, even with a 0.5 keV L-mode pedestal.
 
-In the PI rollout the heating switches on at t = 99 s, the H-mode test first passes at t = 102 s, T_e(0) settles near 27 keV and Q reaches 14.6 by t = 150 s.
+In the PI rollout the heating switches on in the step from 99 to 100 s, the H-mode test first passes at t = 102 s, T_e(0) settles near 27 keV and Q reaches 14.6 by t = 150 s.
 
 ## 5. The ITER hybrid scenario
 

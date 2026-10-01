@@ -1,8 +1,24 @@
+---
+hide:
+  - navigation
+---
+
+<div class="rt-hero" markdown>
+
 # RL for tokamak current ramp-up
 
-A literature review and a runnable CPU codebase for reinforcement learning on the **Gym-TORAX ITER hybrid ramp-up** benchmark (Mouchamps, Malherbe, Bolland, Ernst, University of Liège; [arXiv 2510.11283](https://arxiv.org/abs/2510.11283)), which wraps Google DeepMind's TORAX transport simulator. The agent sets the plasma current and the NBI and ECRH heating power once per second for 150 s; the published baselines are a PI controller (3.79), the open-loop reference (3.40) and a random policy (−10.79), and no RL result had been published on it.
+<p>A literature review and a runnable CPU codebase for reinforcement learning on the <strong>Gym-TORAX ITER hybrid ramp-up</strong> benchmark (Mouchamps, Malherbe, Bolland, Ernst, University of Liège; <a href="https://arxiv.org/abs/2510.11283" style="color:#fff;text-decoration:underline">arXiv 2510.11283</a>), built on Google DeepMind's TORAX transport simulator. Once per second for 150 s the agent sets the plasma current and two heating powers; the paper's baselines are a PI controller (3.79), the open-loop reference (3.40) and a random policy (−10.79).</p>
 
-Code: <https://github.com/leandergrech/rl-tokamak-rampup>. Written for Leander Grech (RL for physical control; new to fusion); everything is checkable against the linked sources and the files in `data/`.
+<div class="rt-stats">
+<div class="rt-stat"><b>3.79</b><span>PI controller, reproduced exactly on gymtorax 1.0.0 / TORAX 1.0.3</span></div>
+<div class="rt-stat"><b>48.98</b><span>highest benchmark return, found by PPO through a reward loophole</span></div>
+<div class="rt-stat"><b>3.69</b><span>best learned policy under the audited score (PI: 3.50)</span></div>
+<div class="rt-stat"><b>32 / 32</b><span>stored checkpoints re-evaluate to their recorded return</span></div>
+</div>
+
+</div>
+
+Code: <https://github.com/leandergrech/rl-tokamak-rampup>. Written for Leander Grech (RL for physical control; new to fusion). Every number links to a file in `data/` or to a source in [References](07-references.md).
 
 ## Headline results
 
@@ -19,6 +35,8 @@ Code: <https://github.com/leandergrech/rl-tokamak-rampup>. Written for Leander G
 | TD3+BC on noisy PI logs (σ 0.3) | 4.01 | 3.56 | 0 online |
 | CEM open-loop schedule, audited objective | 3.87 | 3.63 | 24,160 |
 
+<div class="rt-widget" data-widget="results" data-title="Interactive: every policy, benchmark return against audited score"></div>
+
 What this repo found:
 
 1. **The published PI and open-loop numbers reproduce exactly on gymtorax 1.0.0 / TORAX 1.0.3; the random-policy number (−10.79) does not** (3.23 ± 0.06, no failures in 20 episodes), and the current gymtorax 1.1.1 changes all three ([details](01-problem.md#which-version-is-the-benchmark)).
@@ -31,16 +49,73 @@ What this repo found:
 
 ## How to read this site
 
-| If you want to… | Read |
-|---|---|
-| get oriented from an RL background, with a two-week plan | [For Leander](for-leander.md) |
-| see the task as an MDP, and what "solved" should mean | [1. The control problem](01-problem.md) |
-| learn the physics you need (q, β_N, Greenwald limit, H-mode, current diffusion) | [2. Domain primer](02-primer.md) |
-| see who did what, 2019–2026 | [3. Timeline](03-timeline.md) |
-| compare published designs, and see this repo's baseline numbers | [4. Designs and results](04-designs.md) |
-| know what fails and by how much | [5. Limitations](05-limitations.md) |
-| pick a research direction | [6. Open questions](06-open-questions.md) |
-| check a source | [7. References](07-references.md) |
+<div class="grid cards" markdown>
+
+-   :material-school-outline: **For Leander**
+
+    ---
+
+    What transfers from your ATC, CERN and EO work, what is new, and a two-week plan.
+
+    [:octicons-arrow-right-24: Start here](for-leander.md)
+
+-   :material-function-variant: **1. The control problem**
+
+    ---
+
+    The task as an MDP, the reward term by term (with an interactive explorer), and what "solved" should mean.
+
+    [:octicons-arrow-right-24: The MDP](01-problem.md)
+
+-   :material-atom-variant: **2. Domain primer**
+
+    ---
+
+    Current diffusion, the safety factor, Greenwald and IPB98 scalings, H-mode: with four animations.
+
+    [:octicons-arrow-right-24: The physics](02-primer.md)
+
+-   :material-timeline-clock-outline: **3. Timeline 2019–2026**
+
+    ---
+
+    Who did what in ML and RL for tokamak control, with headline numbers and links.
+
+    [:octicons-arrow-right-24: The field](03-timeline.md)
+
+-   :material-chart-scatter-plot: **4. Designs and results**
+
+    ---
+
+    Published designs side by side, every baseline of this repo, and how each number is checked.
+
+    [:octicons-arrow-right-24: The results](04-designs.md)
+
+-   :material-alert-octagon-outline: **5. Limitations**
+
+    ---
+
+    What the benchmark rewards that it should not (the Q loophole), and what the simulator leaves out.
+
+    [:octicons-arrow-right-24: The caveats](05-limitations.md)
+
+-   :material-lightbulb-on-outline: **6. Open questions**
+
+    ---
+
+    Eight ranked research openings with effort estimates.
+
+    [:octicons-arrow-right-24: What to do next](06-open-questions.md)
+
+-   :material-bookshelf: **7. References**
+
+    ---
+
+    Every source, the URL actually opened, and what was verified.
+
+    [:octicons-arrow-right-24: The sources](07-references.md)
+
+</div>
 
 ## Reproduce
 

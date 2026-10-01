@@ -1,5 +1,14 @@
 # For Leander: on-ramp
 
+!!! abstract "In short"
+
+    **Suggested reading order (about 3 hours):**
+
+    1. This page, then [The control problem](01-problem.md) with the reward explorer.
+    2. [Primer](02-primer.md) sections 2 and 3 with the four animations.
+    3. [Designs and results](04-designs.md), especially *How every number is produced and checked*.
+    4. [Limitations](05-limitations.md) section 1 (the loophole), then [Open questions](06-open-questions.md).
+
 You know the RL side: PPO, SAC and TD3 in SB3, Gymnasium plumbing, sample-efficient learning on an expensive physical system (the TWOCRYST/AICRYSCON crystal alignment), sim-to-real with sparse noisy sensors, long-horizon safety-constrained decision-making (TADA), and inverse problems from images (Semablu). This page maps that onto the tokamak ramp-up and gives you a two-week plan. The physics is in the [primer](02-primer.md); the MDP in [The control problem](01-problem.md).
 
 ## What transfers directly
