@@ -252,11 +252,12 @@ def audit_scatter() -> None:
         fc = Path(f"data/trajectories/cem_best{tag}.csv")
         if fc.exists():
             pts.append((lab, float(pd.read_csv(fc)["r_bench"].sum()), _audit(fc), "reference"))
-    names = {"PI controller": ("PI controller", (8, -12)), "open-loop": ("open-loop", (8, -4)),
-             "td3bc_pi_noisy_0.3_s0": ("TD3+BC, noisy PI σ 0.3", (8, 6)),
+    names = {"PI controller": ("PI controller", (8, -14)), "open-loop": ("open-loop", (-52, -3)),
+             "td3bc_pi_noisy_0.3_s0": ("TD3+BC, noisy PI σ 0.3", (14, -52)),
              "mopo_pi_det_s0": ("MOPO, one PI episode", (8, -4)),
              "mbpo_raw_reward_best": ("MBPO raw reward (best)", (-40, 10)), "mbpo_s1": ("MBPO seed 1", (-30, 10)),
-             "cem_benchmark": ("CEM, benchmark objective", (8, 4)), "cem_audited": ("CEM, audited objective", (8, 4))}
+             "cem_benchmark": ("CEM, benchmark objective", (64, -26)), "cem_audited": ("CEM, audited objective", (-70, 34)),
+             "mbpo_res_s3": ("RL on top of PI: PPO and MBPO, 5 seeds each", (-120, 22))}
     fig, ax = plt.subplots(figsize=(8.5, 5))
     groups = {"classical": (SERIES[0], "o", 70), "online": (SERIES[1], "s", 45), "offline": (SERIES[2], "^", 50),
               "reference": (SERIES[3], "D", 55), "residual": ("#d6368f", "P", 70)}
@@ -269,7 +270,8 @@ def audit_scatter() -> None:
     for lab, x, y, g in pts:
         if lab in names:
             text, off = names[lab]
-            ax.annotate(text, (x, y), xytext=off, textcoords="offset points", fontsize=8, color=INK)
+            ax.annotate(text, (x, y), xytext=off, textcoords="offset points", fontsize=8, color=INK,
+                        arrowprops={"arrowstyle": "-", "color": MUTED, "lw": 0.6} if abs(off[1]) > 12 else None)
     ax.plot([1.9, 4.3], [1.9, 4.3], color=MUTED, lw=1, ls="--")
     ax.text(2.05, 2.25, "audited = benchmark", fontsize=8, color=MUTED, rotation=38)
     ax.set_xscale("log")
