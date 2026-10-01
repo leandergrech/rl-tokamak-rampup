@@ -9,9 +9,9 @@
 | MBPO (ensemble + SAC) [I_p floor 1 MA] (seed 0) | ablation | 3.15 | 3.13 | 3.95 | 1,364 | 2,119 | 55.8 | 6.9 | 1.28 | 0 | 1.05 | 1.6 |
 | MBPO (ensemble + SAC) [obs=full] (seed 0) | ablation | 3.12 | 2.01 | 3.12 |  | 735 | 55.8 | 14.2 | 1.22 | 0 | 1.20 | 2.6 |
 | MBPO (ensemble + SAC) [obs=full] (seed 1) | ablation | 5.63 | 3.69 | 21.29 | 906 | 2,177 | 29.0 | 15.0 | 0.58 | 79 | 1.18 | 36.6 |
-| MBPO (ensemble + SAC) [obs=scalars] (seed 0) | ablation | -999.32 |  | 3.04 |  | 1,524 | 52.9 | 3.0 | 2.97 | 0 | 1.27 | 0.0 |
+| MBPO (ensemble + SAC) [obs=scalars] (seed 0) | ablation | -999.32 | -999.32 | 3.04 |  | 1,524 | 52.9 | 3.0 | 2.97 | 0 | 1.27 | 0.0 |
 | MBPO (ensemble + SAC) [obs=scalars] (seed 1) | ablation | 2.97 | 2.01 | 3.00 |  | 2,239 | 13.3 | 3.0 | 3.51 | 0 | 1.27 | 0.2 |
-| MBPO (ensemble + SAC) [reward=patched] (seed 0) | ablation | -997.92 |  | 3.23 |  | 3,658 | 21.3 | 3.0 | 1.28 | 0 | 1.13 | 0.9 |
+| MBPO (ensemble + SAC) [reward=patched] (seed 0) | ablation | -997.92 | -997.96 | 3.23 |  | 3,658 | 21.3 | 3.0 | 1.28 | 0 | 1.13 | 0.9 |
 | MBPO (ensemble + SAC) [reward=patched] (seed 1) | ablation | 2.98 | 2.98 | 5.05 | 3,020 | 3,775 | 21.7 | 3.3 | 2.08 | 0 | 1.26 | 0.2 |
 | MBPO (ensemble + SAC) [reward=patched] (seed 2) | ablation | 3.16 | 3.12 | 3.16 |  | 3,753 | 21.8 | 9.1 | 0.80 | 67 | 1.13 | 3.1 |
 | MBPO (ensemble + SAC) [reward=benchmark] (seed 0) | ablation | 2.24 | 2.01 | 8.85 | 594 | 1,500 | 53.2 | 3.0 | 2.56 | 0 | 1.23 | 4.2 |
@@ -28,9 +28,11 @@
 | MOPO on pi_noisy_0.1 (seed 0) | offline | 2.88 | 2.01 | 2.88 |  | 0 online, 3,020 logged | 24.1 | 3.6 | 2.49 | 0 | 0.88 | 1.2 |
 | MOPO on pi_noisy_0.3 (seed 0) | offline | 2.01 | 2.01 | 2.01 |  | 0 online, 3,020 logged | 21.5 | 13.0 | 2.68 | 0 | 0.89 | 1.8 |
 | PPO (SB3) (seed 0) | online | 2.99 | 2.01 | 2.99 |  | 14,128 | 47.2 | 4.3 | 3.58 | 0 | 1.21 | 0.5 |
+| PPO (SB3) (seed 1) | online | 48.98 | 3.53 | 48.98 | 48,008 | 112,136 | 46.0 | 10.8 | 0.71 | 59 | 1.23 | 755.1 |
 | SAC (SB3) [I_p floor 1 MA] (seed 0) | ablation | 2.99 | 2.58 | 3.02 |  | 10,712 | 51.0 | 3.1 | 3.67 | 0 | 1.32 | 0.2 |
 | SAC (SB3) (seed 0) | online | 2.92 | 2.01 | 3.20 |  | 11,192 | 47.2 | 3.3 | 2.46 | 0 | 1.28 | 1.5 |
-| TD3+BC on pi_det (seed 0) | offline | -998.05 |  | -998.05 |  | 0 online, 151 logged | 34.3 | 8.5 | 0.46 | 68 | 1.16 | 6.8 |
+| SAC (SB3) (seed 1) | online | 27.08 | 1.99 | 27.77 | 15,624 | 74,872 | 46.0 | 6.3 | 0.91 | 51 | 1.09 | 283.7 |
+| TD3+BC on pi_det (seed 0) | offline | -998.05 | -998.06 | -998.05 |  | 0 online, 151 logged | 34.3 | 8.5 | 0.46 | 68 | 1.16 | 6.8 |
 | TD3+BC on pi_noisy_0.1 (seed 0) | offline | 3.79 | 3.54 | 3.79 |  | 0 online, 3,020 logged | 25.0 | 14.5 | 0.43 | 99 | 1.20 | 13.8 |
 | TD3+BC on pi_noisy_0.3 (seed 0) | offline | 4.01 | 3.56 | 4.01 |  | 0 online, 3,020 logged | 18.8 | 14.8 | 0.43 | 96 | 1.20 | 16.9 |
 | CEM open-loop schedule search, objective: benchmark | reference | 4.08 | 3.57 |  |  | 14,496 | 45.8 | 14.6 | 0.48 | 94 | 1.20 | 18.5 |

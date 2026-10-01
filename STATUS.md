@@ -1,11 +1,11 @@
 # STATUS
 repo: https://github.com/leandergrech/rl-tokamak-rampup
 pages: https://leandergrech.github.io/rl-tokamak-rampup/
-step: 4
-state: running
-updated: 2026-09-30T21:35:02Z
+step: 7
+state: done
+updated: 2026-10-01T01:21:52Z
 blockers: none
-next: audited-reward MBPO seeds, MBPO seeds 3-4, CEM (benchmark + audited) running locally until ~00:30 CEST; waiting for Leander to pick a site theme (options A/B/C sent); then final docs, notebooks, reproduce.sh
+next: Leander reviews the site and docs/upstream drafts; first experiment = randomised Gym-TORAX on the audited reward (notebooks/03)
 log:
 - 2026-09-30T16:04:44Z step 0 done: gh logged in as leandergrech (repo, workflow scopes); git user.name "Leander Grech"; repo folder empty
 - 2026-09-30T16:05:16Z step 1 done: skeleton committed, public repo created and pushed
@@ -17,6 +17,7 @@ log:
 - 2026-09-30T21:35:02Z FINDING: benchmark reward is exploitable. MBPO reached 8.85 (raw reward) and 18.42 (seed 1) by cutting aux heating after the scheduled pedestal -> uncapped Q=P_fus/P_aux up to 210, P_SOL/P_LH~0.2. Added audited score (Q capped at 10, H-mode gate needs P_SOL>=P_LH): PI 3.50, exploits ~2.0, best learned TD3+BC(noisy PI) 3.56
 - 2026-09-30T21:35:02Z vast.ai: rented instance 53588773 (approved offer 47588726, $0.21/h); image pull stalled ~20 min, destroyed; ~$0.003 spent; offer no longer listed, jobs moved back to the laptop. Diagrams + 10 figures added; 3 theme options sent for review
 - 2026-09-30T23:20:24Z vast.ai instance 53597337 (EPYC 7R13, 48 cores, $0.161/h) ran 12 jobs 00:29-01:20 CEST, destroyed; total vast spend ~$0.15. Idle-machine runs: PPO s1 48.98 and SAC s1 27.08 (both Q-farming, audited 3.53/..), MBPO s4 10.82 (exploit), MBPO obs=full s1 final 5.63 raw / 3.69 audited, audited-reward MBPO s0-s2 -998/2.98/3.16; CEM open-loop 4.08 raw (3.57 audited), CEM on audited objective 3.63 audited
+- 2026-10-01T01:21:52Z step 5-6 done: docs 04-06, for-leander, index, README with final numbers, 14 diagrams/figures, theme A (Plasma); notebooks 01-03 executed; pytest 15 passed; reproduce.sh 32/32 checkpoints OK (55 min, busy laptop); mkdocs --strict clean; tracked data 19.0 MB
 
 ## Fork task
 repo: https://github.com/leandergrech/gymtorax (branch fix/audited-iter-hybrid-reward; pinned backport branch fix/audited-iter-hybrid-reward-v1.0 off tag v1.0.0)

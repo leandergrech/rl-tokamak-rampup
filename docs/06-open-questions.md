@@ -27,9 +27,9 @@ Positions are this repo's judgement, not measurements; the effort estimates unde
 
 **Why open.** In this repo MBPO reached benchmark returns of 8.85 and 18.42 (the PI controller scores 3.79) by cutting auxiliary heating once the scheduled pedestal keeps the core hot, which inflates the uncapped Q = P_fus/P_aux term ([Limitations](05-limitations.md#the-q-loophole-found-by-rl)). Any RL result on Gym-TORAX 1.0 that does not check for this is uninterpretable. The Gym-TORAX authors describe TORAX-based studies as "preliminary investigations" ([R1](07-references.md#r1)); they do not discuss reward exploits.
 
-**What a first paper would show.** The exploit (mechanism, how quickly each algorithm finds it, how often across seeds), the two-line audit used here (Q capped at 10, H-mode gate requires P_SOL ≥ P_LH, [`audited_return`](04-designs.md#results)), and every baseline re-scored under it, together with CEM's open-loop optimum for both objectives. This is a short, citable note, and a natural thing to send to the Liège authors and to the TORAX discussion ([R5](07-references.md#r5)).
+**What a first paper would show.** The exploit (mechanism, how quickly each algorithm finds it, how often across seeds), the two-line audit used here (Q capped at 10, H-mode gate requires P_SOL ≥ P_LH, [`audited_return`](04-designs.md#results)), and every baseline re-scored under it, together with CEM's open-loop optimum for both objectives. This is a short, citable note, and a natural thing to send to the Liège authors and to the TORAX discussion ([R5](07-references.md#r5)). The implementation, tests and baseline table are already on the fork branch [`fix/audited-iter-hybrid-reward`](https://github.com/leandergrech/gymtorax/tree/fix/audited-iter-hybrid-reward); draft issue and PR texts are in this repo under `docs/upstream/`.
 
-**Effort.** 1–2 weeks, most of it already in this repo.
+**Effort.** Days: most of it is done; what remains is review, opening the issue, and more seeds of the exploit-finding runs.
 
 ## 2. The first RL baseline on Gym-TORAX, done properly
 
@@ -57,7 +57,7 @@ Positions are this repo's judgement, not measurements; the effort estimates unde
 
 ## 5. How much simulator data does model-based RL need? (and can it use TORAX's gradients?)
 
-**Why open.** MBPO's promise, "MBPO's performance on the Ant task at 300 thousand steps matches that of SAC at 3 million steps" ([R19](07-references.md#r19)), has not been measured on a transport simulator. This repo's first run already beats PI after about 1,400 simulator steps; the scaling with seeds, model size and rollout length is unknown. TORAX is differentiable end to end ([R4](07-references.md#r4)), so analytic policy gradients through the simulator are also available and untested for control.
+**Why open.** MBPO's promise, "MBPO's performance on the Ant task at 300 thousand steps matches that of SAC at 3 million steps" ([R19](07-references.md#r19)), has not been measured on a transport simulator. In this repo MBPO exceeded PI's benchmark return in four of seven runs after 1,364–2,416 simulator steps, but mostly through the Q loophole; under the audited reward no MBPO seed reached PI within 25 episodes. The scaling with seeds, model size and rollout length on a reward that cannot be exploited is unknown. TORAX is differentiable end to end ([R4](07-references.md#r4)), so analytic policy gradients through the simulator are also available and untested for control.
 
 **What a first paper would show.** Sample-efficiency curves (return vs simulator steps, 5 seeds) for MBPO, SAC and PPO; the effect of the rollout length k and of exact-physics components (the time feature is already advanced exactly here); and a gradient-through-TORAX baseline.
 

@@ -107,7 +107,7 @@ def audited_return(log: list[dict[str, float]]) -> float:
 
     total = 0.0
     for r in log:
-        if "q_min" not in r:
+        if "q_min" not in r or r["q_min"] != r["q_min"]:  # missing or NaN: the failure step
             total += FAILURE_REWARD
             continue
         total += sum(audited_components(r["Q_fusion"], r["H98"], r["q_min"], r["q95"], r["T_e0"], r["T_i0"],

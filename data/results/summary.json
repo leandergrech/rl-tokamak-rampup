@@ -156,7 +156,7 @@
     "Q_final": 36.619805332568035,
     "Ip_final_MA": 15.0,
     "t_q_min_below_1_s": 79.0,
-    "audited": 3.687254799535057,
+    "audited": 3.6872547891711096,
     "first_hmode_proxy_s": 103.0
   },
   {
@@ -176,7 +176,7 @@
     "Q_final": 0.008734667528353156,
     "Ip_final_MA": 3.0,
     "t_q_min_below_1_s": 0.0,
-    "audited": NaN,
+    "audited": -999.32,
     "first_hmode_proxy_s": NaN
   },
   {
@@ -216,7 +216,7 @@
     "Q_final": 0.9421289272290198,
     "Ip_final_MA": 3.0,
     "t_q_min_below_1_s": 0.0,
-    "audited": NaN,
+    "audited": -997.9612568370192,
     "first_hmode_proxy_s": 103.0
   },
   {
@@ -236,7 +236,7 @@
     "Q_final": 0.20046067327418324,
     "Ip_final_MA": 3.3242282306775452,
     "t_q_min_below_1_s": 0.0,
-    "audited": 2.978312799600929,
+    "audited": 2.978312799221663,
     "first_hmode_proxy_s": 105.0
   },
   {
@@ -256,7 +256,7 @@
     "Q_final": 3.137162507791037,
     "Ip_final_MA": 9.111560136871413,
     "t_q_min_below_1_s": 67.0,
-    "audited": 3.117187705206599,
+    "audited": 3.1171877090406332,
     "first_hmode_proxy_s": 103.0
   },
   {
@@ -296,7 +296,7 @@
     "Q_final": 0.27447351059623815,
     "Ip_final_MA": 3.5731993773020805,
     "t_q_min_below_1_s": 0.0,
-    "audited": 2.054445283521181,
+    "audited": 2.054445283714224,
     "first_hmode_proxy_s": 104.0
   },
   {
@@ -416,7 +416,7 @@
     "Q_final": 0.281403986615052,
     "Ip_final_MA": 3.5334555078297853,
     "t_q_min_below_1_s": 0.0,
-    "audited": 2.6356184231964592,
+    "audited": 2.635618421770848,
     "first_hmode_proxy_s": 104.0
   },
   {
@@ -456,7 +456,7 @@
     "Q_final": 6.039192403383205,
     "Ip_final_MA": 9.184439631272108,
     "t_q_min_below_1_s": 49.0,
-    "audited": 2.0687290648360674,
+    "audited": 2.06872900814771,
     "first_hmode_proxy_s": 103.0
   },
   {
@@ -540,6 +540,26 @@
     "first_hmode_proxy_s": 105.0
   },
   {
+    "policy": "PPO (SB3) (seed 1)",
+    "group": "online",
+    "run": "ppo_s1",
+    "return": 48.98420308313504,
+    "paper": null,
+    "best_during_training": 48.98420308313504,
+    "steps_to_beat_pi": 48008,
+    "env_steps": 112136,
+    "dataset_transitions": null,
+    "minutes": 46.017089056968686,
+    "failed": false,
+    "q_min_final": 0.7098601442629375,
+    "fGW_max": 1.2289874766655953,
+    "Q_final": 755.0578986490889,
+    "Ip_final_MA": 10.786013350263238,
+    "t_q_min_below_1_s": 59.0,
+    "audited": 3.5278987327049993,
+    "first_hmode_proxy_s": 102.0
+  },
+  {
     "policy": "SAC (SB3) [I_p floor 1 MA] (seed 0)",
     "group": "ablation",
     "run": "sac_ipfloor1MA_s0",
@@ -580,6 +600,26 @@
     "first_hmode_proxy_s": 105.0
   },
   {
+    "policy": "SAC (SB3) (seed 1)",
+    "group": "online",
+    "run": "sac_s1",
+    "return": 27.0775184931137,
+    "paper": null,
+    "best_during_training": 27.771991661322506,
+    "steps_to_beat_pi": 15624,
+    "env_steps": 74872,
+    "dataset_transitions": null,
+    "minutes": 45.986644053459166,
+    "failed": false,
+    "q_min_final": 0.9115037673488854,
+    "fGW_max": 1.0920280375287732,
+    "Q_final": 283.7192523268925,
+    "Ip_final_MA": 6.282143914699555,
+    "t_q_min_below_1_s": 51.0,
+    "audited": 1.9948500882554037,
+    "first_hmode_proxy_s": 103.0
+  },
+  {
     "policy": "TD3+BC on pi_det (seed 0)",
     "group": "offline",
     "run": "td3bc_pi_det_s0",
@@ -596,7 +636,7 @@
     "Q_final": 6.784751765848581,
     "Ip_final_MA": 8.496972735691816,
     "t_q_min_below_1_s": 68.0,
-    "audited": NaN,
+    "audited": -998.0585481657662,
     "first_hmode_proxy_s": 101.0
   },
   {

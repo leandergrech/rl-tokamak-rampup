@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Reproduce the numbers on the site.
 #
-#   bash scripts/reproduce.sh          # ~15 min on a laptop CPU: classical baselines (PI must give 3.79),
+#   bash scripts/reproduce.sh          # 55 min measured on a busy 16-thread laptop: classical baselines (PI must give 3.79),
 #                                      # re-evaluate every stored checkpoint, rebuild data/results/summary.md
 #   bash scripts/reproduce.sh --full   # also rebuild the offline datasets and retrain every baseline
 #                                      # (each run < 1 h; about 8-10 h in total on one laptop)
@@ -62,3 +62,6 @@ fi
 
 echo "== summary table"
 $PY scripts/evaluate.py --summary
+
+echo "== figures"
+$PY scripts/make_figures.py

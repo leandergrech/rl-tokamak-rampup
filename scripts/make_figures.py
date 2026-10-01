@@ -80,27 +80,39 @@ def trajectories() -> None:
 
 
 def learning_curves() -> None:
+    """Deterministic-evaluation curves of every default-config PPO, SAC and MBPO run (one colour per algorithm)."""
     cl = json.loads(Path("data/results/classical.json").read_text())
-    runs = {"MBPO": "data/runs/mbpo_s0", "SAC": "data/runs/sac_s0", "PPO": "data/runs/ppo_s0"}
-    fig, ax = plt.subplots(figsize=(8, 4.6))
-    for i, (name, rd) in enumerate(runs.items()):
-        cp = Path(rd) / "curve.json"
-        if not cp.exists():
-            continue
-        ev = [r for r in json.loads(cp.read_text())["eval"] if "eval_return" in r]
-        x = [r.get("env_steps", r.get("real_steps")) for r in ev]
-        y = [max(r["eval_return"], FLOOR) for r in ev]
-        ax.plot(x, y, color=SERIES[i], ls=STYLES[i], marker=MARKERS[i], ms=5, label=name)
-        ax.annotate(name, (x[-1], y[-1]), xytext=(6, 0), textcoords="offset points", color=INK, fontsize=9, va="center")
+    algos = {"mbpo": "MBPO", "sac": "SAC", "ppo": "PPO"}
+    fig, ax = plt.subplots(figsize=(8.5, 4.8))
+    for i, (algo, name) in enumerate(algos.items()):
+        first = True
+        for rd in sorted(Path("data/runs").glob(f"{algo}_s*")):
+            cfg = json.loads((rd / "config.json").read_text())
+            ec = cfg["env_config"]
+            if ec["reward_mode"] != "scaled" or ec["obs_set"] != "profiles" or abs(ec.get("ip_min", 3e6) - 3e6) > 1:
+                continue
+            ev = [r for r in json.loads((rd / "curve.json").read_text())["eval"] if "eval_return" in r]
+            x = [r.get("env_steps", r.get("real_steps")) for r in ev]
+            y = [max(r["eval_return"], FLOOR) for r in ev]
+            ax.plot(x, y, color=SERIES[i], ls=STYLES[i], marker=MARKERS[i], ms=4, lw=1.6,
+                    label=name if first else None)
+            ax.annotate(f"{name} s{cfg['seed']}", (x[-1], y[-1]), xytext=(5, 0), textcoords="offset points",
+                        color=INK, fontsize=7, va="center")
+            first = False
     for name, val in (("PI controller", cl["pi"]["benchmark_return"]), ("open-loop reference", cl["open_loop"]["benchmark_return"])):
         ax.axhline(val, color=MUTED, lw=1.0, ls="--")
-        ax.text(1.0, val, f"{name} {val:.2f} ", transform=ax.get_yaxis_transform(), ha="right", va="bottom",
+        ax.text(0.0, val, f" {name} {val:.2f}", transform=ax.get_yaxis_transform(), ha="left", va="bottom",
                 color=MUTED, fontsize=8)
     ax.set_xscale("log")
-    ax.set_ylim(FLOOR - 0.1, None)
+    ax.set_yscale("log")
+    from matplotlib.ticker import FixedLocator, NullLocator, ScalarFormatter
+    ax.yaxis.set_major_locator(FixedLocator([2, 3, 4, 6, 10, 20, 50]))
+    ax.yaxis.set_minor_locator(NullLocator())
+    ax.yaxis.set_major_formatter(ScalarFormatter())
+    ax.set_ylim(FLOOR, 70)
     ax.set_xlabel("simulator steps used for training (log scale)")
-    ax.set_ylabel("benchmark return of the deterministic policy")
-    ax.text(0.01, 0.01, f"episodes that ended in failure (about -1000) are drawn at {FLOOR}", transform=ax.transAxes,
+    ax.set_ylabel("benchmark return, deterministic policy (log scale)")
+    ax.text(0.99, 0.01, f"failed episodes (about -1000) drawn at {FLOOR}", transform=ax.transAxes, ha="right",
             fontsize=8, color=MUTED)
     ax.legend(loc="upper left", fontsize=9)
     fig.tight_layout()
@@ -179,8 +191,11 @@ POLICIES = [  # (label, episode csv)
     ("BC on noisy PI (σ 0.3)", "data/runs/bc_pi_noisy_0.3_s0/final_episode.csv"),
     ("TD3+BC on noisy PI (σ 0.3)", "data/runs/td3bc_pi_noisy_0.3_s0/final_episode.csv"),
     ("MOPO on one PI episode", "data/runs/mopo_pi_det_s0/final_episode.csv"),
-    ("PPO", "data/runs/ppo_s0/final_episode.csv"),
-    ("SAC", "data/runs/sac_s0/final_episode.csv"),
+    ("PPO seed 0 (14k steps)", "data/runs/ppo_s0/final_episode.csv"),
+    ("SAC seed 0 (11k steps)", "data/runs/sac_s0/final_episode.csv"),
+    ("PPO seed 1 (112k steps)", "data/runs/ppo_s1/final_episode.csv"),
+    ("SAC seed 1 (75k steps)", "data/runs/sac_s1/final_episode.csv"),
+    ("MBPO, full observation, seed 1", "data/runs/mbpo_obs-full_s1/final_episode.csv"),
     ("MBPO, raw reward (best)", "data/trajectories/mbpo_raw_reward_best.csv"),
     ("MBPO seed 1", "data/runs/mbpo_s1/final_episode.csv"),
 ]
@@ -273,7 +288,8 @@ def audit_scatter() -> None:
 def exploit() -> None:
     """How the Q loophole works: auxiliary power, Q, P_SOL/P_LH and core temperature, exploit vs PI."""
     eps = {"PI controller": "data/trajectories/pi.csv", "MBPO raw reward, best (8.85)": "data/trajectories/mbpo_raw_reward_best.csv",
-           "MBPO seed 1 (18.42)": "data/runs/mbpo_s1/final_episode.csv"}
+           "MBPO seed 1 (18.42)": "data/runs/mbpo_s1/final_episode.csv",
+           "PPO seed 1 (48.98)": "data/runs/ppo_s1/final_episode.csv"}
     dfs = {k: pd.read_csv(v) for k, v in eps.items() if Path(v).exists()}
     panels = [("P_aux", "auxiliary heating P_NBI + P_ECRH [MW]"), ("Q_fusion", "fusion gain Q (reward term uncapped)"),
               ("psol_plh", "P_SOL / P_LH (H-mode needs ≥ 1)"), ("T_e0", "T_e(0) [keV] (reward's H-mode test: > 10)")]

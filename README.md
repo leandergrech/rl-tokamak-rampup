@@ -4,7 +4,32 @@ Reinforcement learning for the ITER hybrid-scenario current ramp-up in [Gym-TORA
 
 **Literature review and results: <https://leandergrech.github.io/rl-tokamak-rampup/>**
 
-README_RESULTS_PLACEHOLDER
+## Results
+
+| Policy | Benchmark return | Audited score | Simulator steps |
+|---|---|---|---|
+| PI controller (paper: 3.79) | 3.79 | 3.50 | – |
+| Open-loop reference (paper: 3.40) | 3.41 | 3.41 | – |
+| Random policy, 20 seeds (paper: −10.79) | 3.23 ± 0.06, 0 failures | – | – |
+| PPO, seed 0 / seed 1 | 2.99 / 48.98 | 2.01 / 3.53 | 14,128 / 112,136 |
+| SAC, seed 0 / seed 1 | 2.92 / 27.08 | 2.01 / 1.99 | 11,192 / 74,872 |
+| MBPO, default reward, seeds 0–5 (final policies) | 2.08 – 18.42 | 1.89 – 2.96 | 1,480 – 3,775 |
+| MBPO, full observation, seed 1 | 5.63 | 3.69 | 2,177 |
+| MBPO trained on the audited reward, 3 seeds | −997.92, 2.98, 3.16 | −997.96, 2.98, 3.12 | ≈ 3,700 |
+| TD3+BC on noisy PI logs (σ 0.3) | 4.01 | 3.56 | 0 online |
+| CEM open-loop schedule, audited objective | 3.87 | 3.63 | 24,160 |
+
+What this repo found:
+
+1. **The published PI and open-loop numbers reproduce exactly on gymtorax 1.0.0 / TORAX 1.0.3; the random-policy number (−10.79) does not** (3.23 ± 0.06, no failures in 20 episodes), and the current gymtorax 1.1.1 changes all three ([details](https://leandergrech.github.io/rl-tokamak-rampup/01-problem/#which-version-is-the-benchmark)).
+2. **The benchmark reward is exploitable.** Its fusion-gain term Q/10 is uncapped and its H-mode test is a core-temperature threshold under a time-scheduled pedestal, so switching the heating off after t = 105 s sends Q = P_fus/P_aux into the hundreds. A fixed open-loop sequence scores 22.74; MBPO, SAC and PPO found variants of it on their own (18.42, 27.08, 48.98) ([mechanism](https://leandergrech.github.io/rl-tokamak-rampup/05-limitations/#the-q-loophole-found-by-rl)).
+3. **Under an audited score** (Q capped at 10, H-mode only while P_SOL ≥ P_LH), the best learned policy scores 3.69 against PI's 3.50 and the best open-loop schedule found 3.63: the real headroom above PI is a few tenths.
+4. A fork of Gym-TORAX with an additive `IterHybridAudited-v0` environment, tests and a baseline table is on [`leandergrech/gymtorax`, branch `fix/audited-iter-hybrid-reward`](https://github.com/leandergrech/gymtorax/tree/fix/audited-iter-hybrid-reward).
+
+![Where each policy's return comes from](docs/figures/reward_components.png)
+
+All numbers: [`data/results/summary.md`](data/results/summary.md). Upstream drafts (not opened): [`docs/upstream/issue.md`](docs/upstream/issue.md), [`docs/upstream/pr.md`](docs/upstream/pr.md).
+
 
 ## Quick start
 
@@ -16,7 +41,7 @@ python3.12 -m venv .venv && . .venv/bin/activate
 pip install torch --index-url https://download.pytorch.org/whl/cpu   # optional: avoids the CUDA wheels
 pip install -e ".[dev]"
 pytest                          # env sanity + a few-step smoke test of every baseline (~5 min)
-bash scripts/reproduce.sh       # PI/open-loop vs the paper, re-evaluate all checkpoints, rebuild the table (~15 min)
+bash scripts/reproduce.sh       # PI/open-loop vs the paper, re-evaluate all 32 checkpoints, rebuild table and figures (55 min on a busy laptop)
 bash scripts/reproduce.sh --full  # retrain everything (each run < 1 h on a laptop CPU)
 ```
 
