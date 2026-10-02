@@ -120,7 +120,9 @@ def extract_features(obs: dict, obs_set: str, t_frac: float, last_action: np.nda
     return np.nan_to_num(np.concatenate(parts), nan=0.0, posinf=0.0, neginf=0.0)
 
 
-PHYSICS_EXTRA = ("is_H_mode", "is_transition", "P_heat_total")  # appended to the physics environment's features
+# Appended to the physics environment's features. The two flags encode TORAX's confinement mode exactly:
+# L (0, 0), H (1, 0), L->H (1, 1), H->L (0, 1).
+PHYSICS_EXTRA = ("H_or_entering", "in_transition", "P_heat_total")
 
 
 def benchmark_components(obs: dict) -> dict[str, float]:
@@ -253,7 +255,8 @@ class RampupEnv(gym.Env):
     def _physics_extra(self, obs: dict) -> np.ndarray | None:
         if self.physics is None:
             return None
-        return np.array([self._mode == 1, self._mode in (2, 3), _scalar(obs["scalars"], "P_heat_total")], dtype=np.float64)
+        return np.array([self._mode in (1, 2), self._mode in (2, 3), _scalar(obs["scalars"], "P_heat_total")],
+                        dtype=np.float64)
 
     def _raw(self, obs: dict) -> np.ndarray:
         """Un-normalised feature vector."""

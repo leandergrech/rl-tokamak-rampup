@@ -119,7 +119,8 @@ class KnownReward:
         if self.physics is not None:
             assert cfg.reward_mode != "patched", "the physics environment's own reward is already the audited form"
             self.idx[4] = env.physics_idx + 2  # P_heat_total in place of P_SOL_total
-            self.idx[6] = env.physics_idx  # is_H_mode in place of T_e(0)
+            self.idx[6] = env.physics_idx  # H_or_entering in place of T_e(0)
+            self.idx[7] = env.physics_idx + 1  # in_transition in place of T_i(0)
         if self.active:
             self.mu, self.sd = env._stats[0][self.idx], env._stats[1][self.idx]
         self.audited = cfg.reward_mode == "patched"
@@ -127,9 +128,9 @@ class KnownReward:
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         q, h98, qmin, q95, p_sol, p_lh, te0, ti0 = (x[:, self.idx] * self.sd + self.mu).T
-        if self.physics is not None:  # p_sol is P_heat, te0 is the H-mode flag here
+        if self.physics is not None:  # p_sol is P_heat; te0, ti0 are the confinement flags: H-mode = (1, 0)
             p = self.physics
-            h = (te0 > 0.5) & (p_sol >= p.h_margin * p_lh)
+            h = (te0 > 0.5) & (ti0 < 0.5) & (p_sol >= p.h_margin * p_lh)
             q = np.minimum(q, p.q_cap)
             r = (np.where(h, q / p.q_cap, 0.0) + np.where(h, np.minimum(h98, 1.0), 0.0)) / 50
             r += (np.minimum(qmin, 1.0) + np.minimum(q95 / 3, 1.0)) / 150
@@ -141,6 +142,41 @@ class KnownReward:
         r = (np.where(h, q / 10, 0.0) + np.where(h, np.minimum(h98, 1.0), 0.0)) / 50
         r += (np.minimum(qmin, 1.0) + np.minimum(q95 / 3, 1.0)) / 150
         return (self.scale * r).astype(np.float32)
+
+
+class ConfinementAdvance:
+    """TORAX's L-H state machine inside model rollouts (physics environment). The next confinement mode is a known
+    function of the current mode, P_heat and P_LH: L -> L-H when P_heat > P_LH, L-H -> H, H -> H-L when
+    P_heat < hysteresis * P_LH, H-L -> L (the 0.5 s pedestal ramp fits in one 1 s step). It reproduces TORAX's mode
+    on every step of the logged physics episodes, so the model never has to learn the discrete, hysteretic switch;
+    a learned model keeps H-mode after the heating is cut, and the policy then trims the heating below threshold.
+    """
+
+    def __init__(self, env: RampupEnv, inner):
+        from ..env import SCALAR_KEYS
+
+        self.inner = inner
+        i0 = env.physics_idx
+        self.ia, self.ib, self.ih = i0, i0 + 1, i0 + 2
+        self.il = 1 + 3 + SCALAR_KEYS.index("P_LH")
+        mu, sd = env._stats
+        self.mu, self.sd = mu, sd
+        self.hyst = env.inner.physics.hysteresis
+        self.clip = env.cfg.clip_obs  # the env clips normalised features; a rare flag can exceed the clip
+
+    def _raw(self, x: np.ndarray, i: int) -> np.ndarray:
+        return x[:, i] * self.sd[i] + self.mu[i]
+
+    def __call__(self, x: np.ndarray, x_next: np.ndarray) -> np.ndarray:
+        done = self.inner(x, x_next)
+        a, b = self._raw(x, self.ia) > 0.5, self._raw(x, self.ib) > 0.5
+        p_heat, p_lh = self._raw(x, self.ih), self._raw(x, self.il)
+        mode = np.select([a & ~b, a & b, ~a & b], [1, 2, 3], 0)
+        nxt = np.select([mode == 2, mode == 3, (mode == 0) & (p_heat > p_lh), (mode == 1) & (p_heat < self.hyst * p_lh)],
+                        [1, 0, 2, 3], mode)
+        for i, on in ((self.ia, np.isin(nxt, (1, 2))), (self.ib, np.isin(nxt, (2, 3)))):
+            x_next[:, i] = np.clip((on.astype(float) - self.mu[i]) / self.sd[i], -self.clip, self.clip)
+        return done
 
 
 class TimeAdvance:
@@ -191,6 +227,8 @@ def train_mbpo(env: RampupEnv, cfg: MBPOConfig, log=print, eval_env: RampupEnv |
     advance = TimeAdvance(env)
     if isinstance(env, ResidualEnv):
         advance = ResidualAdvance(env, advance)
+    if getattr(env, "physics", None) is not None and env._stats is not None:
+        advance = ConfinementAdvance(env, advance)  # outermost: ResidualAdvance reads TimeAdvance's attributes
     select = "audited_return" if env.cfg.reward_mode == "patched" else "benchmark_return"
     rule = FailureRule(env) if cfg.failure_rule else None
     reward_fn = KnownReward(env) if cfg.known_reward else None

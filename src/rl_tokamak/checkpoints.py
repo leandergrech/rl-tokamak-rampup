@@ -4,8 +4,9 @@ data/checkpoints.json names the release archive, its SHA-256 and the SHA-256 of 
 `ensure(path)` downloads and unpacks the archive the first time a listed policy file is missing; files that
 are not listed (a run you trained yourself) are left alone.
 
-    python -m rl_tokamak.checkpoints            # fetch every listed policy that is missing
-    python -m rl_tokamak.checkpoints --pack T   # maintainers: write the archive T and the manifest
+    python -m rl_tokamak.checkpoints                      # fetch every listed policy that is missing
+    python -m rl_tokamak.checkpoints --data data/physics  # the same for the physics environment's runs
+    python -m rl_tokamak.checkpoints --pack T             # maintainers: write the archive T and the manifest
 """
 
 from __future__ import annotations
@@ -106,11 +107,12 @@ def main() -> None:
     p.add_argument("--pack", type=Path, help="write the release archive here and update data/checkpoints.json")
     p.add_argument("--tag", default="checkpoints-v1")
     p.add_argument("--repo", default="leandergrech/rl-tokamak-rampup")
+    p.add_argument("--data", type=Path, default=DATA, help="data directory holding runs/ and checkpoints.json")
     a = p.parse_args()
     if a.pack:
-        pack(a.pack, a.tag, a.repo)
+        pack(a.pack, a.tag, a.repo, a.data)
     else:
-        written = fetch()
+        written = fetch(a.data)
         print(f"{len(written)} policy files fetched" if written else "all listed policy files are present")
 
 

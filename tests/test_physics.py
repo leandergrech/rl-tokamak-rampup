@@ -92,25 +92,35 @@ def test_pi_retuned_and_paper_gains(phys_env):
 
 
 def test_physics_features_and_mbpo_rules(phys_env):
-    """The observation carries TORAX's confinement state; MBPO's known reward reproduces the env's reward."""
-    from rl_tokamak.agents.mbpo import FailureRule, KnownReward
+    """The observation encodes TORAX's confinement mode; MBPO's known reward reproduces the env's reward, and its
+    confinement rule reproduces the mode from the previous step (through the L-H transition and in H-mode)."""
+    from rl_tokamak.agents.mbpo import ConfinementAdvance, FailureRule, KnownReward, TimeAdvance
     from rl_tokamak.controllers import OpenLoopController
     from rl_tokamak.env import SCALAR_KEYS
 
     env, c = phys_env, OpenLoopController()
     known, rule = KnownReward(env), FailureRule(env)
+    adv = ConfinementAdvance(env, TimeAdvance(env))
     assert known.active and rule.active and rule.physics is not None
     env.reset()
     c.reset()
-    obs, seen_h = env._last_obs, False
+    obs, modes = env._last_obs, []
+    x = env._features(obs)
     for _ in range(108):
         obs, r, term, trunc, info = env.step_gymtorax(c.act(obs))
-        x = env._features(obs)
-        assert env._raw(obs)[env.physics_idx] == float(info["confinement_mode"] == H_MODE)
+        x_prev, x = x, env._features(obs)
+        mode = info["confinement_mode"]
+        modes.append(mode)
+        flags = env._raw(obs)[env.physics_idx:env.physics_idx + 2]
+        assert flags.tolist() == [float(mode in (1, 2)), float(mode in (2, 3))]
         assert known(x[None])[0] == pytest.approx(r, abs=1e-4)
         assert not rule(x[None])[0]
-        seen_h |= info["confinement_mode"] == H_MODE
-    assert seen_h
+        pred = x.copy()[None]
+        pred[:, env.physics_idx:env.physics_idx + 2] = 0.0  # forget the true flags; the rule must restore them
+        adv(x_prev[None], pred)
+        np.testing.assert_allclose(pred[0, env.physics_idx:env.physics_idx + 2], x[env.physics_idx:env.physics_idx + 2],
+                                   atol=1e-6)
+    assert 2 in modes and H_MODE in modes  # the window covers the L-H transition
     hot = x.copy()
     i = 1 + 3 + SCALAR_KEYS.index("fgw_n_e_line_avg")
     hot[i] = (1.05 - env._stats[0][i]) / env._stats[1][i]

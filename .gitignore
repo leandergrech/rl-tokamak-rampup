@@ -15,4 +15,6 @@ data/large/
 data/runs/*/*.zip
 # trained policies are in the GitHub release named in data/checkpoints.json (rl_tokamak.checkpoints fetches them)
 data/runs/*/policy*.pt
+data/physics/runs/*/policy*.pt
+data/*/.cache/
 data/.cache/
