@@ -120,14 +120,25 @@ def summarise(rows: list[dict]) -> dict:
 BANDS = (("≤ 1.06", 0.0, 1.07), ("1.09–1.16", 1.07, 1.17), ("≥ 1.18", 1.17, 99.0))  # threshold / scaling
 
 
+def _label(r: dict) -> str:
+    """Group label with the training budget (the 120,000-step runs share their group name with the 30,000-step ones)."""
+    g = r["group"]
+    if r["policy"].startswith("ppo"):
+        return g + (", 120,000 steps" if "_long" in r["policy"] else ", 30,000 steps")
+    return g
+
+
 def report(stems: list[str]) -> str:
     """Markdown table by threshold band from saved results (no simulation): python scripts/physics_robustness.py --report"""
-    rows, cases = [], {}
+    rows, cases, seen = [], {}, set()
     for stem in stems:
         f = ROOT / f"results/{stem}.json"
         if f.exists():
             d = json.loads(f.read_text())
-            rows += d["rows"]
+            for r in d["rows"]:
+                if (r["case"], r["policy"]) not in seen:  # PI runs in every evaluation
+                    seen.add((r["case"], r["policy"]))
+                    rows.append({**r, "group": _label(r)})
             cases.update({c["case"]: c for c in d["cases"]})
     groups = list(dict.fromkeys(r["group"] for r in rows))
     pi = {r["case"]: r["return"] for r in rows if r["policy"] == "pi"}

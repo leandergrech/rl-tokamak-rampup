@@ -526,11 +526,17 @@ def physics_env() -> None:
 def physics_robustness() -> None:
     """Held-out robustness of the physics-environment policies against the plasma's true L-H threshold factor."""
     files = [Path("data/physics/results/robustness.json"), Path("data/physics/results/robustness_long.json")]
-    rows, cases = [], {}
+    rows, cases, seen = [], {}, set()
     for f in files:
         if f.exists():
             d = json.loads(f.read_text())
-            rows += d["rows"]
+            for r in d["rows"]:
+                if (r["case"], r["policy"]) in seen:  # PI runs in every evaluation
+                    continue
+                seen.add((r["case"], r["policy"]))
+                budget = ("" if not r["policy"].startswith("ppo") else
+                          ", 120k steps" if "_long" in r["policy"] else ", 30k steps")
+                rows.append({**r, "group": r["group"] + budget})
             cases.update({c["case"]: c for c in d["cases"]})
     if not rows:
         return
@@ -541,7 +547,7 @@ def physics_robustness() -> None:
     order = sorted(cases, key=lambda k: cases[k]["P_LH_prefactor"])
     x = np.array([cases[k]["P_LH_prefactor"] for k in order])
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.6), sharex=True)
-    palette = SERIES + ["#8a5cd6", "#d64f8a", "#4a4466", "#2bb3c0"]
+    palette = SERIES + ["#8a5cd6", "#d64f8a", "#4a4466", "#2bb3c0", "#9a6b2f"]
     for i, g in enumerate(groups):
         c, ls = palette[i % len(palette)], "--" if "randomised" in g else "-"
         mean = [np.mean([r["return"] if not r["failed"] else np.nan for r in rows if r["group"] == g and r["case"] == k])

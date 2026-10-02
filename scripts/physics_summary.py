@@ -29,6 +29,15 @@ def _best(curve: dict) -> float | None:
     return max(vals) if vals else None
 
 
+def _group(cfg: dict) -> str:
+    extra = cfg["env_config"]["extra"]
+    g = cfg["algo"].upper() + (" on PI" if extra.get("residual") else "")
+    if extra.get("physics", {}).get("randomize"):
+        g += ", randomised training"
+    steps = cfg["args"].get("total_steps")
+    return g + (f", {steps:,} steps" if steps else "")
+
+
 def main() -> None:
     classical = json.loads((ROOT / "results/classical.json").read_text())
     pi = classical["pi"]["return"]
@@ -65,7 +74,7 @@ def main() -> None:
             ep = pd.read_csv(log)
             h_paid = int((ep.get("p_h98", 0) > 0).sum()) if "p_h98" in ep else None
         rows.append({
-            "policy": d.name, "group": cfg["algo"] + (" on PI" if cfg["env_config"]["extra"].get("residual") else ""),
+            "policy": d.name, "group": _group(cfg),
             "run": d.name, "seed": cfg["seed"], "return": res["benchmark_return"], "failed": res["failed"],
             "best_during_training": _best(curve), "best_checkpoint_return": best["benchmark_return"] if best else None,
             "steps_to_beat_pi": _first_above(curve, pi), "env_steps": res.get("env_steps_used"),
