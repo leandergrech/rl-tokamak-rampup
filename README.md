@@ -45,8 +45,8 @@ python3.12 -m venv .venv && . .venv/bin/activate
 pip install torch --index-url https://download.pytorch.org/whl/cpu   # optional: avoids the CUDA wheels
 pip install -e ".[dev]"
 pytest                          # env sanity + a few-step smoke test of every baseline (~5 min)
-bash scripts/reproduce.sh       # PI/open-loop vs the paper, re-evaluate all 32 checkpoints, rebuild table and figures (55 min on a busy laptop)
-bash scripts/reproduce.sh --full  # retrain everything (each run < 1 h on a laptop CPU)
+bash scripts/reproduce.sh       # PI/open-loop vs the paper, re-evaluate all 44 checkpoints, rebuild table and figures (21 min on a laptop)
+bash scripts/reproduce.sh --full  # retrain everything (each run < 2 h on a laptop CPU)
 ```
 
 Train one baseline:

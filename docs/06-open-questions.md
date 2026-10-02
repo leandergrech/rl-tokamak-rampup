@@ -47,7 +47,7 @@ Positions are this repo's judgement, not measurements; the effort estimates unde
 
 **What a first paper would show.** PPO, SAC, MBPO and offline RL on gymtorax 1.0.0 with 5 seeds each, compute reported in CPU-hours and simulator steps, the open-loop optimum as an upper reference (CEM here; gradient-based through TORAX's JAX as a stronger one), the same study repeated on gymtorax 1.1.1 with re-tuned PI gains, and the physics audit of every policy (q_min, f_GW, heating energy; [Limitations](05-limitations.md)). A short benchmark paper (e.g. a workshop or *Software Impacts*-style companion) or a section of opening 3.
 
-**Effort.** 2–3 weeks of compute on one laptop (5 seeds × 6 methods × < 1 h), 1 week of writing.
+**Effort.** 2–3 weeks of compute on one laptop (5 seeds × 6 methods × < 2 h), 1 week of writing.
 
 ## 3. Does feedback matter? A randomised Gym-TORAX
 

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Reproduce the numbers on the site.
 #
-#   bash scripts/reproduce.sh          # 55 min measured on a busy 16-thread laptop: classical baselines (PI must give 3.79),
-#                                      # re-evaluate every stored checkpoint, rebuild data/results/summary.md
+#   bash scripts/reproduce.sh          # 21 min on a 16-thread laptop (55 min while it was shared with other jobs):
+#                                      # classical baselines (PI must give 3.79), re-evaluate every stored checkpoint,
+#                                      # rebuild data/results/summary.md, the figures and the widget data
 #   bash scripts/reproduce.sh --full   # also rebuild the offline datasets and retrain every baseline
-#                                      # (each run < 1 h; about 8-10 h in total on one laptop)
+#                                      # (each run < 2 h on a laptop CPU; about 20-24 h in total on one laptop)
 #
 # Run inside the environment where `pip install -e .[dev]` was done.
 set -euo pipefail

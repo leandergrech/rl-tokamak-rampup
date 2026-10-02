@@ -3,9 +3,9 @@ repo: https://github.com/leandergrech/rl-tokamak-rampup
 pages: https://leandergrech.github.io/rl-tokamak-rampup/
 step: 7
 state: done
-updated: 2026-10-01T17:30:00Z
-blockers: none
-next: Leander reviews the site and docs/upstream drafts; first experiment = randomised Gym-TORAX on the audited reward (notebooks/03)
+updated: 2026-10-02T12:30:04Z
+blockers: none (tracked data/ is 23.5 MB, over the brief's 20 MB, since the residual runs; open)
+next: Leander decides on a physics-consistent environment on gymtorax 1.1.1 / TORAX 1.4.3 (power-triggered pedestal, operating-limit terminations); reviews docs/upstream drafts
 log:
 - 2026-09-30T16:04:44Z step 0 done: gh logged in as leandergrech (repo, workflow scopes); git user.name "Leander Grech"; repo folder empty
 - 2026-09-30T16:05:16Z step 1 done: skeleton committed, public repo created and pushed
@@ -28,6 +28,8 @@ log:
 - 2026-10-01T16:40:00Z residual RL seeds 2-4 on a rented vast.ai CPU (personal account, EPYC 7K62, 48 cores; same budgets in steps/episodes; laptop re-evaluation matches to 2e-5): PPO on PI final audited 3.632 +- 0.037 over 5 seeds (all above PI 3.50), MBPO on PI 3.619 +- 0.070 (best checkpoints 3.66-3.76, above PI after 302-604 steps); MBPO seeds 2-4 trim flat-top heating to 14-20 MW (Q 75-310, benchmark 7.2-8.8), neutral under the audited cap. Long PPO runs (120k steps, seeds 5-6) still training
 - 2026-10-01T16:40:00Z Ramp-up Lab redesign: presets above, sticky side pane (playback, episode timeline, controller hyper-controls: PI gains, j(0) target, network correction; salient plasma parameters; outcome sparklines), full simulation parameters and reward designer below; new panels: space-time maps (Lab vs TORAX), power and current balance, reward by term through the episode; TORAX profiles recorded for PPO/MBPO on PI; keyboard stepping; new page docs/04a-rl-on-pi.md
 - 2026-10-01T17:30:00Z long PPO-on-PI runs (120k steps, seeds 5-6, cloud): final audited 3.728 / 3.737 (3.645 / 3.62 at 30k), benchmark 12.66 / 5.70 (seed 5 trims flat-top heating to 4.6 MW, I_p 10.2 MA); laptop re-evaluation matches; vast instance destroyed, spend $0.65 on the personal account
+- 2026-10-02T12:30:04Z check: pytest 24 passed, mkdocs --strict ok; reproduce.sh first failed on mbpo_res_s4 (cloud-trained; laptop re-evaluation 7.171166 vs stored 7.171186, 2.8e-6 relative > 1e-6) -> runs trained on another CPU model are checked to 1e-5 relative; reproduce.sh 44/44 OK in 21 min. Compute rule raised from 1 h to 2 h per run (Leander, 2 Oct)
+- 2026-10-02T12:30:04Z probe (scripts/probe_pedestal_formation.py, gymtorax 1.1.1 / TORAX 1.4.3): TORAX's power-triggered pedestal (L-H when P_SOL > P_LH Martin 2008, H-L below 0.8 P_LH; added in TORAX 1.4.0) instead of the time schedule, same actions, IterHybrid-v0 reward: open loop 3.26 -> 3.43, heating cut 20.96 -> 2.48, no heating 12.62 -> 1.69 (never H-mode); PI with paper gains fails on both (I_p wound down); same cost per episode. TORAX sawtooth model with defaults: NaN at 111 s
 
 ## Fork task
 repo: https://github.com/leandergrech/gymtorax (branch fix/audited-iter-hybrid-reward; pinned backport branch fix/audited-iter-hybrid-reward-v1.0 off tag v1.0.0)

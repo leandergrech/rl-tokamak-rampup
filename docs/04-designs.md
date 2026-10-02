@@ -96,6 +96,8 @@ The PI policy wins entirely on fusion gain, by reaching 15 MA at t = 61 s, and p
 
 All learned policies see the wrapper defaults unless an ablation says otherwise: 60-dimensional `profiles` observation with fixed normalisation, action [I_p ramp rate, P_NBI, P_ECRH] ∈ [−1, 1]³ (deposition fixed at the reference), I_p floor 3 MA, training reward 100 × benchmark reward with failure → −100, γ = 0.995.
 
+Compute rule: every run trains and evaluates end to end in under two hours on one laptop CPU. The rule was one hour until 2 October 2026 and was raised for the residual runs, which took 77–82 min on the shared laptop. The two long PPO-on-PI runs (120,000 steps) are the exception: they took 78 min on the 48-core cloud CPU and were not timed on the laptop.
+
 | Baseline | Implementation | Networks | Key settings | Budget |
 |---|---|---|---|---|
 | PPO | Stable-Baselines3 2.9.0 | MLP 64-64 (actor and critic) | 8 envs, n_steps 128, batch 256, 10 epochs, lr 3e-4, GAE λ 0.95, clip 0.2, initial log σ −0.5 | 45 min wall clock |
@@ -305,25 +307,26 @@ flowchart TB
     SM --> F["scripts/make_figures.py<br/>scripts/make_widget_data.py"] --> DOCS["figures and interactive widgets"]
 ```
 
-`bash scripts/reproduce.sh` runs the classical evaluation, asserts the paper's PI and open-loop numbers, re-evaluates all 32 stored checkpoints, and rebuilds the summary and figures (55 min on a busy 16-thread laptop; `--full` retrains everything).
+`bash scripts/reproduce.sh` runs the classical evaluation, asserts the paper's PI and open-loop numbers, re-evaluates all 44 stored checkpoints, and rebuilds the summary, figures and widget data (21 min on a 16-thread laptop, 55 min while it was shared with other jobs; `--full` retrains everything).
 
 | Number | Produced by | Checked by |
 |---|---|---|
 | PI 3.7919, open-loop 3.4086 | `evaluate.py --classical` (this repo's controllers) | `reproduce.sh` asserts both within 0.01 of the paper and that Gym-TORAX's own `PIDAgent` gives the identical PI return; `tests/test_controllers.py` checks that both controllers issue the same actions as Gym-TORAX's agents |
 | Random 3.23 ± 0.06 | 20 episodes, seeds 0–19, same script | the fork's `examples/baselines_audited.py` reproduces it independently (3.23 ± 0.06) with Gym-TORAX's `RandomAgent` |
-| Every RL return | `train.py` → `result.json` (one deterministic episode of the final policy) | `reproduce.sh` re-runs each checkpoint; the environment is deterministic, so the return must match to a relative 10⁻⁶ (cloud-trained runs differ by at most 4 × 10⁻⁶ in absolute terms, from CPU-specific floating point) |
+| Every RL return | `train.py` → `result.json` (one deterministic episode of the final policy) | `reproduce.sh` re-runs each checkpoint; the environment is deterministic, so the return must match to a relative 10⁻⁶ on the CPU model it was trained on, and to a relative 10⁻⁵ on another one (CPU-specific floating point; the largest cross-CPU difference is MBPO on PI seed 4, 7.171186 on the cloud CPU and 7.171166 on the laptop, 2.8 × 10⁻⁶ relative) |
 | "Best during training", "steps to beat PI" | `curve.json` (periodic deterministic evaluations during training) | recomputed by `evaluate.py --summary` |
 | Audited score | `rl_tokamak.evaluate.audited_return` applied to each `final_episode.csv` | the fork's `IterHybridAudited-v0` environment, an independent implementation, gives the same values for PI (3.50), TD3+BC (3.56) and MBPO full-observation seed 1 (3.69) |
 | Version comparison (gymtorax 1.1.1) | `scripts/probe_versions.py` in a separate environment | the fork's baseline table on its `main` branch (TORAX 1.4.2) agrees on the PI failure and the open-loop value to within 0.01 |
 
 ### The test suite
 
-`pytest` runs 15 tests in about 5 minutes (CI runs them on every push, together with `mkdocs build --strict`):
+`pytest` runs 24 tests in about 5 minutes (CI runs them on every push, together with `mkdocs build --strict`):
 
 | File | Tests | What each one checks |
 |---|---|---|
 | `tests/test_env.py` | 6 | observation and action shapes and the 151-step horizon of gymtorax 1.0.0; a step returns finite features and the benchmark reward equals the sum of its four recomputed terms (and the training reward is exactly 100× it); episodes truncate where configured; a full positive I_p action moves the current by exactly the 0.2 MA ramp limit and maps back to the same action; the three training-reward modes give the documented values; the four reward terms on a hand-built state |
 | `tests/test_controllers.py` | 2 | this repo's PI and open-loop controllers issue identical action dicts to Gym-TORAX's `PIDAgent` and `IterHybridAgent` over six steps of the real simulator |
-| `tests/test_baselines_smoke.py` | 7 | PPO, SAC, MBPO, BC, TD3+BC and MOPO each train for a few steps through `scripts/train.py` and leave a run directory that reloads and re-evaluates without failure; the CEM schedule controller runs |
+| `tests/test_baselines_smoke.py` | 9 | PPO, SAC, MBPO, BC, TD3+BC and MOPO each train for a few steps through `scripts/train.py` and leave a run directory that reloads and re-evaluates without failure; PPO and MBPO on PI (`--residual pi`) do the same and record the residual settings; the CEM schedule controller runs |
+| `tests/test_residual.py` | 7 | the residual environment's observation adds PI's proposal and integral; an all-zero correction reproduces the PI episode (I_p, powers and reward to a relative 10⁻⁷); the correction scales reach full power from PI's "off"; inside MBPO's model rollouts, PI's clock-driven proposals are set exactly, the bounds rule flags T_e(0) > 35 keV, and the known reward formula matches the environment's reward for the audited and scaled training rewards |
 
 The fork adds `tests/test_audited_env.py` (10 tests) to Gym-TORAX: four reward-level tests on synthetic states (identical to `IterHybrid-v0` when Q ≤ 10 and P_SOL ≥ P_LH, identical in L-mode, Q capped, H-mode gated by P_SOL ≥ P_LH), four full-episode tests (the heating-cut sequence more than doubles the `IterHybrid-v0` return; the audited environment scores it below the open-loop reference; the Q cap alone and the P_SOL gate alone each lower it), and two that only run with TORAX 1.0 (PI = 3.79 on `IterHybrid-v0`, 3.50 on the audited environment).
