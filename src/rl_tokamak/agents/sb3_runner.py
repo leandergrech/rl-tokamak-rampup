@@ -97,7 +97,7 @@ def train_sb3(env_cfg: EnvConfig, cfg: SB3Config, log=print, best_path=None) -> 
     venv = SubprocVecEnv(fns, start_method="spawn") if cfg.n_envs > 1 else DummyVecEnv(fns)
     if cfg.norm_reward:
         venv = VecNormalize(venv, norm_obs=False, norm_reward=True, gamma=cfg.gamma)
-    eval_env = make_env(EnvConfig(**cfg_dict))
+    eval_env = make_env(EnvConfig(**cfg_dict), evaluation=True)
     if cfg.algo == "ppo":
         kw = dict(cfg.ppo)
         log_std_init = kw.pop("log_std_init")

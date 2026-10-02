@@ -352,7 +352,9 @@ class RampupEnv(gym.Env):
 
                 row.update({k: info[k] for k in ("confinement_mode", "gas_puff", "n_e_ped_fGW")})
                 row["P_heat_total"] = _scalar(s, "P_heat_total")
-                row.update(physics_components(obs, info["confinement_mode"], self.inner.physics))
+                ep = self.inner.episode_physics()
+                row.update(physics_components(obs, info["confinement_mode"], ep))
+                row.update({"P_LH_prefactor": ep.P_LH_prefactor, "hysteresis": ep.hysteresis, "T_ped_H": ep.T_ped_H})
         elif "limit" in info:  # the physics environment's operating limits
             row["fail_reason"] = info["limit"]
         else:
@@ -393,10 +395,21 @@ class RampupEnv(gym.Env):
         self.inner.close()
 
 
-def make_env(config: EnvConfig | dict | None = None) -> RampupEnv:
-    """Build the env a config describes: ``extra["residual"]`` selects the residual-on-PI variant."""
+def nominal(config: EnvConfig) -> EnvConfig:
+    """The same config without domain randomisation: training may randomise, evaluation never does."""
+    physics = config.extra.get("physics")
+    if not physics or not physics.get("randomize"):
+        return config
+    return EnvConfig(**{**asdict(config), "extra": {**config.extra, "physics": {**physics, "randomize": 0.0}}})
+
+
+def make_env(config: EnvConfig | dict | None = None, evaluation: bool = False) -> RampupEnv:
+    """Build the env a config describes: ``extra["residual"]`` selects the residual-on-PI variant, ``extra["physics"]``
+    the physics environment. ``evaluation=True`` drops domain randomisation (``nominal``)."""
     if isinstance(config, dict):
         config = EnvConfig(**config)
+    if config is not None and evaluation:
+        config = nominal(config)
     if config is not None and config.extra.get("residual"):
         from .residual import ResidualEnv
 

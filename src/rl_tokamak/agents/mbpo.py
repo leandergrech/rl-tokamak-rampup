@@ -130,7 +130,7 @@ class KnownReward:
         q, h98, qmin, q95, p_sol, p_lh, te0, ti0 = (x[:, self.idx] * self.sd + self.mu).T
         if self.physics is not None:  # p_sol is P_heat; te0, ti0 are the confinement flags: H-mode = (1, 0)
             p = self.physics
-            h = (te0 > 0.5) & (ti0 < 0.5) & (p_sol >= p.h_margin * p_lh)
+            h = (te0 > 0.5) & (ti0 < 0.5) & (p_sol >= p.h_margin * p.P_LH_prefactor * p_lh)
             q = np.minimum(q, p.q_cap)
             r = (np.where(h, q / p.q_cap, 0.0) + np.where(h, np.minimum(h98, 1.0), 0.0)) / 50
             r += (np.minimum(qmin, 1.0) + np.minimum(q95 / 3, 1.0)) / 150
@@ -162,6 +162,7 @@ class ConfinementAdvance:
         mu, sd = env._stats
         self.mu, self.sd = mu, sd
         self.hyst = env.inner.physics.hysteresis
+        self.prefactor = env.inner.physics.P_LH_prefactor  # nominal; not exact when the env randomises it
         self.clip = env.cfg.clip_obs  # the env clips normalised features; a rare flag can exceed the clip
 
     def _raw(self, x: np.ndarray, i: int) -> np.ndarray:
@@ -170,7 +171,7 @@ class ConfinementAdvance:
     def __call__(self, x: np.ndarray, x_next: np.ndarray) -> np.ndarray:
         done = self.inner(x, x_next)
         a, b = self._raw(x, self.ia) > 0.5, self._raw(x, self.ib) > 0.5
-        p_heat, p_lh = self._raw(x, self.ih), self._raw(x, self.il)
+        p_heat, p_lh = self._raw(x, self.ih), self.prefactor * self._raw(x, self.il)
         mode = np.select([a & ~b, a & b, ~a & b], [1, 2, 3], 0)
         nxt = np.select([mode == 2, mode == 3, (mode == 0) & (p_heat > p_lh), (mode == 1) & (p_heat < self.hyst * p_lh)],
                         [1, 0, 2, 3], mode)

@@ -20,7 +20,8 @@ observations, and changes three things. The reasons and sources are in docs/04b-
 from __future__ import annotations
 
 import copy
-from dataclasses import asdict, dataclass
+import math
+from dataclasses import asdict, dataclass, replace
 
 import numpy as np
 
@@ -59,10 +60,33 @@ class PhysicsConfig:
     li_until_s: float = 100.0
     # reward
     q_cap: float = 10.0
-    h_margin: float = 1.2  # H-mode terms need P_SOL >= h_margin * P_LH
+    h_margin: float = 1.2  # H-mode terms need P_heat >= h_margin * (the episode's) L-H threshold
+    # domain randomisation: scale of the measured-uncertainty box (UNCERTAINTY) sampled at every reset; 0 = nominal
+    randomize: float = 0.0
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+# Measured uncertainty of the three least certain inputs (docs/04b-physics-env.md, "How realistic is it?").
+UNCERTAINTY = {
+    "P_LH_prefactor": (0.54, 1.85),  # Martin 2008: 95 % interval 28-96 MW around 52 MW for ITER (log-uniform)
+    "hysteresis": (0.35, 0.8),  # DIII-D P_HL/P_LH 0.35-0.70 (Thomas 1998), up to TORAX's default 0.8
+    "T_ped_H": (2.4, 3.6),  # pedestal height +-20 %, EPED's accuracy on present machines
+}
+
+
+def sample_physics(rng: np.random.Generator, scale: float, nominal: PhysicsConfig) -> dict[str, float]:
+    """One draw from the uncertainty box shrunk towards the nominal values by ``scale`` (1 = the full box)."""
+    out = {}
+    for key, (lo, hi) in UNCERTAINTY.items():
+        v0 = getattr(nominal, key)
+        if key == "P_LH_prefactor":  # log-uniform: the scaling's error is multiplicative
+            a, b = math.log(v0) + scale * (math.log(lo) - math.log(v0)), math.log(v0) + scale * (math.log(hi) - math.log(v0))
+            out[key] = float(math.exp(rng.uniform(a, b)))
+        else:
+            out[key] = float(rng.uniform(v0 + scale * (lo - v0), v0 + scale * (hi - v0)))
+    return out
 
 
 def _scalar(d: dict, key: str) -> float:
@@ -72,7 +96,8 @@ def _scalar(d: dict, key: str) -> float:
 def physics_components(obs: dict, confinement: int, cfg: PhysicsConfig) -> dict[str, float]:
     """The four reward terms of the physics environment (same weights as IterHybrid-v0)."""
     s = obs["scalars"]
-    h_mode = confinement == H_MODE and _scalar(s, "P_heat_total") >= cfg.h_margin * _scalar(s, "P_LH")
+    p_lh = cfg.P_LH_prefactor * _scalar(s, "P_LH")  # the plant's threshold (TORAX reports the unscaled scaling)
+    h_mode = confinement == H_MODE and _scalar(s, "P_heat_total") >= cfg.h_margin * p_lh
     q = _scalar(s, "Q_fusion")
     return {
         "p_fusion_gain": (min(q / cfg.q_cap, 1.0) if h_mode else 0.0) / 50,
@@ -165,10 +190,47 @@ def make_physics_env(cfg: PhysicsConfig | dict | None = None, **kwargs):
                                             p.n_ped_min, p.n_ped_max))
             return self._puff, self._n_ped
 
+        # ------------------------------------------------------------------ per-episode physics (randomisation)
+        physics_override: dict | None = None  # set by evaluation code: these values for every following episode
+        episode: dict = {}
+
+        def episode_physics(self) -> PhysicsConfig:
+            """The configuration in force this episode (nominal, overridden or sampled)."""
+            return replace(self.physics, **self.episode)
+
+        def _apply_episode_physics(self) -> None:
+            """Write the episode's threshold, hysteresis and pedestal height into TORAX's runtime parameters
+            (an in-place update of numeric leaves: no recompilation, about 10 s per episode as before)."""
+            import jax.numpy as jnp
+            from torax.experimental import SimulationStepFn, TimeVaryingScalarUpdate
+
+            e = self.episode_physics()
+            one = lambda v: TimeVaryingScalarUpdate(value=jnp.array([v], dtype=jnp.float64),  # noqa: E731
+                                                    time=jnp.array([0.0], dtype=jnp.float64))
+            app = self.torax_app
+            new = app.step_fn.runtime_params_provider.update_provider_from_mapping({
+                "pedestal.formation_model.P_LH_prefactor": float(e.P_LH_prefactor),
+                "pedestal.P_LH_hysteresis_factor": one(e.hysteresis),
+                "pedestal.T_i_ped": one(e.T_ped_H), "pedestal.T_e_ped": one(e.T_ped_H),
+            })
+            s = app.step_fn
+            app.step_fn = SimulationStepFn(solver=s.solver, time_step_calculator=s.time_step_calculator,
+                                           runtime_params_provider=new, geometry_provider=s.geometry_provider)
+
         def reset(self, *, seed=None, options=None):
             self._puff, self._n_ped = 0.0, self.physics.n_ped_init
             self.last_limit = None
-            return super().reset(seed=seed, options=options)
+            if seed is not None or not hasattr(self, "_rng"):
+                self._rng = np.random.default_rng(seed)
+            out = super().reset(seed=seed, options=options)
+            if self.physics_override is not None:
+                self.episode = dict(self.physics_override)
+            elif self.physics.randomize > 0:
+                self.episode = sample_physics(self._rng, self.physics.randomize, self.physics)
+            else:
+                self.episode = {}
+            self._apply_episode_physics()
+            return out
 
         def step(self, action):
             action = {k: np.asarray(v, dtype=float).copy() for k, v in action.items()}
@@ -188,6 +250,6 @@ def make_physics_env(cfg: PhysicsConfig | dict | None = None, **kwargs):
             return obs, reward, terminated, truncated, info
 
         def _compute_reward(self, state, next_state, action):
-            return sum(physics_components(self.observation, self.confinement_mode(), self.physics).values())
+            return sum(physics_components(self.observation, self.confinement_mode(), self.episode_physics()).values())
 
     return IterHybridPhysicsEnv(**{"render_mode": None, "log_level": "critical", **kwargs})

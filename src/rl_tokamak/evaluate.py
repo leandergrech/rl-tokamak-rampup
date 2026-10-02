@@ -16,7 +16,7 @@ from typing import Any, Callable
 
 import numpy as np
 
-from .env import RampupEnv, make_env
+from .env import RampupEnv, make_env, nominal
 
 
 def run_controller(env: RampupEnv, controller, collect: bool = False) -> dict[str, Any]:
@@ -163,6 +163,7 @@ def evaluate_run(run_dir: str | Path, env: RampupEnv | None = None, which: str =
 
     run_dir = Path(run_dir)
     env_cfg, pi = load_policy(run_dir, which)
+    env_cfg = nominal(env_cfg)  # a policy trained with domain randomisation is scored on the nominal plasma
     if env is None or asdict(env.cfg) | {"log_dir": None} != asdict(env_cfg) | {"log_dir": None}:
         env = make_env(env_cfg)
     ep = run_policy(env, pi)

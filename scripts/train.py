@@ -25,7 +25,7 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
-from rl_tokamak.env import EnvConfig, gymtorax_version, make_env, set_single_thread
+from rl_tokamak.env import EnvConfig, gymtorax_version, make_env, nominal, set_single_thread
 
 
 def _host_info() -> dict:
@@ -149,14 +149,15 @@ def main(argv=None) -> dict:
         if args.log_std_init is not None:
             cfg.init_log_std = args.log_std_init
         od, ad = env.observation_space.shape[0], env.action_space.shape[0]
-        res = train_mbpo(env, cfg, log, on_best=lambda ag: save_torch_actor(out / "policy_best.pt", "sac_actor",
-                                                                            ag.actor, od, ad, cfg.hidden))
+        eval_env = make_env(env_cfg, evaluation=True) if nominal(env_cfg) != env_cfg else env
+        res = train_mbpo(env, cfg, log, eval_env=eval_env,
+                         on_best=lambda ag: save_torch_actor(out / "policy_best.pt", "sac_actor", ag.actor, od, ad,
+                                                             cfg.hidden))
         a = res["agent"]
         save_torch_actor(out / "policy.pt", "sac_actor", a.actor, od, ad, cfg.hidden)
         curve = {"eval": res["curve"]}
         meta["algo_config"] = res["config"]
         meta["env_steps"] = res["real_steps"]
-        eval_env = env
     else:
         import numpy as np
 

@@ -139,3 +139,34 @@ def test_residual_training_smoke(tmp_path, algo):
     cfg = json.loads((tmp_path / algo / "config.json").read_text())
     assert cfg["env_config"]["extra"]["physics"] == {}
     assert cfg["env_config"]["extra"]["residual"]["pi_gains"] == PHYSICS_PI
+
+
+def test_uncertainty_sampling():
+    from rl_tokamak.env import EnvConfig, nominal
+    from rl_tokamak.physics import UNCERTAINTY, sample_physics
+
+    rng, cfg = np.random.default_rng(0), PhysicsConfig()
+    assert sample_physics(rng, 0.0, cfg) == pytest.approx({"P_LH_prefactor": 1.0, "hysteresis": 0.8, "T_ped_H": 3.0})
+    draws = [sample_physics(rng, 1.0, cfg) for _ in range(200)]
+    for key, (lo, hi) in UNCERTAINTY.items():
+        vals = [d[key] for d in draws]
+        assert lo <= min(vals) and max(vals) <= hi and max(vals) - min(vals) > 0.8 * (hi - lo) * (0.5 if key == "P_LH_prefactor" else 1)
+    half = [sample_physics(rng, 0.5, cfg)["T_ped_H"] for _ in range(200)]
+    assert 2.7 <= min(half) and max(half) <= 3.3
+    cfg_dr = EnvConfig(extra={"physics": {"randomize": 1.0}, "residual": {"base": "pi"}})
+    assert nominal(cfg_dr).extra == {"physics": {"randomize": 0.0}, "residual": {"base": "pi"}}
+
+
+def test_episode_physics_changes_the_plant(phys_env):
+    """A threshold 1.85x the scaling keeps the open-loop plasma in L-mode; the next nominal episode is unchanged."""
+    from rl_tokamak.controllers import OpenLoopController
+
+    phys_env.inner.physics_override = {"P_LH_prefactor": 1.85}
+    try:
+        ep = _episode(phys_env, OpenLoopController())
+    finally:
+        phys_env.inner.physics_override = None
+    assert H_MODE not in [r["confinement_mode"] for r in ep["log"]] and ep["log"][-1]["P_LH_prefactor"] == 1.85
+    assert ep["benchmark_return"] < 2.0
+    ep = _episode(phys_env, OpenLoopController())
+    assert ep["benchmark_return"] == pytest.approx(3.0889, abs=2e-3)
