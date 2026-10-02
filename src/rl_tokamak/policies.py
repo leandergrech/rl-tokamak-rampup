@@ -9,6 +9,7 @@ from typing import Callable
 import numpy as np
 import torch
 
+from .checkpoints import ensure as ensure_checkpoint
 from .env import EnvConfig
 
 
@@ -57,6 +58,7 @@ def load_policy(run_dir: str | Path, which: str = "final") -> tuple[EnvConfig, C
     stem = "policy" if which == "final" else "policy_best"
     meta = json.loads((run_dir / "config.json").read_text())
     env_cfg = EnvConfig(**{**meta["env_config"], "log_dir": None})
+    ensure_checkpoint(run_dir / f"{stem}.pt")  # released policies are downloaded on first use
     if not (run_dir / f"{stem}.pt").exists() and (run_dir / f"{stem}.zip").exists():
         from stable_baselines3 import PPO, SAC
 

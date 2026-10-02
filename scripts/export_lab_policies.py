@@ -46,7 +46,10 @@ def export(key: str, run_dir: Path, which: str) -> dict:
     meta = json.loads((run_dir / "config.json").read_text())
     env_cfg = EnvConfig(**{**meta["env_config"], "log_dir": None})
     assert env_cfg.obs_set == "profiles" and env_cfg.action_set == "powers" and env_cfg.ip_mode == "delta", key
+    from rl_tokamak.checkpoints import ensure
+
     stem = "policy" if which == "final" else "policy_best"
+    ensure(run_dir / f"{stem}.pt")
     ckpt = torch.load(run_dir / f"{stem}.pt", map_location="cpu", weights_only=False)
     sd = {k: v.numpy() for k, v in ckpt["state_dict"].items()}
     spec: dict = {"key": key, "run": run_dir.name, "checkpoint": which, "algo": meta["algo"]}

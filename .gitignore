@@ -12,8 +12,6 @@ data/large/
 *.log
 .venv-v10/
 data/runs/*/*.zip
-# best-during-training checkpoints stay local (their returns are in curve.json); keep the exploit replay
-data/runs/*/policy_best.pt
-!data/runs/mbpo_reward-benchmark_s0/policy_best.pt
-# the MBPO-on-PI checkpoint the Ramp-up Lab runs live (its best during training)
-!data/runs/mbpo_res_s0/policy_best.pt
+# trained policies are in the GitHub release named in data/checkpoints.json (rl_tokamak.checkpoints fetches them)
+data/runs/*/policy*.pt
+data/.cache/

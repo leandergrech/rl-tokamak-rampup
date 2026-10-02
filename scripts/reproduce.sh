@@ -14,6 +14,8 @@ export JAX_PLATFORMS=cpu
 PY=${PYTHON:-python}
 WORKERS=${WORKERS:-4}
 
+echo "== trained policies from the GitHub release in data/checkpoints.json (skipped when present)"
+$PY -m rl_tokamak.checkpoints
 echo "== classical baselines (PI, open-loop, Gym-TORAX PIDAgent, random x20)"
 $PY scripts/evaluate.py --classical --n-random 20 --workers "$WORKERS"
 $PY - <<'PYEOF'

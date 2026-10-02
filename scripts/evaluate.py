@@ -81,9 +81,11 @@ def classical(n_random: int, workers: int) -> dict:
 
 def best(paths: list[str]) -> None:
     """Score the best-during-training checkpoint of each run (writes best_episode.csv and best_result.json)."""
+    from rl_tokamak.checkpoints import ensure
     from rl_tokamak.evaluate import evaluate_run
 
     for p in map(Path, paths):
+        ensure(p / "policy_best.pt")
         if (p / "policy_best.pt").exists() or (p / "policy_best.zip").exists():
             res = evaluate_run(p, which="best")
             (p / "best_result.json").write_text(json.dumps(res, indent=2, default=float))

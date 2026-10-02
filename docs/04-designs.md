@@ -299,7 +299,7 @@ flowchart TB
     C["scripts/evaluate.py --classical"] --> CJ[("data/results/classical.json<br/>data/trajectories/pi.csv, open_loop.csv")]
     D["scripts/make_datasets.py"] --> OD[("data/offline/*.npz")] --> T
     CEM["scripts/open_loop_search.py"] --> CR[("data/results/cem_open_loop*.json")]
-    RD --> RE["scripts/evaluate.py --runs<br/>re-runs every checkpoint:<br/>must match result.json to 10⁻⁶ (relative)"]
+    RD --> RE["scripts/evaluate.py --runs<br/>re-runs every checkpoint:<br/>must match result.json to 10⁻⁶ (relative;<br/>10⁻⁵ if trained on another CPU)"]
     RD --> S["scripts/evaluate.py --summary<br/>(benchmark + audited score)"]
     CJ --> S
     CR --> S
@@ -307,7 +307,7 @@ flowchart TB
     SM --> F["scripts/make_figures.py<br/>scripts/make_widget_data.py"] --> DOCS["figures and interactive widgets"]
 ```
 
-`bash scripts/reproduce.sh` runs the classical evaluation, asserts the paper's PI and open-loop numbers, re-evaluates all 44 stored checkpoints, and rebuilds the summary, figures and widget data (21 min on a 16-thread laptop, 55 min while it was shared with other jobs; `--full` retrains everything).
+Trained policies are not in git: the 77 policy files are a [GitHub release asset](https://github.com/leandergrech/rl-tokamak-rampup/releases/tag/checkpoints-v1), and `rl_tokamak.checkpoints` downloads it on first use and checks every file against the SHA-256 values in `data/checkpoints.json`. `bash scripts/reproduce.sh` fetches them, runs the classical evaluation, asserts the paper's PI and open-loop numbers, re-evaluates all 44 stored checkpoints, and rebuilds the summary, figures and widget data (21 min on a 16-thread laptop, 55 min while it was shared with other jobs; `--full` retrains everything).
 
 | Number | Produced by | Checked by |
 |---|---|---|

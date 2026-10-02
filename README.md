@@ -1,6 +1,6 @@
 # rl-tokamak-rampup
 
-Reinforcement learning for the ITER hybrid-scenario current ramp-up in [Gym-TORAX](https://github.com/antoine-mouchamps/gymtorax) (Mouchamps, Malherbe, Bolland, Ernst; [arXiv 2510.11283](https://arxiv.org/abs/2510.11283)), built on Google DeepMind's [TORAX](https://github.com/google-deepmind/torax) transport simulator. The benchmark asks an agent to set the plasma current and the NBI and ECRH heating once per second for 150 s; its paper reports a PI controller (3.79), the open-loop reference (3.40) and a random policy (−10.79), and no RL result. This repo reproduces those baselines on the paper's exact software stack, adds CPU-sized PPO, SAC, MBPO, behaviour cloning, TD3+BC and MOPO baselines with every checkpoint and trajectory committed, and wraps it in a literature review written for an RL researcher new to fusion.
+Reinforcement learning for the ITER hybrid-scenario current ramp-up in [Gym-TORAX](https://github.com/antoine-mouchamps/gymtorax) (Mouchamps, Malherbe, Bolland, Ernst; [arXiv 2510.11283](https://arxiv.org/abs/2510.11283)), built on Google DeepMind's [TORAX](https://github.com/google-deepmind/torax) transport simulator. The benchmark asks an agent to set the plasma current and the NBI and ECRH heating once per second for 150 s; its paper reports a PI controller (3.79), the open-loop reference (3.40) and a random policy (−10.79), and no RL result. This repo reproduces those baselines on the paper's exact software stack, adds CPU-sized PPO, SAC, MBPO, behaviour cloning, TD3+BC and MOPO baselines with every run's trajectory committed and every checkpoint in a release, and wraps it in a literature review written for an RL researcher new to fusion.
 
 **Literature review and results: <https://leandergrech.github.io/rl-tokamak-rampup/>**
 
@@ -77,10 +77,12 @@ docs/          the review (MkDocs Material, with interactive widgets in docs/jav
 src/rl_tokamak env wrapper, residual-on-PI env, PI/open-loop controllers, MBPO, TD3+BC, MOPO, SB3 runner, CEM, plotting
 scripts/       train.py, evaluate.py, reproduce.sh, make_datasets.py, open_loop_search.py, make_figures.py,
                make_widget_data.py, profile_snapshots.py, score_upstream_envs.py, failure_probe.py, probe_versions.py,
+               probe_pedestal_formation.py,
                Ramp-up Lab: make_lab_data.py, export_lab_policies.py, make_lab_fixture.py, check_lab_control.mjs,
                calibrate_lab_model.mjs
 notebooks/     01-explore, 02-baseline, 03-first-experiment
-data/          offline datasets, trajectories, results, every run's config/curve/checkpoint (< 20 MB)
+data/          offline datasets, trajectories, results, every run's config, learning curve and episode (< 20 MB);
+               the trained policies are in the release named in data/checkpoints.json, fetched on first use
 tests/         env sanity tests and baseline smoke tests
 ```
 

@@ -4,8 +4,8 @@ pages: https://leandergrech.github.io/rl-tokamak-rampup/
 step: 7
 state: done
 updated: 2026-10-02T12:30:04Z
-blockers: none (tracked data/ is 23.5 MB, over the brief's 20 MB, since the residual runs; open)
-next: Leander decides on a physics-consistent environment on gymtorax 1.1.1 / TORAX 1.4.3 (power-triggered pedestal, operating-limit terminations); reviews docs/upstream drafts
+blockers: none
+next: physics-consistent environment on gymtorax 1.1.1 / TORAX 1.4.3 (see '## Physics environment task'); Leander reviews docs/upstream drafts
 log:
 - 2026-09-30T16:04:44Z step 0 done: gh logged in as leandergrech (repo, workflow scopes); git user.name "Leander Grech"; repo folder empty
 - 2026-09-30T16:05:16Z step 1 done: skeleton committed, public repo created and pushed
@@ -30,6 +30,17 @@ log:
 - 2026-10-01T17:30:00Z long PPO-on-PI runs (120k steps, seeds 5-6, cloud): final audited 3.728 / 3.737 (3.645 / 3.62 at 30k), benchmark 12.66 / 5.70 (seed 5 trims flat-top heating to 4.6 MW, I_p 10.2 MA); laptop re-evaluation matches; vast instance destroyed, spend $0.65 on the personal account
 - 2026-10-02T12:30:04Z check: pytest 24 passed, mkdocs --strict ok; reproduce.sh first failed on mbpo_res_s4 (cloud-trained; laptop re-evaluation 7.171166 vs stored 7.171186, 2.8e-6 relative > 1e-6) -> runs trained on another CPU model are checked to 1e-5 relative; reproduce.sh 44/44 OK in 21 min. Compute rule raised from 1 h to 2 h per run (Leander, 2 Oct)
 - 2026-10-02T12:30:04Z probe (scripts/probe_pedestal_formation.py, gymtorax 1.1.1 / TORAX 1.4.3): TORAX's power-triggered pedestal (L-H when P_SOL > P_LH Martin 2008, H-L below 0.8 P_LH; added in TORAX 1.4.0) instead of the time schedule, same actions, IterHybrid-v0 reward: open loop 3.26 -> 3.43, heating cut 20.96 -> 2.48, no heating 12.62 -> 1.69 (never H-mode); PI with paper gains fails on both (I_p wound down); same cost per episode. TORAX sawtooth model with defaults: NaN at 111 s
+- 2026-10-02T13:10:00Z data/ back under 20 MB (7.1 MB tracked): the 77 policy files (25.7 MB) moved to release checkpoints-v1 (approved by Leander); rl_tokamak.checkpoints downloads it on first use and checks SHA-256 per file against data/checkpoints.json; reproduce.sh fetches first; pytest 24 passed; mkdocs --strict ok
+
+## Physics environment task
+repo: https://github.com/leandergrech/rl-tokamak-rampup
+step: 1
+state: running
+updated: 2026-10-02T13:10:00Z
+blockers: none
+next: environment on gymtorax 1.1.1 / TORAX 1.4.3 with TORAX's power-triggered pedestal, density held by gas puffing, terminations on f_GW > 1 and l_i outside 0.65-1.0 during the ramp-up, H-mode reward only with P_SOL >= 1.2 P_LH; then retune PI, open loop, CEM, residual PPO/MBPO (5 seeds each, <= 2 h per run, vast.ai <= $5); gymtorax 1.0.0 results stay frozen
+log:
+- 2026-10-02T13:10:00Z decisions (Leander): new environment with 1.0 results frozen; recommended limits (terminate on Greenwald f_GW > 1 and l_i window; 1.2 x P_LH margin in the reward; no termination on H-L back-transition); vast.ai up to ~$5; checkpoints to a GitHub release; 2 h per run
 
 ## Fork task
 repo: https://github.com/leandergrech/gymtorax (branch fix/audited-iter-hybrid-reward; pinned backport branch fix/audited-iter-hybrid-reward-v1.0 off tag v1.0.0)
