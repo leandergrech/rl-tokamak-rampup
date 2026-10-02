@@ -344,7 +344,7 @@
     "Q_final": 311.5676863655367,
     "Ip_final_MA": 13.17600866695866,
     "t_q_min_below_1_s": 89.0,
-    "audited": 3.6200743312836297,
+    "audited": 3.620074324677737,
     "first_hmode_proxy_s": 102.0
   },
   {
@@ -366,7 +366,7 @@
     "Q_final": 200.5256886340162,
     "Ip_final_MA": 10.849958789348602,
     "t_q_min_below_1_s": 89.0,
-    "audited": 3.693735003421904,
+    "audited": 3.693735001097211,
     "first_hmode_proxy_s": 102.0
   },
   {
@@ -388,7 +388,7 @@
     "Q_final": 75.3818099670347,
     "Ip_final_MA": 14.908893080055714,
     "t_q_min_below_1_s": 100.0,
-    "audited": 3.6417461548631356,
+    "audited": 3.6417460164702917,
     "first_hmode_proxy_s": 102.0
   },
   {
@@ -696,7 +696,7 @@
     "Q_final": 90.08517768386659,
     "Ip_final_MA": 10.170378744602203,
     "t_q_min_below_1_s": 80.0,
-    "audited": 3.728310604417797,
+    "audited": 3.7283107020206847,
     "first_hmode_proxy_s": 102.0
   },
   {
@@ -718,7 +718,7 @@
     "Q_final": 26.215014391389374,
     "Ip_final_MA": 15.0,
     "t_q_min_below_1_s": 76.0,
-    "audited": 3.737359444692079,
+    "audited": 3.7373594452293486,
     "first_hmode_proxy_s": 102.0
   },
   {
@@ -784,7 +784,7 @@
     "Q_final": 21.115432638281227,
     "Ip_final_MA": 14.165652712993325,
     "t_q_min_below_1_s": 89.0,
-    "audited": 3.6566460480807983,
+    "audited": 3.6566460487474757,
     "first_hmode_proxy_s": 102.0
   },
   {
@@ -806,7 +806,7 @@
     "Q_final": 16.151346699770578,
     "Ip_final_MA": 15.0,
     "t_q_min_below_1_s": 99.0,
-    "audited": 3.566946772185565,
+    "audited": 3.5669467736620355,
     "first_hmode_proxy_s": 102.0
   },
   {
@@ -828,7 +828,7 @@
     "Q_final": 16.26231408701336,
     "Ip_final_MA": 15.0,
     "t_q_min_below_1_s": 95.0,
-    "audited": 3.655162409703483,
+    "audited": 3.65516241043981,
     "first_hmode_proxy_s": 102.0
   },
   {

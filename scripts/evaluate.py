@@ -90,19 +90,36 @@ def best(paths: list[str]) -> None:
             print(f"{p.name} best: benchmark {res['benchmark_return']:.4f}, audited {res['audited_return']:.4f}", flush=True)
 
 
-def runs(paths: list[str], tol: float = 1e-6) -> None:
-    """Re-evaluate stored checkpoints and check they reproduce their stored result.json (the env is deterministic)."""
+def _cpu_model() -> str:
+    try:
+        with open("/proc/cpuinfo") as f:
+            return next((ln.split(":", 1)[1].strip() for ln in f if ln.startswith("model name")), "")
+    except OSError:
+        return ""
+
+
+def runs(paths: list[str], tol: float = 1e-6, cross_cpu_tol: float = 1e-5) -> None:
+    """Re-evaluate stored checkpoints and check they reproduce their stored result.json (the env is deterministic).
+
+    A run trained and evaluated on another CPU model (config.json "host") is checked against `cross_cpu_tol`:
+    CPU-specific floating point changes the last digits of TORAX's state, and 150 nonlinear steps amplify that
+    to a few 1e-6 of the return.
+    """
     from rl_tokamak.evaluate import evaluate_run
 
+    here = _cpu_model()
     mismatches = []
     for p in paths:
         p = Path(p)
         if not (p / "config.json").exists() or not (p / "result.json").exists():
             continue
         stored = json.loads((p / "result.json").read_text())["benchmark_return"]
+        host = json.loads((p / "config.json").read_text()).get("host") or {}
+        other_cpu = bool(host.get("cpu")) and host["cpu"] != here
         res = evaluate_run(p)
-        ok = abs(res["benchmark_return"] - stored) <= tol * max(1.0, abs(stored))
-        print(f"{p.name}: stored {stored:.6f}  re-evaluated {res['benchmark_return']:.6f}  {'OK' if ok else 'MISMATCH'}",
+        ok = abs(res["benchmark_return"] - stored) <= (cross_cpu_tol if other_cpu else tol) * max(1.0, abs(stored))
+        print(f"{p.name}: stored {stored:.6f}  re-evaluated {res['benchmark_return']:.6f}  {'OK' if ok else 'MISMATCH'}"
+              + (f"  (trained on {host['cpu']}, relative tolerance {cross_cpu_tol:g})" if other_cpu else ""),
               flush=True)
         if not ok:
             mismatches.append(p.name)
