@@ -54,12 +54,12 @@ class ScheduleController:
 _ENV = None
 
 
-def _init_worker() -> None:
+def _init_worker(physics: dict | None = None) -> None:
     global _ENV
     from ..env import EnvConfig, RampupEnv, set_single_thread
 
     set_single_thread()
-    _ENV = RampupEnv(EnvConfig())
+    _ENV = RampupEnv(EnvConfig(extra={} if physics is None else {"physics": physics}))
 
 
 def _score(args) -> tuple[float, bool]:
@@ -82,6 +82,7 @@ class CEMConfig:
     max_minutes: float = 50.0
     seed: int = 0
     objective: str = "benchmark"  # or "audited" (see rl_tokamak.evaluate.audited_return)
+    physics: dict | None = None  # PhysicsConfig overrides: search the physics environment (its own return)
 
 
 def run_cem(cfg: CEMConfig, log=print) -> dict:
@@ -91,7 +92,8 @@ def run_cem(cfg: CEMConfig, log=print) -> dict:
     std = np.full(N_PARAMS, cfg.init_std)
     best = (-np.inf, None)
     curve, episodes, t0 = [], 0, time.time()
-    with ProcessPoolExecutor(cfg.workers, mp_context=mp.get_context("spawn"), initializer=_init_worker) as ex:
+    with ProcessPoolExecutor(cfg.workers, mp_context=mp.get_context("spawn"), initializer=_init_worker,
+                             initargs=(cfg.physics,)) as ex:
         for g in range(cfg.generations):
             pop = np.clip(mean + std * rng.standard_normal((cfg.population, N_PARAMS)), 0, 1)
             pop[0] = mean  # always re-score the current mean

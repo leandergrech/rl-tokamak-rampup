@@ -12,7 +12,7 @@ import json
 import numpy as np
 
 from .controllers import OpenLoopController, PIController, RandomController
-from .env import IP_RAMP, OBS_SETS, EnvConfig, RampupEnv, _stats_path, extract_features, gymtorax_version
+from .env import IP_RAMP, OBS_SETS, EnvConfig, RampupEnv, _stats_path, extract_features, stats_key
 
 
 class NoisyController:
@@ -45,7 +45,7 @@ def _record(env: RampupEnv, controller) -> list[np.ndarray]:
     while True:
         applied = env._applied / np.array([env.ip_max, env.nbi_max, env.ecrh_max])
         for k in OBS_SETS:
-            rows[k].append(extract_features(obs, k, env._t / (env.horizon - 1), applied))
+            rows[k].append(extract_features(obs, k, env._t / (env.horizon - 1), applied, env._physics_extra(obs)))
         if done:
             break
         obs, _, term, trunc, info = env.step_gymtorax(controller.act(obs))
@@ -55,10 +55,17 @@ def _record(env: RampupEnv, controller) -> list[np.ndarray]:
     return rows
 
 
-def compute_obs_stats(n_random: int = 3, noisy_sigmas=(0.1, 0.3, 0.5)) -> dict:
-    env = RampupEnv(EnvConfig(normalize=False))
-    controllers = [OpenLoopController(), PIController()]
-    controllers += [NoisyController(PIController(), s, seed=i) for i, s in enumerate(noisy_sigmas)]
+def compute_obs_stats(n_random: int = 3, noisy_sigmas=(0.1, 0.3, 0.5), physics: dict | None = None) -> dict:
+    """``physics``: PhysicsConfig overrides for the physics environment (its PI uses the re-tuned gains)."""
+    env = RampupEnv(EnvConfig(normalize=False, extra={} if physics is None else {"physics": physics}))
+    if physics is None:
+        pi_kw = {}
+    else:
+        from .physics import PHYSICS_PI
+
+        pi_kw = PHYSICS_PI
+    controllers = [OpenLoopController(), PIController(**pi_kw)]
+    controllers += [NoisyController(PIController(**pi_kw), s, seed=i) for i, s in enumerate(noisy_sigmas)]
     controllers += [RandomController(env.inner.action_space, seed=100 + i) for i in range(n_random)]
     rows: dict[str, list[np.ndarray]] = {k: [] for k in OBS_SETS}
     for c in controllers:
@@ -70,7 +77,7 @@ def compute_obs_stats(n_random: int = 3, noisy_sigmas=(0.1, 0.3, 0.5)) -> dict:
         x = np.array(rows[k])
         mean, std = x.mean(0), x.std(0)
         std = np.where(std < 1e-8 + 1e-6 * np.abs(mean), 1.0, std)  # constant features map to (x - mean)
-        out[f"{gymtorax_version()}/{k}"] = {"mean": mean.tolist(), "std": std.tolist(), "n": int(x.shape[0])}
+        out[stats_key(k, physics is not None)] = {"mean": mean.tolist(), "std": std.tolist(), "n": int(x.shape[0])}
     env.close()
     return out
 

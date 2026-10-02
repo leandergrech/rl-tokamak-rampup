@@ -36,14 +36,15 @@ def heating_schedule(step: int) -> tuple[float, float]:
     return 0.0, 0.0
 
 
-def j_target(t: float) -> float:
-    """Central current-density target in A/m^2 (0.6 -> 2.0 MA/m^2 over 100 s)."""
-    return 0.2e6 + 0.4e6 + 1.4e6 * t / 100
+def j_target(t: float, j_end: float = 2.0e6) -> float:
+    """Central current-density target in A/m^2 (0.6 -> j_end MA/m^2 over 100 s; the paper uses 2.0)."""
+    return 0.2e6 + 0.4e6 + (j_end - 0.6e6) * t / 100
 
 
 class PIController:
-    def __init__(self, kp: float = PAPER_KP, ki: float = PAPER_KI, ip_min: float = 1.0e3, ip_max: float = 15.0e6):
-        self.kp, self.ki = kp, ki
+    def __init__(self, kp: float = PAPER_KP, ki: float = PAPER_KI, ip_min: float = 1.0e3, ip_max: float = 15.0e6,
+                 j_end: float = 2.0e6):
+        self.kp, self.ki, self.j_end = kp, ki, j_end
         self.ip_min, self.ip_max = ip_min, ip_max
         self.reset()
 
@@ -55,7 +56,7 @@ class PIController:
     def act(self, obs: dict) -> dict[str, list[float]]:
         t = self.step_idx
         if t < RAMP_END:
-            error = j_target(t) - float(obs["profiles"]["j_total"][0])
+            error = j_target(t, self.j_end) - float(obs["profiles"]["j_total"][0])
             desired = IP_START + self.kp * error + self.ki * self.integral
             limited = desired
             ramp_limited = False

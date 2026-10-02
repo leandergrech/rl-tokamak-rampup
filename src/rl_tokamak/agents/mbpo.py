@@ -78,11 +78,23 @@ class FailureRule:
         if self.active:
             self.mu, self.sd = env._stats[0][self.idx], env._stats[1][self.idx]
         self.penalty = -1000.0 if env.cfg.reward_mode == "benchmark" else env.cfg.failure_penalty
+        # physics environment: also its operating limits (Greenwald fraction; l_i(3) window during the ramp-up)
+        self.physics = getattr(env.inner, "physics", None) if getattr(env, "physics", None) is not None else None
+        if self.active and self.physics is not None:
+            self.p_idx = np.array([0, 1 + 3 + SCALAR_KEYS.index("fgw_n_e_line_avg"), 1 + 3 + SCALAR_KEYS.index("li3")])
+            self.p_mu, self.p_sd = env._stats[0][self.p_idx], env._stats[1][self.p_idx]
+            self.h = env.horizon
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         if not self.active:
             return np.zeros(len(x), dtype=bool)
-        return (x[:, self.idx] * self.sd + self.mu > self.limit).any(axis=1)
+        bad = (x[:, self.idx] * self.sd + self.mu > self.limit).any(axis=1)
+        if self.physics is not None:
+            t_frac, fgw, li = (x[:, self.p_idx] * self.p_sd + self.p_mu).T
+            t, p = np.rint(t_frac * (self.h - 1)), self.physics
+            bad |= fgw > p.fgw_max
+            bad |= (t <= p.li_until_s) & ((li < p.li_min) | (li > p.li_max))
+        return bad
 
 
 class KnownReward:
@@ -102,6 +114,12 @@ class KnownReward:
                        and cfg.reward_mode in ("scaled", "patched", "benchmark"))
         n0 = 1 + 3  # time, last action
         self.idx = np.array([n0 + SCALAR_KEYS.index(k) for k in self.KEYS] + [n0 + len(SCALAR_KEYS), n0 + len(SCALAR_KEYS) + 1])
+        # physics environment: H-mode is TORAX's confinement state (a feature) with P_heat >= margin * P_LH
+        self.physics = env.inner.physics if getattr(env, "physics", None) is not None else None
+        if self.physics is not None:
+            assert cfg.reward_mode != "patched", "the physics environment's own reward is already the audited form"
+            self.idx[4] = env.physics_idx + 2  # P_heat_total in place of P_SOL_total
+            self.idx[6] = env.physics_idx  # is_H_mode in place of T_e(0)
         if self.active:
             self.mu, self.sd = env._stats[0][self.idx], env._stats[1][self.idx]
         self.audited = cfg.reward_mode == "patched"
@@ -109,6 +127,13 @@ class KnownReward:
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         q, h98, qmin, q95, p_sol, p_lh, te0, ti0 = (x[:, self.idx] * self.sd + self.mu).T
+        if self.physics is not None:  # p_sol is P_heat, te0 is the H-mode flag here
+            p = self.physics
+            h = (te0 > 0.5) & (p_sol >= p.h_margin * p_lh)
+            q = np.minimum(q, p.q_cap)
+            r = (np.where(h, q / p.q_cap, 0.0) + np.where(h, np.minimum(h98, 1.0), 0.0)) / 50
+            r += (np.minimum(qmin, 1.0) + np.minimum(q95 / 3, 1.0)) / 150
+            return (self.scale * r).astype(np.float32)
         h = (te0 > 10) & (ti0 > 10)
         if self.audited:
             h &= p_sol >= p_lh

@@ -1,0 +1,1410 @@
+{
+ "physics": {},
+ "best": {
+  "kp": 0.1,
+  "ki": 0.3,
+  "j_end_MA_m2": 3.75,
+  "return": 3.241795679230761,
+  "steps": 150,
+  "fail_reason": null,
+  "Ip_final_MA": 15.0
+ },
+ "wall_min": 5.507038601239523,
+ "candidates": [
+  {
+   "kp": 0.1,
+   "ki": 0.3,
+   "j_end_MA_m2": 3.75,
+   "return": 3.241795679230761,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.025,
+   "ki": 0.3,
+   "j_end_MA_m2": 3.75,
+   "return": 3.238929037423186,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.05,
+   "ki": 0.3,
+   "j_end_MA_m2": 3.75,
+   "return": 3.2383478735316924,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.0,
+   "ki": 0.3,
+   "j_end_MA_m2": 3.75,
+   "return": 3.236887091510648,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.0,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.5,
+   "return": 3.2278999004238136,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.3,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.5,
+   "return": 3.226853290484693,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.025,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.5,
+   "return": 3.226760389257741,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.05,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.5,
+   "return": 3.2255124346444384,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.025,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.75,
+   "return": 3.224982987793648,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.05,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.75,
+   "return": 3.22457796898845,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.1,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.75,
+   "return": 3.2235255382166423,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.0,
+   "ki": 0.3,
+   "j_end_MA_m2": 3.5,
+   "return": 3.223431055167236,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 14.68874160304528
+  },
+  {
+   "kp": 0.1,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.5,
+   "return": 3.2233786776997397,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.0,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.75,
+   "return": 3.2232468843215067,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.025,
+   "ki": 0.3,
+   "j_end_MA_m2": 3.5,
+   "return": 3.220649541354395,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 14.652270600781026
+  },
+  {
+   "kp": 0.05,
+   "ki": 0.3,
+   "j_end_MA_m2": 3.5,
+   "return": 3.2177754138030243,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 14.614931928355796
+  },
+  {
+   "kp": 0.1,
+   "ki": 0.3,
+   "j_end_MA_m2": 3.5,
+   "return": 3.212480552729093,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 14.546394625887563
+  },
+  {
+   "kp": 0.0,
+   "ki": 1,
+   "j_end_MA_m2": 3.5,
+   "return": 3.207756598741545,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 13.458075813700866
+  },
+  {
+   "kp": 0.7,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.5,
+   "return": 3.2016516259930636,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 14.611967479164752
+  },
+  {
+   "kp": 1.5,
+   "ki": 0.5,
+   "j_end_MA_m2": 4.0,
+   "return": 3.193598962886955,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.3,
+   "ki": 1,
+   "j_end_MA_m2": 3.5,
+   "return": 3.1924173469118,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 13.35798419617128
+  },
+  {
+   "kp": 0.0,
+   "ki": 0.5,
+   "j_end_MA_m2": 4.0,
+   "return": 3.18889463048664,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.0,
+   "ki": 1,
+   "j_end_MA_m2": 4.0,
+   "return": 3.188302366515197,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.0,
+   "ki": 1,
+   "j_end_MA_m2": 4.5,
+   "return": 3.188160724678474,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.3,
+   "ki": 1,
+   "j_end_MA_m2": 4.0,
+   "return": 3.187526823300994,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.3,
+   "ki": 1,
+   "j_end_MA_m2": 4.5,
+   "return": 3.1859837394823303,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.7,
+   "ki": 1,
+   "j_end_MA_m2": 4.0,
+   "return": 3.1859031715925856,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.7,
+   "ki": 1,
+   "j_end_MA_m2": 4.5,
+   "return": 3.1853884756778297,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.3,
+   "ki": 0.5,
+   "j_end_MA_m2": 4.0,
+   "return": 3.184734286728631,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 1.5,
+   "ki": 0.5,
+   "j_end_MA_m2": 4.5,
+   "return": 3.18449565161034,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.0,
+   "ki": 2,
+   "j_end_MA_m2": 4.5,
+   "return": 3.1839547710215728,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.0,
+   "ki": 0.5,
+   "j_end_MA_m2": 4.5,
+   "return": 3.183786643102518,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.05,
+   "ki": 0.8,
+   "j_end_MA_m2": 3.75,
+   "return": 3.183631230603243,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.0,
+   "ki": 0.8,
+   "j_end_MA_m2": 3.75,
+   "return": 3.1834193425722104,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.7,
+   "ki": 0.5,
+   "j_end_MA_m2": 4.5,
+   "return": 3.1834133354400462,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.1,
+   "ki": 0.8,
+   "j_end_MA_m2": 3.75,
+   "return": 3.1830227442124266,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.025,
+   "ki": 0.8,
+   "j_end_MA_m2": 3.75,
+   "return": 3.1825392506397514,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 14.916771128734755
+  },
+  {
+   "kp": 0.3,
+   "ki": 0.5,
+   "j_end_MA_m2": 4.5,
+   "return": 3.18143688523801,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 1.5,
+   "ki": 1,
+   "j_end_MA_m2": 4.5,
+   "return": 3.180964312808641,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.7,
+   "ki": 2,
+   "j_end_MA_m2": 4.0,
+   "return": 3.180820676521679,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 0.7,
+   "ki": 0.5,
+   "j_end_MA_m2": 4.0,
+   "return": 3.1781639382791376,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 15.0
+  },
+  {
+   "kp": 1.5,
+   "ki": 1,
+   "j_end_MA_m2": 4.0,
+   "return": 3.177939167269937,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 14.8386664108579
+  },
+  {
+   "kp": 0.7,
+   "ki": 1,
+   "j_end_MA_m2": 3.5,
+   "return": 3.1525983104230066,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 12.652993763556992
+  },
+  {
+   "kp": 0.0,
+   "ki": 0.3,
+   "j_end_MA_m2": 3.25,
+   "return": 3.149994788658712,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 12.921820758141195
+  },
+  {
+   "kp": 0.025,
+   "ki": 0.3,
+   "j_end_MA_m2": 3.25,
+   "return": 3.1482995293150733,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 12.8908213058393
+  },
+  {
+   "kp": 0.05,
+   "ki": 0.3,
+   "j_end_MA_m2": 3.25,
+   "return": 3.1466148244285823,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 12.859897497421256
+  },
+  {
+   "kp": 0.1,
+   "ki": 0.3,
+   "j_end_MA_m2": 3.25,
+   "return": 3.1439320146140677,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 12.807389832901832
+  },
+  {
+   "kp": 1.5,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.5,
+   "return": 3.1243836287323488,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 12.86698495014996
+  },
+  {
+   "kp": 0.0,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.25,
+   "return": 3.0650467017094667,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 11.217691810980183
+  },
+  {
+   "kp": 0.025,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.25,
+   "return": 3.062521827331452,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 11.19139440898671
+  },
+  {
+   "kp": 0.05,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.25,
+   "return": 3.060489309539096,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 11.168437923942347
+  },
+  {
+   "kp": 0.1,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.25,
+   "return": 3.0557969073528284,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 11.119428298627264
+  },
+  {
+   "kp": 1.5,
+   "ki": 0.5,
+   "j_end_MA_m2": 2.0,
+   "return": 2.983160471520823,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 6.703117695144165
+  },
+  {
+   "kp": 0.7,
+   "ki": 0.5,
+   "j_end_MA_m2": 2.0,
+   "return": 2.956473812396116,
+   "steps": 150,
+   "fail_reason": null,
+   "Ip_final_MA": 5.763905408469992
+  },
+  {
+   "kp": 0.0,
+   "ki": 0.8,
+   "j_end_MA_m2": 3.5,
+   "return": -998.8560902705668,
+   "steps": 97,
+   "fail_reason": "l_i(3) 1.217 outside [0.65, 1.2] at t = 97 s",
+   "Ip_final_MA": 11.86996754395609
+  },
+  {
+   "kp": 0.025,
+   "ki": 0.8,
+   "j_end_MA_m2": 3.5,
+   "return": -998.8561872879989,
+   "steps": 97,
+   "fail_reason": "l_i(3) 1.218 outside [0.65, 1.2] at t = 97 s",
+   "Ip_final_MA": 11.837490433072645
+  },
+  {
+   "kp": 0.05,
+   "ki": 0.8,
+   "j_end_MA_m2": 3.5,
+   "return": -998.8562797340832,
+   "steps": 97,
+   "fail_reason": "l_i(3) 1.219 outside [0.65, 1.2] at t = 97 s",
+   "Ip_final_MA": 11.80572833081584
+  },
+  {
+   "kp": 0.1,
+   "ki": 0.8,
+   "j_end_MA_m2": 3.5,
+   "return": -998.8564674516239,
+   "steps": 97,
+   "fail_reason": "l_i(3) 1.221 outside [0.65, 1.2] at t = 97 s",
+   "Ip_final_MA": 11.74138834942346
+  },
+  {
+   "kp": 1.5,
+   "ki": 1,
+   "j_end_MA_m2": 3.5,
+   "return": -998.8967097352947,
+   "steps": 93,
+   "fail_reason": "l_i(3) 1.215 outside [0.65, 1.2] at t = 93 s",
+   "Ip_final_MA": 11.480598410867819
+  },
+  {
+   "kp": 0.0,
+   "ki": 0.8,
+   "j_end_MA_m2": 3.25,
+   "return": -998.9058096122716,
+   "steps": 91,
+   "fail_reason": "l_i(3) 1.217 outside [0.65, 1.2] at t = 91 s",
+   "Ip_final_MA": 10.275664198394656
+  },
+  {
+   "kp": 0.025,
+   "ki": 0.8,
+   "j_end_MA_m2": 3.25,
+   "return": -998.9058735898584,
+   "steps": 91,
+   "fail_reason": "l_i(3) 1.218 outside [0.65, 1.2] at t = 91 s",
+   "Ip_final_MA": 10.248887109250129
+  },
+  {
+   "kp": 0.05,
+   "ki": 0.8,
+   "j_end_MA_m2": 3.25,
+   "return": -998.9059360811972,
+   "steps": 91,
+   "fail_reason": "l_i(3) 1.218 outside [0.65, 1.2] at t = 91 s",
+   "Ip_final_MA": 10.222841835464534
+  },
+  {
+   "kp": 0.1,
+   "ki": 0.8,
+   "j_end_MA_m2": 3.25,
+   "return": -998.9161845782796,
+   "steps": 90,
+   "fail_reason": "l_i(3) 1.215 outside [0.65, 1.2] at t = 90 s",
+   "Ip_final_MA": 10.30708348187177
+  },
+  {
+   "kp": 0.0,
+   "ki": 2,
+   "j_end_MA_m2": 3.5,
+   "return": -998.9173316998161,
+   "steps": 91,
+   "fail_reason": "l_i(3) 1.205 outside [0.65, 1.2] at t = 91 s",
+   "Ip_final_MA": 11.989013724924474
+  },
+  {
+   "kp": 0.3,
+   "ki": 2,
+   "j_end_MA_m2": 3.5,
+   "return": -998.9379968163723,
+   "steps": 89,
+   "fail_reason": "l_i(3) 1.204 outside [0.65, 1.2] at t = 89 s",
+   "Ip_final_MA": 11.93638916711909
+  },
+  {
+   "kp": 0.7,
+   "ki": 2,
+   "j_end_MA_m2": 3.5,
+   "return": -998.9384762294842,
+   "steps": 89,
+   "fail_reason": "l_i(3) 1.216 outside [0.65, 1.2] at t = 89 s",
+   "Ip_final_MA": 11.654130465868546
+  },
+  {
+   "kp": 0.3,
+   "ki": 0.5,
+   "j_end_MA_m2": 2.0,
+   "return": -998.9468242508996,
+   "steps": 81,
+   "fail_reason": "l_i(3) 1.202 outside [0.65, 1.2] at t = 81 s",
+   "Ip_final_MA": 4.585598531102578
+  },
+  {
+   "kp": 0.0,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.0,
+   "return": -998.96778806418,
+   "steps": 84,
+   "fail_reason": "l_i(3) 1.213 outside [0.65, 1.2] at t = 84 s",
+   "Ip_final_MA": 9.417328385161433
+  },
+  {
+   "kp": 0.3,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.0,
+   "return": -998.978500117281,
+   "steps": 83,
+   "fail_reason": "l_i(3) 1.211 outside [0.65, 1.2] at t = 83 s",
+   "Ip_final_MA": 9.193169254912103
+  },
+  {
+   "kp": 0.7,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.0,
+   "return": -998.9893618320946,
+   "steps": 82,
+   "fail_reason": "l_i(3) 1.212 outside [0.65, 1.2] at t = 82 s",
+   "Ip_final_MA": 8.885659166761457
+  },
+  {
+   "kp": 0.0,
+   "ki": 0.5,
+   "j_end_MA_m2": 2.0,
+   "return": -998.997151742187,
+   "steps": 77,
+   "fail_reason": "l_i(3) 1.209 outside [0.65, 1.2] at t = 77 s",
+   "Ip_final_MA": 4.69593892430402
+  },
+  {
+   "kp": 1.5,
+   "ki": 2,
+   "j_end_MA_m2": 3.5,
+   "return": -999.0012889504687,
+   "steps": 83,
+   "fail_reason": "l_i(3) 1.205 outside [0.65, 1.2] at t = 83 s",
+   "Ip_final_MA": 11.343337893974322
+  },
+  {
+   "kp": 1.5,
+   "ki": 0.5,
+   "j_end_MA_m2": 3.0,
+   "return": -999.0110297218555,
+   "steps": 80,
+   "fail_reason": "l_i(3) 1.203 outside [0.65, 1.2] at t = 80 s",
+   "Ip_final_MA": 8.412656499629888
+  },
+  {
+   "kp": 0.0,
+   "ki": 0.5,
+   "j_end_MA_m2": 2.5,
+   "return": -999.0226531502057,
+   "steps": 77,
+   "fail_reason": "l_i(3) 1.205 outside [0.65, 1.2] at t = 77 s",
+   "Ip_final_MA": 6.8917978633166905
+  },
+  {
+   "kp": 0.3,
+   "ki": 0.5,
+   "j_end_MA_m2": 2.5,
+   "return": -999.0227084990171,
+   "steps": 77,
+   "fail_reason": "l_i(3) 1.219 outside [0.65, 1.2] at t = 77 s",
+   "Ip_final_MA": 6.659854156023205
+  },
+  {
+   "kp": 0.7,
+   "ki": 0.5,
+   "j_end_MA_m2": 2.5,
+   "return": -999.0338317434531,
+   "steps": 76,
+   "fail_reason": "l_i(3) 1.214 outside [0.65, 1.2] at t = 76 s",
+   "Ip_final_MA": 6.487570534707608
+  },
+  {
+   "kp": 0.0,
+   "ki": 1,
+   "j_end_MA_m2": 3.0,
+   "return": -999.0443366002146,
+   "steps": 77,
+   "fail_reason": "l_i(3) 1.210 outside [0.65, 1.2] at t = 77 s",
+   "Ip_final_MA": 9.029721372184003
+  },
+  {
+   "kp": 1.5,
+   "ki": 0.5,
+   "j_end_MA_m2": 2.5,
+   "return": -999.0448032173279,
+   "steps": 75,
+   "fail_reason": "l_i(3) 1.210 outside [0.65, 1.2] at t = 75 s",
+   "Ip_final_MA": 6.151442467980874
+  },
+  {
+   "kp": 0.3,
+   "ki": 1,
+   "j_end_MA_m2": 3.0,
+   "return": -999.0888679453843,
+   "steps": 73,
+   "fail_reason": "l_i(3) 1.211 outside [0.65, 1.2] at t = 73 s",
+   "Ip_final_MA": 8.612544799038716
+  },
+  {
+   "kp": 0.7,
+   "ki": 1,
+   "j_end_MA_m2": 3.0,
+   "return": -999.1003020481916,
+   "steps": 72,
+   "fail_reason": "l_i(3) 1.218 outside [0.65, 1.2] at t = 72 s",
+   "Ip_final_MA": 8.390511553483252
+  },
+  {
+   "kp": 1.5,
+   "ki": 1,
+   "j_end_MA_m2": 3.0,
+   "return": -999.122437026144,
+   "steps": 70,
+   "fail_reason": "l_i(3) 1.208 outside [0.65, 1.2] at t = 70 s",
+   "Ip_final_MA": 8.220359151884331
+  },
+  {
+   "kp": 0.0,
+   "ki": 2,
+   "j_end_MA_m2": 3.0,
+   "return": -999.1380241293366,
+   "steps": 69,
+   "fail_reason": "l_i(3) 1.209 outside [0.65, 1.2] at t = 69 s",
+   "Ip_final_MA": 9.048864589278113
+  },
+  {
+   "kp": 0.0,
+   "ki": 1,
+   "j_end_MA_m2": 2.5,
+   "return": -999.2683616402426,
+   "steps": 57,
+   "fail_reason": "l_i(3) 1.210 outside [0.65, 1.2] at t = 57 s",
+   "Ip_final_MA": 6.988870105896489
+  },
+  {
+   "kp": 0.3,
+   "ki": 1,
+   "j_end_MA_m2": 2.5,
+   "return": -999.2800034654654,
+   "steps": 56,
+   "fail_reason": "l_i(3) 1.201 outside [0.65, 1.2] at t = 56 s",
+   "Ip_final_MA": 6.888083528697074
+  },
+  {
+   "kp": 0.0,
+   "ki": 2,
+   "j_end_MA_m2": 2.5,
+   "return": -999.2800431406189,
+   "steps": 56,
+   "fail_reason": "l_i(3) 1.230 outside [0.65, 1.2] at t = 56 s",
+   "Ip_final_MA": 6.920442848063017
+  },
+  {
+   "kp": 0.7,
+   "ki": 1,
+   "j_end_MA_m2": 2.5,
+   "return": -999.291798790101,
+   "steps": 55,
+   "fail_reason": "l_i(3) 1.210 outside [0.65, 1.2] at t = 55 s",
+   "Ip_final_MA": 6.615404653272108
+  },
+  {
+   "kp": 0.3,
+   "ki": 2,
+   "j_end_MA_m2": 2.5,
+   "return": -999.2918161387049,
+   "steps": 55,
+   "fail_reason": "l_i(3) 1.216 outside [0.65, 1.2] at t = 55 s",
+   "Ip_final_MA": 6.7896485352977685
+  },
+  {
+   "kp": 0.7,
+   "ki": 2,
+   "j_end_MA_m2": 2.5,
+   "return": -999.3037782469968,
+   "steps": 54,
+   "fail_reason": "l_i(3) 1.204 outside [0.65, 1.2] at t = 54 s",
+   "Ip_final_MA": 6.735212305648679
+  },
+  {
+   "kp": 1.5,
+   "ki": 1,
+   "j_end_MA_m2": 2.5,
+   "return": -999.3157392228412,
+   "steps": 53,
+   "fail_reason": "l_i(3) 1.213 outside [0.65, 1.2] at t = 53 s",
+   "Ip_final_MA": 6.285561770439119
+  },
+  {
+   "kp": 1.5,
+   "ki": 2,
+   "j_end_MA_m2": 2.5,
+   "return": -999.3530206341825,
+   "steps": 50,
+   "fail_reason": "l_i(3) 1.227 outside [0.65, 1.2] at t = 50 s",
+   "Ip_final_MA": 6.162634197499024
+  },
+  {
+   "kp": 0.0,
+   "ki": 1,
+   "j_end_MA_m2": 2.0,
+   "return": -999.3866666666667,
+   "steps": 47,
+   "fail_reason": "l_i(3) 1.233 outside [0.65, 1.2] at t = 47 s",
+   "Ip_final_MA": 4.770902161336389
+  },
+  {
+   "kp": 0.3,
+   "ki": 1,
+   "j_end_MA_m2": 2.0,
+   "return": -999.4,
+   "steps": 46,
+   "fail_reason": "l_i(3) 1.218 outside [0.65, 1.2] at t = 46 s",
+   "Ip_final_MA": 4.727342540043346
+  },
+  {
+   "kp": 0.0,
+   "ki": 2,
+   "j_end_MA_m2": 2.0,
+   "return": -999.400022266567,
+   "steps": 46,
+   "fail_reason": "l_i(3) 1.251 outside [0.65, 1.2] at t = 46 s",
+   "Ip_final_MA": 4.941748183737878
+  },
+  {
+   "kp": 0.3,
+   "ki": 2,
+   "j_end_MA_m2": 2.0,
+   "return": -999.4133333333333,
+   "steps": 45,
+   "fail_reason": "l_i(3) 1.235 outside [0.65, 1.2] at t = 45 s",
+   "Ip_final_MA": 5.0034087497715145
+  },
+  {
+   "kp": 0.7,
+   "ki": 1,
+   "j_end_MA_m2": 2.0,
+   "return": -999.4133333333333,
+   "steps": 45,
+   "fail_reason": "l_i(3) 1.212 outside [0.65, 1.2] at t = 45 s",
+   "Ip_final_MA": 4.626538795837804
+  },
+  {
+   "kp": 0.7,
+   "ki": 2,
+   "j_end_MA_m2": 2.0,
+   "return": -999.4133478583577,
+   "steps": 45,
+   "fail_reason": "l_i(3) 1.240 outside [0.65, 1.2] at t = 45 s",
+   "Ip_final_MA": 4.896310121358183
+  },
+  {
+   "kp": 1.5,
+   "ki": 1,
+   "j_end_MA_m2": 2.0,
+   "return": -999.4666666666667,
+   "steps": 41,
+   "fail_reason": "l_i(3) 1.237 outside [0.65, 1.2] at t = 41 s",
+   "Ip_final_MA": 4.301837708935294
+  },
+  {
+   "kp": 1.5,
+   "ki": 2,
+   "j_end_MA_m2": 2.0,
+   "return": -999.4666666666667,
+   "steps": 41,
+   "fail_reason": "l_i(3) 1.239 outside [0.65, 1.2] at t = 41 s",
+   "Ip_final_MA": 4.719461176400133
+  },
+  {
+   "kp": 0.0,
+   "ki": 2,
+   "j_end_MA_m2": 4.0,
+   "return": -999.8,
+   "steps": 16,
+   "fail_reason": "l_i(3) 0.649 outside [0.65, 1.2] at t = 16 s",
+   "Ip_final_MA": 5.539649469635974
+  },
+  {
+   "kp": 0.3,
+   "ki": 2,
+   "j_end_MA_m2": 4.0,
+   "return": -999.8133333333334,
+   "steps": 15,
+   "fail_reason": "l_i(3) 0.649 outside [0.65, 1.2] at t = 15 s",
+   "Ip_final_MA": 5.440093022452248
+  },
+  {
+   "kp": 0.3,
+   "ki": 2,
+   "j_end_MA_m2": 4.5,
+   "return": -999.84,
+   "steps": 13,
+   "fail_reason": "l_i(3) 0.649 outside [0.65, 1.2] at t = 13 s",
+   "Ip_final_MA": 5.1447897097445034
+  },
+  {
+   "kp": 0.0,
+   "ki": 8,
+   "j_end_MA_m2": 2.0,
+   "return": -999.8533333333334,
+   "steps": 12,
+   "fail_reason": "l_i(3) 0.646 outside [0.65, 1.2] at t = 12 s",
+   "Ip_final_MA": 5.112386927796295
+  },
+  {
+   "kp": 0.0,
+   "ki": 8,
+   "j_end_MA_m2": 2.5,
+   "return": -999.8533333333334,
+   "steps": 12,
+   "fail_reason": "l_i(3) 0.646 outside [0.65, 1.2] at t = 12 s",
+   "Ip_final_MA": 5.112386927796295
+  },
+  {
+   "kp": 0.0,
+   "ki": 8,
+   "j_end_MA_m2": 3.0,
+   "return": -999.8533333333334,
+   "steps": 12,
+   "fail_reason": "l_i(3) 0.646 outside [0.65, 1.2] at t = 12 s",
+   "Ip_final_MA": 5.112386927796295
+  },
+  {
+   "kp": 0.0,
+   "ki": 8,
+   "j_end_MA_m2": 3.5,
+   "return": -999.8533333333334,
+   "steps": 12,
+   "fail_reason": "l_i(3) 0.646 outside [0.65, 1.2] at t = 12 s",
+   "Ip_final_MA": 5.112386927796295
+  },
+  {
+   "kp": 0.0,
+   "ki": 8,
+   "j_end_MA_m2": 4.0,
+   "return": -999.8533333333334,
+   "steps": 12,
+   "fail_reason": "l_i(3) 0.646 outside [0.65, 1.2] at t = 12 s",
+   "Ip_final_MA": 5.112386927796295
+  },
+  {
+   "kp": 0.0,
+   "ki": 8,
+   "j_end_MA_m2": 4.5,
+   "return": -999.8533333333334,
+   "steps": 12,
+   "fail_reason": "l_i(3) 0.646 outside [0.65, 1.2] at t = 12 s",
+   "Ip_final_MA": 5.112386927796295
+  },
+  {
+   "kp": 0.3,
+   "ki": 2,
+   "j_end_MA_m2": 3.0,
+   "return": -999.8533333333334,
+   "steps": 12,
+   "fail_reason": "l_i(3) 0.649 outside [0.65, 1.2] at t = 12 s",
+   "Ip_final_MA": 5.005706273435218
+  },
+  {
+   "kp": 0.7,
+   "ki": 2,
+   "j_end_MA_m2": 3.0,
+   "return": -999.8533333333334,
+   "steps": 12,
+   "fail_reason": "l_i(3) 0.648 outside [0.65, 1.2] at t = 12 s",
+   "Ip_final_MA": 5.07960935964838
+  },
+  {
+   "kp": 0.7,
+   "ki": 2,
+   "j_end_MA_m2": 4.5,
+   "return": -999.8533333333334,
+   "steps": 12,
+   "fail_reason": "l_i(3) 0.648 outside [0.65, 1.2] at t = 12 s",
+   "Ip_final_MA": 5.074972351009785
+  },
+  {
+   "kp": 1.5,
+   "ki": 2,
+   "j_end_MA_m2": 4.0,
+   "return": -999.8533333333334,
+   "steps": 12,
+   "fail_reason": "l_i(3) 0.648 outside [0.65, 1.2] at t = 12 s",
+   "Ip_final_MA": 5.183307794028003
+  },
+  {
+   "kp": 1.5,
+   "ki": 2,
+   "j_end_MA_m2": 3.0,
+   "return": -999.8666666666667,
+   "steps": 11,
+   "fail_reason": "l_i(3) 0.646 outside [0.65, 1.2] at t = 11 s",
+   "Ip_final_MA": 5.038314831689268
+  },
+  {
+   "kp": 0.0,
+   "ki": 34.257,
+   "j_end_MA_m2": 2.0,
+   "return": -999.88,
+   "steps": 10,
+   "fail_reason": "l_i(3) 0.646 outside [0.65, 1.2] at t = 10 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 0.0,
+   "ki": 34.257,
+   "j_end_MA_m2": 2.5,
+   "return": -999.88,
+   "steps": 10,
+   "fail_reason": "l_i(3) 0.646 outside [0.65, 1.2] at t = 10 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 0.0,
+   "ki": 34.257,
+   "j_end_MA_m2": 3.0,
+   "return": -999.88,
+   "steps": 10,
+   "fail_reason": "l_i(3) 0.646 outside [0.65, 1.2] at t = 10 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 0.0,
+   "ki": 34.257,
+   "j_end_MA_m2": 3.5,
+   "return": -999.88,
+   "steps": 10,
+   "fail_reason": "l_i(3) 0.646 outside [0.65, 1.2] at t = 10 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 0.0,
+   "ki": 34.257,
+   "j_end_MA_m2": 4.0,
+   "return": -999.88,
+   "steps": 10,
+   "fail_reason": "l_i(3) 0.646 outside [0.65, 1.2] at t = 10 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 0.0,
+   "ki": 34.257,
+   "j_end_MA_m2": 4.5,
+   "return": -999.88,
+   "steps": 10,
+   "fail_reason": "l_i(3) 0.646 outside [0.65, 1.2] at t = 10 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 1.5,
+   "ki": 2,
+   "j_end_MA_m2": 4.5,
+   "return": -999.88,
+   "steps": 10,
+   "fail_reason": "l_i(3) 0.648 outside [0.65, 1.2] at t = 10 s",
+   "Ip_final_MA": 4.905002877039738
+  },
+  {
+   "kp": 0.3,
+   "ki": 8,
+   "j_end_MA_m2": 2.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.650 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.6642145097923615
+  },
+  {
+   "kp": 0.3,
+   "ki": 8,
+   "j_end_MA_m2": 2.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.650 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.6642145097923615
+  },
+  {
+   "kp": 0.3,
+   "ki": 8,
+   "j_end_MA_m2": 3.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.650 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.6642145097923615
+  },
+  {
+   "kp": 0.3,
+   "ki": 8,
+   "j_end_MA_m2": 3.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.650 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.6642145097923615
+  },
+  {
+   "kp": 0.3,
+   "ki": 8,
+   "j_end_MA_m2": 4.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.650 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.6642145097923615
+  },
+  {
+   "kp": 0.3,
+   "ki": 8,
+   "j_end_MA_m2": 4.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.650 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.6642145097923615
+  },
+  {
+   "kp": 0.3,
+   "ki": 34.257,
+   "j_end_MA_m2": 2.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.650 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.6642145097923615
+  },
+  {
+   "kp": 0.3,
+   "ki": 34.257,
+   "j_end_MA_m2": 2.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.650 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.6642145097923615
+  },
+  {
+   "kp": 0.3,
+   "ki": 34.257,
+   "j_end_MA_m2": 3.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.650 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.6642145097923615
+  },
+  {
+   "kp": 0.3,
+   "ki": 34.257,
+   "j_end_MA_m2": 3.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.650 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.6642145097923615
+  },
+  {
+   "kp": 0.3,
+   "ki": 34.257,
+   "j_end_MA_m2": 4.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.650 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.6642145097923615
+  },
+  {
+   "kp": 0.3,
+   "ki": 34.257,
+   "j_end_MA_m2": 4.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.650 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.6642145097923615
+  },
+  {
+   "kp": 0.7,
+   "ki": 8,
+   "j_end_MA_m2": 2.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.647 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.749833856182176
+  },
+  {
+   "kp": 0.7,
+   "ki": 8,
+   "j_end_MA_m2": 2.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.647 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.749833856182176
+  },
+  {
+   "kp": 0.7,
+   "ki": 8,
+   "j_end_MA_m2": 3.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.647 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.749833856182176
+  },
+  {
+   "kp": 0.7,
+   "ki": 8,
+   "j_end_MA_m2": 3.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.647 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.749833856182176
+  },
+  {
+   "kp": 0.7,
+   "ki": 8,
+   "j_end_MA_m2": 4.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.647 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.749833856182176
+  },
+  {
+   "kp": 0.7,
+   "ki": 8,
+   "j_end_MA_m2": 4.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.647 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.749833856182176
+  },
+  {
+   "kp": 0.7,
+   "ki": 34.257,
+   "j_end_MA_m2": 2.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.647 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.749833856182176
+  },
+  {
+   "kp": 0.7,
+   "ki": 34.257,
+   "j_end_MA_m2": 2.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.647 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.749833856182176
+  },
+  {
+   "kp": 0.7,
+   "ki": 34.257,
+   "j_end_MA_m2": 3.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.647 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.749833856182176
+  },
+  {
+   "kp": 0.7,
+   "ki": 34.257,
+   "j_end_MA_m2": 3.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.647 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.749833856182176
+  },
+  {
+   "kp": 0.7,
+   "ki": 34.257,
+   "j_end_MA_m2": 4.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.647 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.749833856182176
+  },
+  {
+   "kp": 0.7,
+   "ki": 34.257,
+   "j_end_MA_m2": 4.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.647 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.749833856182176
+  },
+  {
+   "kp": 1.5,
+   "ki": 8,
+   "j_end_MA_m2": 2.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.645 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 1.5,
+   "ki": 8,
+   "j_end_MA_m2": 2.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.645 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 1.5,
+   "ki": 8,
+   "j_end_MA_m2": 3.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.645 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 1.5,
+   "ki": 8,
+   "j_end_MA_m2": 3.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.645 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 1.5,
+   "ki": 8,
+   "j_end_MA_m2": 4.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.645 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 1.5,
+   "ki": 8,
+   "j_end_MA_m2": 4.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.645 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 1.5,
+   "ki": 34.257,
+   "j_end_MA_m2": 2.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.645 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 1.5,
+   "ki": 34.257,
+   "j_end_MA_m2": 2.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.645 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 1.5,
+   "ki": 34.257,
+   "j_end_MA_m2": 3.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.645 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 1.5,
+   "ki": 34.257,
+   "j_end_MA_m2": 3.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.645 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 1.5,
+   "ki": 34.257,
+   "j_end_MA_m2": 4.0,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.645 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.8
+  },
+  {
+   "kp": 1.5,
+   "ki": 34.257,
+   "j_end_MA_m2": 4.5,
+   "return": -999.8933333333333,
+   "steps": 9,
+   "fail_reason": "l_i(3) 0.645 outside [0.65, 1.2] at t = 9 s",
+   "Ip_final_MA": 4.8
+  }
+ ]
+}

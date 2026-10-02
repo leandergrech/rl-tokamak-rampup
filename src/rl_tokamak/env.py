@@ -98,8 +98,9 @@ def _scalar(d: dict, key: str) -> float:
     return float(np.ravel(d[key])[0])
 
 
-def extract_features(obs: dict, obs_set: str, t_frac: float, last_action: np.ndarray) -> np.ndarray:
-    """Flatten a Gym-TORAX observation dict into a feature vector (un-normalised)."""
+def extract_features(obs: dict, obs_set: str, t_frac: float, last_action: np.ndarray,
+                     extra: np.ndarray | None = None) -> np.ndarray:
+    """Flatten a Gym-TORAX observation dict into a feature vector (un-normalised); ``extra`` is appended last."""
     s, p = obs["scalars"], obs["profiles"]
     parts: list[np.ndarray] = [np.array([t_frac], dtype=np.float64), last_action.astype(np.float64)]
     if obs_set == "full":
@@ -107,14 +108,19 @@ def extract_features(obs: dict, obs_set: str, t_frac: float, last_action: np.nda
             parts.append(np.ravel(np.asarray(p[k], dtype=np.float64)))
         for k in sorted(s):
             parts.append(np.ravel(np.asarray(s[k], dtype=np.float64)))
-        return np.nan_to_num(np.concatenate(parts), nan=0.0, posinf=0.0, neginf=0.0)
-    parts.append(np.array([_scalar(s, k) for k in SCALAR_KEYS]))
-    parts.append(np.array([p["T_e"][0], p["T_i"][0], p["j_total"][0]], dtype=np.float64))
-    if obs_set == "profiles":
-        for k in PROFILE_KEYS:
-            arr = np.ravel(np.asarray(p[k], dtype=np.float64))
-            parts.append(arr[[min(i, len(arr) - 1) for i in PROFILE_IDX]])
+    else:
+        parts.append(np.array([_scalar(s, k) for k in SCALAR_KEYS]))
+        parts.append(np.array([p["T_e"][0], p["T_i"][0], p["j_total"][0]], dtype=np.float64))
+        if obs_set == "profiles":
+            for k in PROFILE_KEYS:
+                arr = np.ravel(np.asarray(p[k], dtype=np.float64))
+                parts.append(arr[[min(i, len(arr) - 1) for i in PROFILE_IDX]])
+    if extra is not None:
+        parts.append(np.asarray(extra, dtype=np.float64))
     return np.nan_to_num(np.concatenate(parts), nan=0.0, posinf=0.0, neginf=0.0)
+
+
+PHYSICS_EXTRA = ("is_H_mode", "is_transition", "P_heat_total")  # appended to the physics environment's features
 
 
 def benchmark_components(obs: dict) -> dict[str, float]:
@@ -181,12 +187,17 @@ def _stats_path() -> Path:
     return Path(str(resources.files("rl_tokamak"))) / "obs_stats.json"
 
 
-def load_obs_stats(obs_set: str) -> tuple[np.ndarray, np.ndarray] | None:
+def stats_key(obs_set: str, physics: bool = False) -> str:
+    """Key of the normalisation statistics: Gym-TORAX version, environment and observation set."""
+    return f"{gymtorax_version()}/{'physics/' if physics else ''}{obs_set}"
+
+
+def load_obs_stats(obs_set: str, physics: bool = False) -> tuple[np.ndarray, np.ndarray] | None:
     path = _stats_path()
     if not path.exists():
         return None
     stats = json.loads(path.read_text())
-    key = f"{gymtorax_version()}/{obs_set}"
+    key = stats_key(obs_set, physics)
     if key not in stats:
         return None
     return np.array(stats[key]["mean"]), np.array(stats[key]["std"])
@@ -203,6 +214,11 @@ class RampupEnv(gym.Env):
         assert self.cfg.action_set in ACTION_SETS, self.cfg.action_set
         assert self.cfg.reward_mode in REWARD_MODES, self.cfg.reward_mode
         assert self.cfg.ip_mode in ("delta", "absolute"), self.cfg.ip_mode
+        self.physics = self.cfg.extra.get("physics")  # PhysicsConfig overrides, or None for IterHybrid-v0
+        if inner is None and self.physics is not None:
+            from .physics import make_physics_env
+
+            inner = make_physics_env(self.physics)
         if inner is None:
             from gymtorax import IterHybridEnv
 
@@ -216,13 +232,16 @@ class RampupEnv(gym.Env):
 
         n_act = 3 if self.cfg.action_set == "powers" else 7
         self.action_space = gym.spaces.Box(-1.0, 1.0, shape=(n_act,), dtype=np.float32)
-        self._stats = load_obs_stats(self.cfg.obs_set) if self.cfg.normalize else None
+        self._stats = load_obs_stats(self.cfg.obs_set, self.physics is not None) if self.cfg.normalize else None
         # Build the observation space from one reset (the dimension depends on the TORAX version).
         obs, _ = self.inner.reset()
         self._t = 0
         self._ip = IP_START
         self._applied = np.zeros(3)
-        dim = extract_features(obs, self.cfg.obs_set, 0.0, self._applied).shape[0]
+        self._mode = 0  # TORAX confinement mode (physics environment): 0 L, 1 H, 2 L->H, 3 H->L
+        dim = self._raw(obs).shape[0]
+        # where the physics features start (TORAX confinement state and P_heat; not in Gym-TORAX's observation)
+        self.physics_idx = dim - len(PHYSICS_EXTRA) if self.physics is not None else None
         if self._stats is not None and self._stats[0].shape[0] != dim:
             self._stats = None  # stale stats file, fall back to raw features
         high = self.cfg.clip_obs if self._stats is not None else np.inf
@@ -231,9 +250,18 @@ class RampupEnv(gym.Env):
         self._episode_idx = 0
 
     # ----------------------------------------------------------------- helpers
-    def _features(self, obs: dict) -> np.ndarray:
+    def _physics_extra(self, obs: dict) -> np.ndarray | None:
+        if self.physics is None:
+            return None
+        return np.array([self._mode == 1, self._mode in (2, 3), _scalar(obs["scalars"], "P_heat_total")], dtype=np.float64)
+
+    def _raw(self, obs: dict) -> np.ndarray:
+        """Un-normalised feature vector."""
         applied = self._applied / np.array([self.ip_max, self.nbi_max, self.ecrh_max])
-        x = extract_features(obs, self.cfg.obs_set, self._t / (self.horizon - 1), applied)
+        return extract_features(obs, self.cfg.obs_set, self._t / (self.horizon - 1), applied, self._physics_extra(obs))
+
+    def _features(self, obs: dict) -> np.ndarray:
+        x = self._raw(obs)
         if self._stats is not None:
             mean, std = self._stats
             x = np.clip((x - mean) / std, -self.cfg.clip_obs, self.cfg.clip_obs)
@@ -290,6 +318,7 @@ class RampupEnv(gym.Env):
         super().reset(seed=seed)
         obs, info = self.inner.reset(seed=seed)
         self._t, self._ip, self._applied = 0, IP_START, np.array([IP_START, 0.0, 0.0])
+        self._mode = 0
         self._last_obs = obs
         self._episode = []
         self._bench_return = 0.0
@@ -298,6 +327,7 @@ class RampupEnv(gym.Env):
     def step_gymtorax(self, action: dict):
         """Step with a raw Gym-TORAX action dict (used by the PI / open-loop baselines)."""
         obs, r_bench, terminated, truncated, info = self.inner.step(action)
+        self._mode = int(info.get("confinement_mode", 0))
         if self.cfg.max_steps is not None and self._t + 1 >= self.cfg.max_steps:
             truncated = True
         applied = self.inner.torax_app.config.get_current_action_values() if hasattr(self.inner, "torax_app") else action
@@ -314,6 +344,14 @@ class RampupEnv(gym.Env):
             row.update({k: _scalar(s, k) for k in ("Q_fusion", "H98", "q_min", "q95", "beta_N", "li3", "fgw_n_e_line_avg", "P_LH", "P_SOL_total",
                                           "P_alpha_total", "P_ohmic_e", "P_aux_total")})
             row.update({"T_e0": float(p["T_e"][0]), "T_i0": float(p["T_i"][0]), "j0_MA_m2": float(p["j_total"][0]) / 1e6})
+            if self.physics is not None:
+                from .physics import physics_components
+
+                row.update({k: info[k] for k in ("confinement_mode", "gas_puff", "n_e_ped_fGW")})
+                row["P_heat_total"] = _scalar(s, "P_heat_total")
+                row.update(physics_components(obs, info["confinement_mode"], self.inner.physics))
+        elif "limit" in info:  # the physics environment's operating limits
+            row["fail_reason"] = info["limit"]
         else:
             try:
                 row["fail_reason"] = "; ".join(bounds_violations(self.inner.observation_space, obs)) or "solver"

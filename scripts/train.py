@@ -71,6 +71,9 @@ def parse(argv=None):
     p.add_argument("--total-steps", type=int, default=None, help="PPO/SAC: stop after this many simulator steps")
     p.add_argument("--ppo-n-steps", type=int, default=None, help="PPO rollout length per worker (default 128)")
     p.add_argument("--ppo-batch", type=int, default=None, help="PPO minibatch size (default 256)")
+    p.add_argument("--physics", nargs="?", const="{}", default=None, metavar="JSON",
+                   help="train on the physics environment (rl_tokamak.physics; needs gymtorax 1.1.1), optionally "
+                        "with PhysicsConfig overrides as JSON; residual runs then use the re-tuned PI")
     p.add_argument("--max-steps", type=int, default=None, help=argparse.SUPPRESS)  # smoke tests only
     return p.parse_args(argv)
 
@@ -88,6 +91,13 @@ def main(argv=None) -> dict:
         from rl_tokamak.residual import DEFAULT_SCALE
 
         extra["residual"] = {"base": args.residual, "scale": list(args.residual_scale or DEFAULT_SCALE)}
+    if args.physics is not None:
+        from rl_tokamak.physics import PHYSICS_PI
+
+        assert args.reward_mode != "patched", "the physics environment's reward already caps Q and gates H-mode"
+        extra["physics"] = json.loads(args.physics)
+        if "residual" in extra:
+            extra["residual"]["pi_gains"] = dict(PHYSICS_PI)
     env_cfg = EnvConfig(obs_set=args.obs_set, action_set=args.action_set, ip_mode=args.ip_mode,
                         reward_mode=args.reward_mode, max_steps=args.max_steps, ip_min=args.ip_min_ma * 1e6,
                         extra=extra)
