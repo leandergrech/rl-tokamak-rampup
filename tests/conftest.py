@@ -1,5 +1,6 @@
 import os
 import sys
+from importlib.metadata import version
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,17 @@ import pytest
 os.environ.setdefault("JAX_PLATFORMS", "cpu")
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+PAPER_STACK = version("gymtorax").startswith("1.0.")  # pip install -e .[dev]; .[dev-physics] gives gymtorax 1.1
+
+
+def pytest_collection_modifyitems(config, items):
+    """Each simulator stack runs its own tests: test_physics*.py on gymtorax 1.1, everything else on 1.0.0."""
+    for item in items:
+        physics_test = Path(str(item.fspath)).name.startswith("test_physics")
+        if physics_test and PAPER_STACK:
+            item.add_marker(pytest.mark.skip(reason="physics environment: needs pip install -e .[dev-physics]"))
+        elif not physics_test and not PAPER_STACK:
+            item.add_marker(pytest.mark.skip(reason="benchmark (gymtorax 1.0.0): needs pip install -e .[dev]"))
 
 
 @pytest.fixture(scope="session")
