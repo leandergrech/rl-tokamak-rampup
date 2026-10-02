@@ -523,6 +523,44 @@ def physics_env() -> None:
     plt.close(fig)
 
 
+def physics_robustness() -> None:
+    """Held-out robustness of the physics-environment policies against the plasma's true L-H threshold factor."""
+    files = [Path("data/physics/results/robustness.json"), Path("data/physics/results/robustness_long.json")]
+    rows, cases = [], {}
+    for f in files:
+        if f.exists():
+            d = json.loads(f.read_text())
+            rows += d["rows"]
+            cases.update({c["case"]: c for c in d["cases"]})
+    if not rows:
+        return
+    groups = []
+    for r in rows:
+        if r["group"] not in groups:
+            groups.append(r["group"])
+    order = sorted(cases, key=lambda k: cases[k]["P_LH_prefactor"])
+    x = np.array([cases[k]["P_LH_prefactor"] for k in order])
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.6), sharex=True)
+    palette = SERIES + ["#8a5cd6", "#d64f8a", "#4a4466", "#2bb3c0"]
+    for i, g in enumerate(groups):
+        c, ls = palette[i % len(palette)], "--" if "randomised" in g else "-"
+        mean = [np.mean([r["return"] if not r["failed"] else np.nan for r in rows if r["group"] == g and r["case"] == k])
+                for k in order]
+        h = [np.mean([r["h_mode_paid_s"] > 0 for r in rows if r["group"] == g and r["case"] == k]) for k in order]
+        axes[0].plot(x, mean, color=c, ls=ls, marker="o", ms=3.5, lw=1.2, label=g)
+        axes[1].plot(x, h, color=c, ls=ls, marker="o", ms=3.5, lw=1.2)
+    for ax, title in zip(axes, ("return (mean over seeds, completed episodes)",
+                                "share of runs that reach H-mode and are paid for it")):
+        ax.set_title(title, fontsize=9.5, loc="left", color=INK)
+        ax.set_xlabel("true L-H threshold / Martin 2008 scaling (held-out test plasmas)")
+        ax.axvline(1.0, color=MUTED, ls=":", lw=1)
+    h_, l_ = axes[0].get_legend_handles_labels()
+    fig.legend(h_, l_, loc="lower center", ncol=min(len(groups), 4), fontsize=9)
+    fig.tight_layout(rect=(0, 0.13 if len(groups) > 4 else 0.08, 1, 1))
+    fig.savefig(OUT / "physics_robustness.png", dpi=150)
+    plt.close(fig)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     residual()
@@ -537,6 +575,7 @@ def main() -> None:
     reward_timeline()
     physics_audit()
     physics_env()
+    physics_robustness()
     print("wrote", sorted(str(p) for p in OUT.glob("*.png")))
 
 
