@@ -471,6 +471,58 @@ def residual() -> None:
     plt.close(fig)
 
 
+def physics_env() -> None:
+    """The physics environment (rl_tokamak.physics): what the pedestal, density control and limits do."""
+    eps = {"open-loop reference": "data/physics/trajectories/open_loop.csv", "PI, re-tuned": "data/physics/trajectories/pi.csv",
+           "heating off from 105 s": "data/physics/trajectories/heating_cut.csv"}
+    runs = [(json.loads((d / "result.json").read_text()), d) for d in sorted(Path("data/physics/runs").glob("*"))
+            if (d / "result.json").exists()]
+    if runs:
+        res, d = max(runs, key=lambda rd: rd[0]["benchmark_return"])
+        cfg = json.loads((d / "config.json").read_text())
+        on_pi = " on PI" if cfg["env_config"]["extra"].get("residual") else ""
+        eps[f"best learned: {cfg['algo'].upper()}{on_pi}, seed {cfg['seed']} ({res['benchmark_return']:.2f})"] = str(d / "final_episode.csv")
+    dfs = {k: pd.read_csv(v) for k, v in eps.items() if Path(v).exists()}
+    if not dfs:
+        return
+    panels = [("Ip_MA", "plasma current I_p [MA]"), ("P_aux", "heating P_NBI + P_ECRH [MW]"),
+              ("ratio", "P_heat / P_LH (L-H 1, H-L 0.8, reward 1.2)"),
+              ("fgw_n_e_line_avg", "Greenwald fraction (limit 1)"),
+              ("li3", "l_i(3) (window shaded, to 100 s)"), ("mode", "TORAX confinement state")]
+    fig, axes = plt.subplots(2, 3, figsize=(13, 6.6), sharex=True)
+    for ax, (col, title) in zip(axes.flat, panels):
+        for i, (name, d) in enumerate(dfs.items()):
+            if col == "P_aux":
+                y = d["P_NBI_MW"] + d["P_ECRH_MW"]
+            elif col == "ratio":
+                y = d["P_heat_total"] / d["P_LH"]
+            elif col == "mode":
+                y = (d["confinement_mode"] == 1).astype(float) * (1 - 0.06 * i)
+            else:
+                y = d[col]
+            ax.plot(d["t"], y, color=SERIES[i % len(SERIES)], ls=STYLES[i % len(STYLES)], label=name, lw=1.4)
+        ax.set_title(title, fontsize=9.5, loc="left", color=INK)
+        if col == "ratio":
+            for v, ls in ((1.0, "--"), (0.8, ":"), (1.2, "-.")):
+                ax.axhline(v, color=MUTED, ls=ls, lw=1)
+            ax.set_ylim(0, 3)
+        if col == "fgw_n_e_line_avg":
+            ax.axhline(1.0, color=MUTED, ls="--", lw=1)
+            ax.set_ylim(0, 1.1)
+        if col == "li3":
+            ax.fill_between([0, 100], 0.65, 1.2, color=GRID, alpha=0.7, lw=0)
+            ax.set_ylim(0.5, 1.3)
+        if col == "mode":
+            ax.set_yticks([0, 1], ["L", "H"])
+    for ax in axes[-1]:
+        ax.set_xlabel("time [s]")
+    h, l = axes[0, 0].get_legend_handles_labels()
+    fig.legend(h, l, loc="lower center", ncol=len(dfs), fontsize=9)
+    fig.tight_layout(rect=(0, 0.06, 1, 1))
+    fig.savefig(OUT / "physics_env.png", dpi=150)
+    plt.close(fig)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     residual()
@@ -484,6 +536,7 @@ def main() -> None:
     profiles()
     reward_timeline()
     physics_audit()
+    physics_env()
     print("wrote", sorted(str(p) for p in OUT.glob("*.png")))
 
 

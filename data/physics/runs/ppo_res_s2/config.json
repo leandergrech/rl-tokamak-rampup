@@ -1,0 +1,104 @@
+{
+  "algo": "ppo",
+  "seed": 2,
+  "env_config": {
+    "obs_set": "profiles",
+    "action_set": "powers",
+    "ip_mode": "delta",
+    "ip_min": 3000000.0,
+    "reward_mode": "scaled",
+    "reward_scale": 100.0,
+    "failure_penalty": -100.0,
+    "qmin_weight": 1.0,
+    "normalize": true,
+    "clip_obs": 10.0,
+    "log_dir": null,
+    "max_steps": null,
+    "extra": {
+      "residual": {
+        "base": "pi",
+        "scale": [
+          1.0,
+          2.0,
+          2.0
+        ],
+        "pi_gains": {
+          "kp": 0.1,
+          "ki": 0.3,
+          "j_end": 3750000.0
+        }
+      },
+      "physics": {}
+    }
+  },
+  "args": {
+    "algo": "ppo",
+    "out": "data/physics/runs/ppo_res_s2",
+    "seed": 2,
+    "minutes": 120.0,
+    "obs_set": "profiles",
+    "action_set": "powers",
+    "ip_mode": "delta",
+    "reward_mode": "scaled",
+    "n_envs": 5,
+    "real_episodes": 40,
+    "utd": 10,
+    "dataset": null,
+    "steps": 60000,
+    "penalty_lambda": 1.0,
+    "ip_min_ma": 3.0,
+    "residual": "pi",
+    "residual_scale": null,
+    "log_std_init": -1.0,
+    "norm_reward": true,
+    "failure_rule": false,
+    "known_reward": false,
+    "total_steps": 30000,
+    "ppo_n_steps": 64,
+    "ppo_batch": 64,
+    "physics": "{}",
+    "max_steps": null
+  },
+  "gymtorax": "1.1.1",
+  "started": "2026-10-02T14:25:41Z",
+  "host": {
+    "hostname": "e34ea2691c76",
+    "cpu": "AMD EPYC 7742 64-Core Processor",
+    "logical_cpus": 128
+  },
+  "algo_config": {
+    "algo": "ppo",
+    "n_envs": 5,
+    "max_minutes": 120.0,
+    "eval_every_minutes": 5.0,
+    "seed": 2,
+    "gamma": 0.995,
+    "net_arch": [
+      64,
+      64
+    ],
+    "norm_reward": true,
+    "total_timesteps": 30000,
+    "ppo": {
+      "n_steps": 64,
+      "batch_size": 64,
+      "n_epochs": 10,
+      "learning_rate": 0.0003,
+      "gae_lambda": 0.95,
+      "clip_range": 0.2,
+      "ent_coef": 0.0,
+      "log_std_init": -1.0
+    },
+    "sac": {
+      "buffer_size": 300000,
+      "learning_starts": 3000,
+      "batch_size": 256,
+      "learning_rate": 0.0003,
+      "train_freq": 1,
+      "gradient_steps": -1,
+      "tau": 0.005
+    }
+  },
+  "env_steps": 30080,
+  "train_minutes": 13.847584275404612
+}

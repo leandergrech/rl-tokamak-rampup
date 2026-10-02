@@ -1,0 +1,106 @@
+{
+  "algo": "mbpo",
+  "seed": 1,
+  "env_config": {
+    "obs_set": "profiles",
+    "action_set": "powers",
+    "ip_mode": "delta",
+    "ip_min": 3000000.0,
+    "reward_mode": "scaled",
+    "reward_scale": 100.0,
+    "failure_penalty": -100.0,
+    "qmin_weight": 1.0,
+    "normalize": true,
+    "clip_obs": 10.0,
+    "log_dir": null,
+    "max_steps": null,
+    "extra": {
+      "residual": {
+        "base": "pi",
+        "scale": [
+          0.5,
+          2.0,
+          2.0
+        ],
+        "pi_gains": {
+          "kp": 0.1,
+          "ki": 0.3,
+          "j_end": 3750000.0
+        }
+      },
+      "physics": {}
+    }
+  },
+  "args": {
+    "algo": "mbpo",
+    "out": "data/physics/runs/mbpo_res_s1",
+    "seed": 1,
+    "minutes": 120.0,
+    "obs_set": "profiles",
+    "action_set": "powers",
+    "ip_mode": "delta",
+    "reward_mode": "scaled",
+    "n_envs": null,
+    "real_episodes": 20,
+    "utd": 10,
+    "dataset": null,
+    "steps": 60000,
+    "penalty_lambda": 1.0,
+    "ip_min_ma": 3.0,
+    "residual": "pi",
+    "residual_scale": [
+      0.5,
+      2.0,
+      2.0
+    ],
+    "log_std_init": null,
+    "norm_reward": false,
+    "failure_rule": false,
+    "known_reward": false,
+    "total_steps": null,
+    "ppo_n_steps": null,
+    "ppo_batch": null,
+    "physics": "{}",
+    "max_steps": null
+  },
+  "gymtorax": "1.1.1",
+  "started": "2026-10-02T14:25:41Z",
+  "host": {
+    "hostname": "e34ea2691c76",
+    "cpu": "AMD EPYC 7742 64-Core Processor",
+    "logical_cpus": 128
+  },
+  "algo_config": {
+    "real_episodes": 20,
+    "max_minutes": 120.0,
+    "ensemble_size": 5,
+    "model_hidden": 200,
+    "rollout_every": 50,
+    "rollout_batch": 1000,
+    "k_min": 1,
+    "k_max": 5,
+    "k_ramp_episodes": [
+      4,
+      20
+    ],
+    "model_retain_rollouts": 12,
+    "utd": 10,
+    "real_ratio": 0.1,
+    "batch": 256,
+    "hidden": [
+      256,
+      256
+    ],
+    "gamma": 0.995,
+    "lr": 0.0003,
+    "eval_every_episodes": 2,
+    "residual_init": true,
+    "init_log_std": -1.0,
+    "init_alpha": 0.1,
+    "failure_rule": true,
+    "known_reward": true,
+    "seed": 1
+  },
+  "env_steps": 2080,
+  "train_minutes": 11.210319713751476
+}

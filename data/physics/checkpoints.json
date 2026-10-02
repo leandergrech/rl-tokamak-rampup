@@ -1,0 +1,29 @@
+{
+ "release": "checkpoints-physics-v1",
+ "asset": "checkpoints-physics-v1.tar.gz",
+ "bytes": 3826127,
+ "sha256": "082a852fb01d14cfe765aa35d540f46fdad5484a309289ac5df7e17a24ba3b30",
+ "url": "https://github.com/leandergrech/rl-tokamak-rampup/releases/download/checkpoints-physics-v1/checkpoints-physics-v1.tar.gz",
+ "files": {
+  "runs/mbpo_res_s0/policy.pt": "6f3d3854da46acd02fbea8b03b765edca4da25474bf1762505821f821b94444a",
+  "runs/mbpo_res_s0/policy_best.pt": "6b3e9338c627e1063be1471531538c084b1b4cefb8860f532e303299e5e422b0",
+  "runs/mbpo_res_s1/policy.pt": "6b3189263269cf8fc702ba15e21f641876ad4cf5012bbb8b5dac6f6dd0861a34",
+  "runs/mbpo_res_s1/policy_best.pt": "b4fcb39e4246fa8aa30cea27ecfd43ab2b95cf04f005f1ca4da5d0a0024a930b",
+  "runs/mbpo_res_s2/policy.pt": "d2c977eb916f068d578a42a17dbeb138facf116f499c445210a731c3ecd02e88",
+  "runs/mbpo_res_s2/policy_best.pt": "f5785d344386b99f10f8df25d575fc37bb9e75785f2778a47b3da78ef89d7545",
+  "runs/mbpo_res_s3/policy.pt": "a4ede82a426a606594a97a74f0e18c5c55da2c6770ee415d8a7e97b4f942dc54",
+  "runs/mbpo_res_s3/policy_best.pt": "a11d69b658519b5cfbca02121bb2c819a6dde2847a2d35b2657a339aa2bb6435",
+  "runs/mbpo_res_s4/policy.pt": "0dd61467e38d0afff6e814e2be8155011c8e55ce2bc8e6080ff9d1a6451a7c7a",
+  "runs/mbpo_res_s4/policy_best.pt": "06e969812cd0287cc006018383e48fea3b22beec79576cddeb01ae4eb68d8003",
+  "runs/ppo_res_s0/policy.pt": "0a5d95106f54a41825a84d1e4572390fdc45036a270927730de087e14540f53a",
+  "runs/ppo_res_s0/policy_best.pt": "98310d322125e5a5287c4d2f5065bbd8dcfb45d7693c23044624770bc2559569",
+  "runs/ppo_res_s1/policy.pt": "4a06fcddd094ac9678715c73cee82b49123b413c54233f23045b2f061b9b4f28",
+  "runs/ppo_res_s1/policy_best.pt": "02d61c38615d10c8d06c4f0032c59a5ba68dec1ed76697c2cd667d68023cb5b7",
+  "runs/ppo_res_s2/policy.pt": "6b7559e1692d6ba30ae44872b07c01cd2c8e378b6b03d182058e0d0719883f1f",
+  "runs/ppo_res_s2/policy_best.pt": "93457de8ed03ea3f47186e391342ba6a58cdcc747bd41e8ddcc78f08d355b81d",
+  "runs/ppo_res_s3/policy.pt": "03b74975629eeb322752cc209075e34ffe58e9ea61af2f5249c6dfebe6c8fcfc",
+  "runs/ppo_res_s3/policy_best.pt": "52de643b4cc3830776e32ba27fba726aa1da768eedcfa6ca92b65f4b9e7e5014",
+  "runs/ppo_res_s4/policy.pt": "5d8169b736820addd7d9cae22f22aec8172dd8b5449df1e174630a74a9d20760",
+  "runs/ppo_res_s4/policy_best.pt": "8a9d11293244c8b729e9b4c8e83469f03ebdd274aee0f6b3eaae74a7567965fb"
+ }
+}
