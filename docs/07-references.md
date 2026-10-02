@@ -226,6 +226,52 @@ All opened on the publisher or arXiv page (IOP pages sit behind a bot wall, so t
 ### R30
 **ITER Physics Basis, Chapter 8: Plasma operation and control.** *Nucl. Fusion* 39 (1999) 2577, <https://iopscience.iop.org/article/10.1088/0029-5515/39/12/308>. Only the abstract could be opened: **unverified** for any specific ramp-up statement; not used for numbers.
 
+### Sources for the physics environment
+
+Opened on 2 October 2026 for [A physics-consistent ramp-up](04b-physics-env.md). IOPscience pages refused automated access, so several papers were read from preprints or OSTI records, as noted.
+
+### R34
+**TORAX v1.4.0 release notes** (google-deepmind/torax, 15 May 2026). <https://github.com/google-deepmind/torax/releases/tag/v1.4.0>. **verified**: the pedestal formation model with an L-H / H-L state machine; `ADAPTIVE_SOURCE` "Ramps pedestal boundary conditions to target values over a specified time window"; back-transition when P_SOL < P_LH × hysteresis factor (default 0.8). The TORAX documentation (<https://torax.readthedocs.io/en/latest/configuration.html>) lists `martin_scaling` and `delabie_scaling` and gives no validation statement and no source for the 0.5 s ramp or the 0.8 factor. In the installed 1.4.3 code, the default comparison uses the heating power with radiation subtracted and no dW/dt term (`include_dW_dt_in_P_SOL=False`).
+
+### R35
+**Martin Y.R., Takizuka T. and the ITPA CDBM H-mode Threshold Database Working Group.** "Power requirement for accessing the H-mode in ITER." *J. Phys.: Conf. Ser.* 123 (2008) 012033. <https://iopscience.iop.org/article/10.1088/1742-6596/123/1/012033> (PDF). **verified**: P = 0.0488 n_e20^0.717 B_T^0.803 S^0.941 MW; "RMS value of the fit is 30.8%"; for ITER (5.3 T, S = 678 m²) 52 MW at 0.5 × 10²⁰ m⁻³ with a 95 % interval of 28–96 MW; H-modes are generally maintained at a factor "larger than 1.5" above threshold; power must rise above threshold "to leave the type III ELM regime". The scaling is fitted on the loss power P_Ω + P_abs − dW/dt, radiation not subtracted.
+
+### R36
+**Delabie E. et al.** "Empirical scaling of the L–H threshold power for metal wall tokamaks using a multi-device database." *Nucl. Fusion* 66 (2026) 036016, doi:10.1088/1741-4326/ae39f2. OSTI record: <https://www.osti.gov/pages/biblio/3018151>. **verified**: P/S = 0.0441 B_t^0.580 n_e^1.08 (2/M_eff)^0.975 · D with D = 1 (horizontal-target divertor) or 1.93 (vertical target); RMSE 0.238; "The divertor configuration effect induces the largest uncertainty in the extrapolation."
+
+### R37
+**Ryter F., Barrera Orte L., Kurzan B., McDermott R.M., Tardini G., Viezzer E., et al.** "Experimental evidence for the key role of the ion heat channel in the physics of the L–H transition." *Nucl. Fusion* 54 (2014) 083003, doi:10.1088/0029-5515/54/8/083003. Abstract opened at <https://www.osti.gov/etdeweb/biblio/22331299>: "a formula for the density of the threshold minimum has been developed". The formula's coefficients were seen only in TORAX's code: **unverified** against the paper.
+
+### R38
+**Thomas D.M., Groebner R.J., Burrell K.H., Osborne T.H., Carlstrom T.N.** "The back transition and hysteresis effects in DIII-D." *Plasma Phys. Control. Fusion* 40 (1998) 707–712. OSTI record: <https://www.osti.gov/etdeweb/biblio/20061258>. **verified**: measured "P{sub HL}/P{sub LH}=35%-70%" in DIII-D; for ITER the ratio "may need to be as small as 50%".
+
+### R39
+**Chang C.S., Ku S., Tynan G.R., Hager R., Churchill R.M., Cziegler I., et al.** "A fast low-to-high confinement mode bifurcation dynamics in a tokamak edge plasma gyrokinetic simulation." *Phys. Rev. Lett.* 118 (2017) 175001; arXiv:1701.05480, <https://arxiv.org/abs/1701.05480>. **verified**: in this gyrokinetic simulation the pedestal "is formed on the time scale of a few ms". A simulation, not a measurement on ITER; no source for ITER's pedestal build-up time was found (**unverified**).
+
+### R40
+**Sips A.C.C., Giruzzi G., Ide S., Kessel C., Luce T.C., Snipes J.A., Stober J.K. and the ITPA Integrated Operation Scenario Topical Group.** "Progress in preparing scenarios for ITER operation." *Phys. Plasmas* 22 (2015) 021804, doi:10.1063/1.4904015. Preprint opened at <https://pure.mpg.de/rest/items/item_2157577/component/file_2406550/content>. **verified**: current-diffusion time "about 10 – 15 s" during ITER's ramp-up and "several hundred seconds" in flat-top; "A range of plasma inductance (li(3)) can be obtained from 0.65 to 1.0, with the lowest values obtained in H-mode operation"; ITER baseline "at ne/nGW ~ 0.85".
+
+### R41
+**Imbeaux F. et al.** "Current ramps in tokamaks: from present experiments to ITER scenarios." *Nucl. Fusion* 51 (2011) 083026. Preprint: <https://www.differ.nl/sites/default/files/attachments/biblio/2011_63149.pdf>. **verified**: empirical L-mode transport models predict l_i "within +/- 0.15" in present ramp-ups, the spread between models for ITER's 100 s ramp-up is ±0.1, ECRH during the ramp lowers l_i by 0.05–0.15, "which is significant owing to the rather narrow li operating space of the ITER PF systems"; l_i matters for the poloidal-field coils, vertical stability and ramp-up MHD.
+
+### R42
+**Kessel C.E. et al.** "Development of ITER 15 MA ELMy H-mode inductive scenario." *Nucl. Fusion* 49 (2009) 085034. OSTI record: <https://www.osti.gov/etdeweb/biblio/21305211>. **verified** (abstract): "the original PF coil limitations do not allow low li(<0.8) operation".
+
+### R43
+**Humphreys D.A. et al.** "Experimental Vertical Stability Studies for ITER Performance and Design Guidance." IAEA Fusion Energy Conference 2008, IT/2-4Rb. <https://www.princeton.edu/~ekolemen/publications/Humphreys_Kolemen_IAEA_08.pdf>. **verified**: ITER-like start-ups reach "li (3) ~ 1.2 or more in the absence of sufficient early heating, higher than the baseline assumed maximum value of li (3) ~ 1.0, and potentially exceeding the vertical control limit" of the baseline vertical-stabilisation system.
+
+### R44
+**Loarte A. et al.** "Progress on the application of ELM control schemes to ITER scenarios from the non-active phase to DT operation." *Nucl. Fusion* 54 (2014) 033007. OSTI record: <https://www.osti.gov/etdeweb/biblio/22328003>. **verified** (abstract): uncontrolled ELMs at low current do not damage the tungsten divertor, unlike high-current H-modes; ELM control is still needed to avoid tungsten contamination; ELM control with the vertical-stability coils is viable "for plasma currents up to 5–10 MA". The tolerable ELM energy loss: **unverified** (full text not accessible).
+
+### R45
+**Snyder P.B. et al.** EPED pedestal model: *Phys. Plasmas* 16 (2009) 056118 and *Nucl. Fusion* 51 (2011) 103016 (OSTI abstracts give no accuracy figure). APS-DPP 2011 slides, <https://fusion.gat.com/pubs-ext/APS11/Snydervgs.pdf>: **verified** (slides): predicted / observed pedestal height 0.98 ± 0.20 over 259 cases on five tokamaks.
+
+### R46
+**Van Mulders S. et al.** "Rapid optimization of stationary tokamak plasmas in RAPTOR: demonstration for the ITER hybrid scenario with neural network surrogate transport model QLKNN." *Nucl. Fusion* 61 (2021) 086019. Preprint: <https://www.differ.nl/sites/default/files/attachments/biblio/2021_4829.pdf>. **verified**: the scenario Gym-TORAX's ITER hybrid configuration follows; pedestal prescribed (4.5 keV at ρ = 0.9, pressure checked against EPED1); density profiles imposed with the line-averaged density at 0.9 of the Greenwald density; operating points required P_sep > 1.2 P_LH with P_sep = P_oh + P_α + P_aux − P_rad and P_LH from Martin 2008.
+
+### R47
+**Snoep G., Bourdelle C., Citrin J., et al.** "Characterization of reduced-order turbulence models in the L-mode pedestal-forming region in JET." arXiv:2506.03459 (June 2025 preprint), <https://arxiv.org/abs/2506.03459>. **verified** (preprint): in seven JET L-mode discharges, "QuaLiKiz is found to be inadequate beyond ρ_tor=0.85, while TGLF-SAT2 agrees well with linear spectra". QLKNN, the transport model in the Gym-TORAX configuration, is a neural-network surrogate of QuaLiKiz.
+
 ## Corrections to the brief
 
 The brief that started this project stated several facts that the opened sources contradict or could not confirm:

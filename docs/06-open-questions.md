@@ -57,6 +57,8 @@ Positions are this repo's judgement, not measurements; the effort estimates unde
 
 **Effort.** 4–6 weeks. The env subclass is a few hundred lines; `notebooks/03-first-experiment.ipynb` is the scaffold.
 
+**Started.** [A physics-consistent ramp-up](04b-physics-env.md) is the natural base: its pedestal now depends on the heating, and its realism table lists the parameters with measured uncertainty (the L-H threshold within its 95 % interval, the hysteresis between 0.35 and 0.8, the pedestal height within ±20 %). Every field of `rl_tokamak.physics.PhysicsConfig` can already be set when the environment is built, so randomising them per episode is a small wrapper.
+
 ## 4. Physics-constrained ramp-up: q_min ≥ 1 and f_GW < 1 as constraints
 
 **Why open.** The benchmark reward lets the PI baseline run 101 s with q_min < 1 (lowest 0.41) and end at Greenwald fraction 1.19 ([Limitations](05-limitations.md)). A hybrid scenario is defined by q_min just above 1 ([R27](07-references.md#r27), [primer: Limits and the operating space](primer/5-limits.md#the-iter-hybrid-scenario)). No fusion RL paper reports hard-constraint satisfaction; they all shape rewards ([designs](04-designs.md#published-designs-side-by-side)).

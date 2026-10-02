@@ -82,8 +82,8 @@ The **audited score** used throughout this repo (`rl_tokamak.evaluate.audited_re
 
 From the Gym-TORAX config ([R3](07-references.md#r3)) and the TORAX paper and docs ([R4](07-references.md#r4), [R4b](07-references.md#r4b)):
 
-- **Pedestal and L-H transition** are prescribed in time, so the most consequential event of the scenario is not controllable.
-- **No sawteeth, tearing modes or disruptions** in this configuration, so the plasma never pays for q < 1 or f_GW > 1.
+- **Pedestal and L-H transition** are prescribed in time, so the most consequential event of the scenario is not controllable. [A physics-consistent ramp-up](04b-physics-env.md) replaces the schedule with TORAX 1.4's power-triggered pedestal.
+- **No sawteeth, tearing modes or disruptions** in this configuration, so the plasma never pays for q < 1 or f_GW > 1. The physics environment ends the episode at the Greenwald limit and outside the inductance window ITER's vertical control needs; q < 1 still has no consequence there.
 - **Fixed equilibrium geometry**: no shape, position or vertical-stability control; I_p changes do not reshape the plasma.
 - **No central-solenoid flux budget or coil current limits**, so the ramp rate costs nothing but what the 0.2 MA/s limit imposes.
 - **Transport is a surrogate.** QLKNN is a neural approximation of a quasilinear model; TORAX agrees with RAPTOR to about 1 % at steady state and within 5 % in dynamic phases ([R4](07-references.md#r4)), which is agreement between codes, not with experiment.

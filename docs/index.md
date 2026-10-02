@@ -46,6 +46,7 @@ What this repo found:
 3. **Under an audited score** (Q capped at 10, H-mode only while P_SOL ≥ P_LH), the best policy learned from scratch scores 3.69 against PI's 3.50 and the best open-loop schedule found 3.63: the real headroom above PI is a few tenths.
 4. **RL on top of PI beats it without the loophole.** With the agent outputting a correction to the PI controller's action, trained and checkpointed on the audited score, PPO ends at 3.63 ± 0.04 audited over five seeds (every seed above PI's 3.50) after about 30,000 simulator steps, and MBPO passes PI after 302–604 steps (final 3.62 ± 0.07, best checkpoints 3.66–3.76). Two runs with four times the PPO budget reach 3.73 and 3.74, the best final scores here. Every agent heats during the ramp, which keeps q_min above 1 for up to 16 s longer ([how it works and where the design comes from](04a-rl-on-pi.md); [results](04-designs.md#what-the-numbers-say)). The [Ramp-up Lab](primer/7-lab.md) shows every controller's knobs live, separates feedback from open-loop control, and runs PI and the learned policies closed-loop on its own plasma.
 5. A fork of Gym-TORAX with an additive `IterHybridAudited-v0` environment, tests and a baseline table is on [`leandergrech/gymtorax`, branch `fix/audited-iter-hybrid-reward`](https://github.com/leandergrech/gymtorax/tree/fix/audited-iter-hybrid-reward).
+6. **A physics-consistent environment removes the loophole at its source.** With TORAX 1.4's power-triggered pedestal, density control and two operating limits (Greenwald density; the inductance window ITER's vertical control needs), the heating cut scores 1.81 instead of 20.96. The paper's PI gains break the inductance window within 9 s; re-tuned, PI scores 3.24, and PPO on PI reaches 3.49 ± 0.14 over five seeds, every seed above it. MBPO needed TORAX's L-H rule inside its model before it stopped trimming the heating below the threshold ([A physics-consistent ramp-up](04b-physics-env.md)).
 
 ![Where each policy's return comes from](figures/reward_components.png)
 
@@ -93,6 +94,14 @@ What this repo found:
     Published designs side by side, every baseline of this repo, and how each number is checked.
 
     [:octicons-arrow-right-24: The results](04-designs.md)
+
+-   :rt-limits:{ .lg .middle } **A physics-consistent ramp-up**
+
+    ---
+
+    H-mode only when the heating earns it, density control, and episodes that end at the Greenwald and vertical-control limits. How realistic it is, piece by piece.
+
+    [:octicons-arrow-right-24: The new environment](04b-physics-env.md)
 
 -   :rt-warning:{ .lg .middle } **Limitations**
 

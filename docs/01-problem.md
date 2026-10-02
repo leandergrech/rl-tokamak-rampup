@@ -39,7 +39,7 @@ The only published scores (PI 3.79, open-loop 3.40, random −10.79; [R1](07-ref
 | Open-loop reference | 3.40 | **3.4086** | 3.2629 |
 | Random, one episode, seed 0 | −10.79 (mean of an unstated number of episodes) | 3.2314 | 3.1028 |
 
-The v1.0 stack reproduces the paper to the second decimal, so **every number in this repo is on gymtorax 1.0.0 / torax 1.0.3 / jax 0.11.2** (pinned in `pyproject.toml`). The random-policy mean over 20 seeds is in [Designs and results](04-designs.md#classical-baselines-reproduced). The v1.1.1 column is produced by `scripts/probe_versions.py` run in a separate virtual environment with gymtorax 1.1.1 (output in `data/results/probe_gymtorax_1.1.1.json`); porting the baselines to v1.1 is listed as an opening in [Open questions](06-open-questions.md).
+The v1.0 stack reproduces the paper to the second decimal, so **every benchmark number in this repo is on gymtorax 1.0.0 / torax 1.0.3 / jax 0.11.2** (`pip install -e .[dev]`). The one exception is [A physics-consistent ramp-up](04b-physics-env.md), a separate environment that needs TORAX 1.4 (`pip install -e .[dev-physics]`, results under `data/physics/`). The random-policy mean over 20 seeds is in [Designs and results](04-designs.md#classical-baselines-reproduced). The v1.1.1 column is produced by `scripts/probe_versions.py` run in a separate virtual environment with gymtorax 1.1.1 (output in `data/results/probe_gymtorax_1.1.1.json`); porting the baselines to v1.1 is listed as an opening in [Open questions](06-open-questions.md).
 
 ## State
 

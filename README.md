@@ -29,6 +29,7 @@ What this repo found:
 3. **Under an audited score** (Q capped at 10, H-mode only while P_SOL ≥ P_LH), the best policy learned from scratch scores 3.69 against PI's 3.50 and the best open-loop schedule found 3.63: the real headroom above PI is a few tenths.
 4. **RL on top of PI beats it without the loophole.** With the agent outputting a correction to the PI controller's action, trained and checkpointed on the audited score, PPO ends at 3.63 ± 0.04 audited over five seeds (every seed above PI's 3.50) after about 30,000 simulator steps, and MBPO passes PI after 302–604 steps (final 3.62 ± 0.07, best checkpoints 3.66–3.76). Two runs with four times the PPO budget reach 3.73 and 3.74, the best final scores here. Every agent heats during the ramp, which keeps q_min above 1 for up to 16 s longer ([how it works and where the design comes from](https://leandergrech.github.io/rl-tokamak-rampup/04a-rl-on-pi/)). The [Ramp-up Lab](https://leandergrech.github.io/rl-tokamak-rampup/primer/7-lab/) shows every controller's knobs live, separates feedback from open-loop control, and runs PI and the learned policies closed-loop on its own plasma.
 5. A fork of Gym-TORAX with an additive `IterHybridAudited-v0` environment, tests and a baseline table is on [`leandergrech/gymtorax`, branch `fix/audited-iter-hybrid-reward`](https://github.com/leandergrech/gymtorax/tree/fix/audited-iter-hybrid-reward).
+6. **A physics-consistent environment** (`rl_tokamak.physics`, gymtorax 1.1.1 / TORAX 1.4.3) replaces the time-scheduled pedestal with TORAX's power-triggered one (H-mode only while the heating exceeds the L-H threshold), adds density control, and ends episodes at the Greenwald density limit and outside the inductance window ITER's vertical control needs. The heating cut drops from 20.96 to 1.81. The paper's PI gains fail within 9 s; re-tuned, PI scores 3.24, the best open-loop schedule 3.26, and PPO on PI 3.49 ± 0.14 over five seeds (all above PI). MBPO beat PI in 3 of 5 seeds once TORAX's L-H rule was applied inside its model ([the page](https://leandergrech.github.io/rl-tokamak-rampup/04b-physics-env/), `data/physics/results/summary.md`).
 
 ![Where each policy's return comes from](docs/figures/reward_components.png)
 
@@ -47,6 +48,15 @@ pip install -e ".[dev]"
 pytest                          # env sanity + a few-step smoke test of every baseline (~5 min)
 bash scripts/reproduce.sh       # PI/open-loop vs the paper, re-evaluate all 44 checkpoints, rebuild table and figures (21 min on a laptop)
 bash scripts/reproduce.sh --full  # retrain everything (each run < 2 h on a laptop CPU)
+```
+
+The physics-consistent environment needs TORAX 1.4, so it gets its own virtual environment:
+
+```bash
+python3.12 -m venv .venv-physics && . .venv-physics/bin/activate
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install -e ".[dev-physics]"   # gymtorax 1.1.1, torax 1.4.3; pytest runs the physics tests
+python scripts/physics_baselines.py --workers 8 && python scripts/physics_summary.py
 ```
 
 Train one baseline:
@@ -74,15 +84,17 @@ The environment wrapper is `rl_tokamak.env.RampupEnv` (flat 60-d observation, 3-
 ```
 docs/          the review (MkDocs Material, with interactive widgets in docs/javascripts/widgets.js and the Ramp-up Lab in
                lab.js, tokamak-model.js, lab-control.js), on GitHub Pages
-src/rl_tokamak env wrapper, residual-on-PI env, PI/open-loop controllers, MBPO, TD3+BC, MOPO, SB3 runner, CEM, plotting
+src/rl_tokamak env wrapper, residual-on-PI env, physics-consistent env (physics.py), PI/open-loop controllers, MBPO,
+               TD3+BC, MOPO, SB3 runner, CEM, checkpoint fetcher, plotting
 scripts/       train.py, evaluate.py, reproduce.sh, make_datasets.py, open_loop_search.py, make_figures.py,
                make_widget_data.py, profile_snapshots.py, score_upstream_envs.py, failure_probe.py, probe_versions.py,
-               probe_pedestal_formation.py,
+               probe_pedestal_formation.py, physics environment: tune_pi.py, physics_baselines.py, physics_summary.py,
                Ramp-up Lab: make_lab_data.py, export_lab_policies.py, make_lab_fixture.py, check_lab_control.mjs,
                calibrate_lab_model.mjs
 notebooks/     01-explore, 02-baseline, 03-first-experiment
 data/          offline datasets, trajectories, results, every run's config, learning curve and episode (< 20 MB);
                the trained policies are in the release named in data/checkpoints.json, fetched on first use
+data/physics/  the same for the physics-consistent environment (release in data/physics/checkpoints.json)
 tests/         env sanity tests and baseline smoke tests
 ```
 
