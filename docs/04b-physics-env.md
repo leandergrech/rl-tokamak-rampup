@@ -10,6 +10,8 @@ icon: rt/limits
 
     On it, the paper's PI gains break the inductance window within 9 s; re-tuned, PI scores 3.24 and the best open-loop schedule found 3.26. **PPO on PI reaches 3.49 ± 0.14 over five seeds, every seed above PI**, by heating during the ramp, as on the benchmark. MBPO on PI first learned to trim the heating below the L-H threshold, because its learned model kept H-mode without the power; with TORAX's L-H rule applied inside its model rollouts it beats PI in 3 of 5 seeds.
 
+    Across 33 held-out plasmas drawn from the measured uncertainty, the true L-H threshold decides almost everything: 9 % above the scaling, PI and every policy running near 15 MA lose H-mode, while the 12.5 MA open loop keeps it to 18 %. Training on randomised plasmas mostly taught agents to stay at low current, which the reward, like the benchmark's, allows; the next version should require the flat-top current.
+
 ## Why the scheduled pedestal had to go
 
 In a tokamak the pedestal (the steep edge gradient that defines H-mode) only forms after an L-H transition, and the transition needs the power crossing the plasma edge to exceed a threshold P_LH that grows with density, magnetic field and plasma surface ([R35](07-references.md#r35)). If the power later falls well below the threshold the plasma returns to L-mode and loses its pedestal ([R38](07-references.md#r38)). [Heat, confinement and fusion](primer/4-heat-and-fusion.md) explains the physics.
@@ -116,11 +118,50 @@ The same residual design as [RL on top of PI](04a-rl-on-pi.md): the agent output
 **What it shows.** Under physics in which H-mode has to be earned, RL on top of PI still beats PI, by about 0.25 for PPO, more than the 0.13 it gained on the benchmark's audited score. Model-based RL is as good as its model on the discrete, hysteretic parts of the plant; where those parts are known rules, give them to the model.
 
 
+## Robustness to the measured uncertainty
+
+Every result above is on one plasma: the nominal one, with the Martin scaling's threshold, TORAX's hysteresis and a 3 keV pedestal. The real ITER plasma will differ from it within the uncertainty listed in [How realistic is it?](#how-realistic-is-it). `PhysicsConfig.randomize` samples, at every reset, the three least certain inputs from that box, shrunk towards the nominal values by a scale s (s = 1: the full box), and writes them into TORAX's runtime parameters without recompiling. The agent does not see them.
+
+| Uncertain input | Range at s = 1 | Source |
+|---|---|---|
+| L-H threshold / Martin scaling | 0.54–1.85, log-uniform (the scaling's 95 % interval for ITER) | [R35](07-references.md#r35) |
+| H-L hysteresis P_HL / P_LH | 0.35–0.8 (DIII-D's measured range up to TORAX's default) | [R38](07-references.md#r38), [R34](07-references.md#r34) |
+| H-mode pedestal height | 2.4–3.6 keV (± 20 %, EPED's accuracy) | [R45](07-references.md#r45) |
+
+`scripts/physics_robustness.py` scores every policy on 33 held-out plasmas: the nominal one and 8 draws at each of s = 0.25, 0.5, 0.75, 1 (seed 20261002, never used in training), one deterministic episode per plasma and policy (`data/physics/results/robustness.md`; cloud and laptop agree to 2 × 10⁻⁹). Besides the policies above, it scores PPO on PI trained with s = 1 ("randomised training") and, to separate the effect of randomisation from that of budget, PPO on PI trained four times longer with and without it (120,000 steps, 5 seeds each, 66–71 min per run on a rented 64-core CPU; $0.66 for this round).
+
+Mean return over completed episodes and share of runs that reach H-mode, by how far the plasma's true L-H threshold sits from the Martin scaling (`python scripts/physics_robustness.py --report`):
+
+| Policy | Episodes | threshold ≤ 1.06 (17 plasmas) | threshold 1.09–1.16 (7 plasmas) | threshold ≥ 1.18 (9 plasmas) | Beats PI on the same plasma | Ended on a limit |
+|---|---|---|---|---|---|---|
+| open-loop reference | 33 | 3.07, H-mode 100% | 2.99, H-mode 100% | 1.83, H-mode 11% | 16/33 | 0 |
+| PI, re-tuned | 33 | 3.23, H-mode 100% | 1.68, H-mode 0% | 1.68, H-mode 0% | 0/33 | 0 |
+| CEM schedule | 33 | 3.05, H-mode 88% | 1.64, H-mode 0% | 1.64, H-mode 0% | 15/33 | 0 |
+| MBPO on PI | 165 | 3.40, H-mode 73% | 1.74, H-mode 0% | 1.74, H-mode 0% | 116/165 | 39 |
+| PPO on PI, randomised training, 30,000 steps | 165 | 3.05, H-mode 85% | 1.75, H-mode 0% | 1.75, H-mode 0% | 137/165 | 0 |
+| PPO on PI, 30,000 steps | 165 | 3.46, H-mode 98% | 1.98, H-mode 26% | 1.82, H-mode 0% | 158/165 | 2 |
+| PPO on PI, randomised training, 120,000 steps | 165 | 2.71, H-mode 71% | 2.19, H-mode 20% | 1.99, H-mode 0% | 85/165 | 0 |
+| PPO on PI, 120,000 steps | 165 | 3.74, H-mode 94% | 1.92, H-mode 29% | 1.84, H-mode 9% | 151/165 | 12 |
+
+<figure markdown="span">
+  ![Robustness against the threshold factor](figures/physics_robustness.png)
+  <figcaption><strong>The true L-H threshold decides almost everything.</strong> Each point is one held-out plasma, ordered by how far its threshold sits from the Martin scaling's prediction (dotted line: exactly the scaling). Left: return; right: share of runs that reach H-mode and are paid for it.</figcaption>
+</figure>
+
+What the evaluation shows:
+
+1. **The threshold dominates; hysteresis does not matter here.** None of these policies drops its heating, so the H-L hysteresis never acts. The pedestal height moves every return up or down together. The threshold decides whether H-mode happens at all, and with it about 1.5 of the 3.5.
+2. **Current is a trade-off between fusion and H-mode access.** The threshold grows with density, and the density controller holds a fixed fraction of the Greenwald density, which grows with I_p. PI and almost every learned policy run at 14.6–15 MA and lose H-mode once the true threshold is about 9 % above the scaling (the CEM schedule, with less heating at the transition, already at 2 %); the open-loop reference, at 12.5 MA, keeps it up to 18 % above. Beyond that, 53 MW of heating does not reach H-mode for any of these policies.
+3. **PPO on PI trained on the nominal plasma (30,000 steps) is the most consistent policy here.** It beats PI on the same plasma in 158 of 165 plasma-seed pairs. Two of its seeds still reach H-mode beyond 9 %, late: seed 1 enters it between 111 and 146 s for thresholds 9–16 % above the scaling, as the plasma heats up in L-mode, instead of never.
+4. **Longer nominal training is better on the nominal plasma and more fragile off it.** At 120,000 steps PPO on PI reaches 3.79 ± 0.28 on the nominal plasma (seed 3: 4.28, by heating early enough to enter H-mode at 83 s), but its episodes end on a limit in 12 of 165 perturbed cases (6 on the inductance window, 6 on Gym-TORAX's 35 keV core-temperature bound), against 2 at 30,000 steps.
+5. **Randomised training finds the reward's other gap: a ramp-up that does not ramp up.** At 30,000 steps it did not help: with the threshold hidden, the return jumps by about 1.5 at a boundary the agent cannot see, and two seeds miss H-mode even on the nominal plasma. At 120,000 steps four of the five seeds keep the current at 3–3.8 MA for the whole episode. There q_min never falls below 1, and the density, and with it the threshold, is low: two of them reach H-mode at about 3.5 MA and collect the H98 term (2.82 and 2.87 on the nominal plasma), two never reach it and take a certain 2.00 from the q_min and q95 terms alone. The fifth, seed 4, ramps to 12.3 MA, heats fully, lowers the current to 9.4 MA in the flat-top and keeps q_min above 1. It reaches H-mode on every plasma up to 16 % above the scaling (2.95 mean there, where PI scores 1.68), never ends on a limit and never scores below 1.97. None of these is the ITER hybrid scenario, which runs at 12.5 MA: this reward, like `IterHybrid-v0`'s, says nothing about the plasma current, so under uncertainty a low-current plasma is the safe bet. The from-scratch agents on the benchmark found the same 3 MA plateau ([Designs and results](04-designs.md#what-the-numbers-say)).
+6. **Feedback has a clear job here, once the task asks for the current.** A policy that sees no L-H transition after switching on the heating could lower the current, and with it the density and the threshold, which an open-loop schedule cannot do. As long as the reward accepts any current, lowering it from the start is simply better under uncertainty, and that is what the randomised agents learned. The next version of this environment should require the flat-top current, for example within a band around 12.5 MA as a limit or a reward term; then reacting to a missing L-H transition is the only way to be robust, and [Open question 3](06-open-questions.md#3-does-feedback-matter-a-randomised-gym-torax) gets a sharp test.
+
 ## What it still is not
 
 - **Not a validated ITER model.** The table above lists what is measured and what is not; the L-mode edge and the threshold are the weak points.
 - **Not ELM-resolving, and without sawteeth.** TORAX has a sawtooth model; with its default settings the open-loop episode stopped with NaNs at 111 s, so it is off. q_min < 1 still has no consequence beyond the reward term.
-- **Not a randomised environment.** One initial state, one set of physics parameters, deterministic. Randomising the uncertain parameters is the next step.
+- **Randomised only in three parameters.** One initial state; the threshold, hysteresis and pedestal height are randomised (above), transport and the L-mode edge are not.
 - **Not a replacement for the benchmark.** Every number of [Designs and results](04-designs.md) stays on gymtorax 1.0.0, where the paper's values reproduce.
 
 ## How to run it
@@ -137,4 +178,4 @@ python scripts/train.py --algo ppo --residual pi --physics --norm-reward --log-s
     --n-envs 5 --ppo-n-steps 64 --ppo-batch 64 --total-steps 30000 --minutes 120 --out data/physics/runs/my_ppo
 ```
 
-`--physics '{"li_max": 1.0, "hysteresis": 0.5}'` overrides any field of `rl_tokamak.physics.PhysicsConfig`.
+`--physics '{"li_max": 1.0, "hysteresis": 0.5}'` overrides any field of `rl_tokamak.physics.PhysicsConfig`; `--physics '{"randomize": 1.0}'` trains on randomised plasmas (evaluation stays on the nominal one), and `python scripts/physics_robustness.py --workers 32` scores every run on the held-out set.

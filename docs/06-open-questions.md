@@ -57,7 +57,7 @@ Positions are this repo's judgement, not measurements; the effort estimates unde
 
 **Effort.** 4–6 weeks. The env subclass is a few hundred lines; `notebooks/03-first-experiment.ipynb` is the scaffold.
 
-**Started.** [A physics-consistent ramp-up](04b-physics-env.md) is the natural base: its pedestal now depends on the heating, and its realism table lists the parameters with measured uncertainty (the L-H threshold within its 95 % interval, the hysteresis between 0.35 and 0.8, the pedestal height within ±20 %). Every field of `rl_tokamak.physics.PhysicsConfig` can already be set when the environment is built, so randomising them per episode is a small wrapper.
+**Started.** [A physics-consistent ramp-up](04b-physics-env.md#robustness-to-the-measured-uncertainty) randomises the three least certain inputs within their measured uncertainty (the L-H threshold within its 95 % interval, the hysteresis between 0.35 and 0.8, the pedestal height within ±20 %) and scores every policy on 33 held-out plasmas. First answers: the threshold decides almost everything; policies near 15 MA lose H-mode 9 % above the scaling, the 12.5 MA open loop at 18 %; PPO trained on randomised plasmas mostly learned to stay at low current, because the reward does not ask for the 12.5 MA flat-top. Requiring the flat-top current is the next step, after which reacting to a missing L-H transition is the only robust strategy.
 
 ## 4. Physics-constrained ramp-up: q_min ≥ 1 and f_GW < 1 as constraints
 
