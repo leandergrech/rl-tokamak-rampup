@@ -111,10 +111,41 @@ def summarise(rows: list[dict]) -> dict:
                 "group": g, "scale": s, "n": len(sel), "failures": int((~done).sum()),
                 "mean_completed": float(ret[done].mean()) if done.any() else None,
                 "min_completed": float(ret[done].min()) if done.any() else None,
-                "beats_pi": int(sum(r["return"] > pi[r["case"]] + 1e-9 for r in sel)),
+                "beats_pi": int(sum(r["return"] > pi.get(r["case"], np.inf) + 1e-9 for r in sel)),
                 "h_mode_paid_s": float(np.mean([r["h_mode_paid_s"] for r in sel])),
             }
     return table
+
+
+BANDS = (("≤ 1.06", 0.0, 1.07), ("1.09–1.16", 1.07, 1.17), ("≥ 1.18", 1.17, 99.0))  # threshold / scaling
+
+
+def report(stems: list[str]) -> str:
+    """Markdown table by threshold band from saved results (no simulation): python scripts/physics_robustness.py --report"""
+    rows, cases = [], {}
+    for stem in stems:
+        f = ROOT / f"results/{stem}.json"
+        if f.exists():
+            d = json.loads(f.read_text())
+            rows += d["rows"]
+            cases.update({c["case"]: c for c in d["cases"]})
+    groups = list(dict.fromkeys(r["group"] for r in rows))
+    pi = {r["case"]: r["return"] for r in rows if r["policy"] == "pi"}
+    n_band = [sum(lo <= c["P_LH_prefactor"] < hi for c in cases.values()) for _, lo, hi in BANDS]
+    head = " | ".join(f"threshold {b} ({n} plasmas)" for (b, _, _), n in zip(BANDS, n_band))
+    lines = [f"| Policy | Episodes | {head} | Beats PI on the same plasma | Ended on a limit |",
+             "|---|---|" + "---|" * len(BANDS) + "---|---|"]
+    for g in groups:
+        sel = [r for r in rows if r["group"] == g]
+        cells = []
+        for _, lo, hi in BANDS:
+            band = [r for r in sel if lo <= cases[r["case"]]["P_LH_prefactor"] < hi]
+            ok = [r["return"] for r in band if not r["failed"]]
+            reach = np.mean([r["h_mode_paid_s"] > 0 for r in band])
+            cells.append(f"{np.mean(ok):.2f}, H-mode {reach:.0%}" if ok else "–")
+        beats = sum(r["return"] > pi[r["case"]] + 1e-9 for r in sel)
+        lines.append(f"| {g} | {len(sel)} | " + " | ".join(cells) + f" | {beats}/{len(sel)} | {sum(r['failed'] for r in sel)} |")
+    return "\n".join(lines)
 
 
 def main() -> None:
@@ -124,10 +155,18 @@ def main() -> None:
     p.add_argument("--max-cases", type=int, default=None, help=argparse.SUPPRESS)  # smoke tests
     p.add_argument("--only", nargs="*", default=None, help="evaluate only these policies (names)")
     p.add_argument("--out", default="robustness", help="file stem under data/physics/results")
+    p.add_argument("--report", action="store_true", help="only write robustness_bands.md from the saved results")
     a = p.parse_args()
+    if a.report:
+        text = report(["robustness", "robustness_long"])
+        (ROOT / "results/robustness_bands.md").write_text(
+            "# Robustness by threshold band\n\nMean return over completed episodes and share reaching H-mode, by the "
+            "plasma's true L-H threshold relative to the Martin 2008 scaling.\n\n" + text + "\n")
+        print(text)
+        return
     cases, pols = test_cases(a.per_scale)[: a.max_cases], policies()
-    if a.only:
-        pols = [x for x in pols if x[0] in a.only]
+    if a.only:  # PI always runs: every policy is compared with PI on the same plasma
+        pols = [x for x in pols if x[0] in a.only or x[0] == "pi"]
     chunks = [cases[i::a.workers] for i in range(a.workers) if cases[i::a.workers]]
     t0 = time.time()
     with mp.get_context("spawn").Pool(len(chunks)) as pool:
