@@ -314,3 +314,8 @@ svg.rt-ic { fill: none !important; }
   .rt-pager__card { max-width: 100%; }
   .rt-pager__card--next { margin-left: 0; }
 }
+
+/* scenario switch: the benchmark (Gym-TORAX 1.0) or the physics environment (TORAX 1.4) */
+.lab-scen { flex-wrap: wrap; gap: 0.3rem; margin: 0 0 0.6rem; }
+.lab-scen .rt-chip { flex: 1 1 18rem; text-align: left; padding: 0.35rem 0.6rem; line-height: 1.35; white-space: normal; }
+.rt-ctl[hidden], .lab-side-note[hidden], .lab-seg-wide[hidden] { display: none; }

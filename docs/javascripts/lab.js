@@ -613,13 +613,26 @@
     { key: "ppo_res", label: "PPO on PI", kind: "torax", ctrl: "feedback", live: "policy" },
     { key: "mbpo_res", label: "MBPO on PI", kind: "torax", ctrl: "feedback", live: "policy" },
     { key: "ppo_s1", label: "PPO exploit", kind: "torax", ctrl: "feedback", live: "policy" },
-    { key: "sandbox", label: "Sandbox: you drive", kind: "sandbox", ctrl: "human" },
+    { key: "sandbox", label: "Sandbox: you drive", kind: "sandbox", ctrl: "human", scen: "both" },
+    // the physics environment (rl_tokamak.physics on TORAX 1.4): its own TORAX episodes and controllers
+    { key: "phys_open_loop", label: "Open-loop reference", kind: "torax", ctrl: "open", scen: "physics" },
+    { key: "phys_heating_cut", label: "Heating cut at 105 s", kind: "torax", ctrl: "open", scen: "physics" },
+    { key: "phys_cem", label: "Best open-loop schedule", kind: "torax", ctrl: "open", scen: "physics" },
+    { key: "phys_pi", label: "PI controller, re-tuned", kind: "torax", ctrl: "feedback", live: "pi", scen: "physics" },
+    { key: "phys_ppo_res", label: "PPO on PI", kind: "torax", ctrl: "feedback", live: "policy", scen: "physics" },
+    { key: "phys_ppo_long", label: "PPO on PI, 4× longer", kind: "torax", ctrl: "feedback", live: "policy", scen: "physics" },
+    { key: "phys_ppo_dr", label: "Randomised training", kind: "torax", ctrl: "feedback", live: "policy", scen: "physics" },
+    { key: "phys_mbpo_res", label: "MBPO on PI", kind: "torax", ctrl: "feedback", live: "policy", scen: "physics" },
   ];
+  PRESETS.forEach((p) => (p.scen = p.scen || "benchmark"));
   const EXTRA = {
-    td3bc: { label: "TD3+BC on noisy PI logs", ctrl: "feedback", live: "policy" },
-    mbpo_s1: { label: "MBPO seed 1 (exploit)", ctrl: "feedback", live: "policy" },
+    td3bc: { label: "TD3+BC on noisy PI logs", ctrl: "feedback", live: "policy", scen: "benchmark" },
+    mbpo_s1: { label: "MBPO seed 1 (exploit)", ctrl: "feedback", live: "policy", scen: "benchmark" },
+    phys_ppo_dr_low: { label: "Randomised training, seed 2 (stays at 3 MA)", ctrl: "feedback", live: "policy", scen: "physics" },
   };
   const presetOf = (key) => PRESETS.find((x) => x.key === key) || (EXTRA[key] && { key, kind: "torax", ...EXTRA[key] });
+  const isPI = (key) => key === "pi" || key === "phys_pi";
+  const RESIDUAL_KEYS = ["ppo_res", "mbpo_res", "phys_ppo_res", "phys_ppo_long", "phys_ppo_dr", "phys_ppo_dr_low", "phys_mbpo_res"];
   const CTRL = {
     open: { tag: "open loop", cls: "open", what: "a schedule: the clock turns the knobs" },
     feedback: { tag: "feedback", cls: "fb", what: "measurements of the plasma turn the knobs" },
@@ -715,6 +728,75 @@
       ],
     },
   };
+  Object.assign(STORIES, {
+    phys_open_loop: {
+      intro: "The physics environment (TORAX 1.4): the pedestal forms only when the heating power crosses the L-H threshold, the machine's density control holds 0.6 of the Greenwald density in L-mode and 0.85 in H-mode, and the episode ends at f_GW > 1 or l_i outside 0.65–1.2 during the ramp. The same open-loop schedule as the benchmark: TORAX return 3.09.",
+      events: [
+        [50, "q_min passes below 1 (TORAX 50 s). Without the benchmark's prescribed 0.5 keV edge the L-mode plasma is colder, so the current penetrates faster than on the benchmark (69 s)."],
+        [100, "Heating on: 53 MW. P_heat jumps above P_LH; the plasma is still in L-mode for this second."],
+        [101, "L-H transition (TORAX's state machine reacts at the start of the next second); the pedestal ramps to 3 keV."],
+        [110, "H-mode, with P_heat at about 1.5 × P_LH: the H-mode terms are paid (the reward needs 1.2 ×). Try the threshold slider in the side pane: from about 1.2 × the scaling, this schedule never gets here."],
+        [150, "End: Q ≈ 4.7 at 0.85 of the Greenwald density (the benchmark reached 7.7 at 1.19, above the limit)."],
+      ],
+    },
+    phys_pi: {
+      intro: "The paper's PI controller with re-tuned gains (k_p 0.1, k_i 0.3, target j(0) ending at 3.75 MA/m²): with the paper's gains it ramps so fast that l_i falls below 0.65 at 9 s and the episode ends. TORAX return 3.24.",
+      events: [
+        [49, "q_min passes below 1 (TORAX 49 s)."],
+        [87, "I_p reaches 15 MA: more current, more density (the controller holds a fraction of the Greenwald density, which grows with I_p), and so a higher L-H threshold."],
+        [101, "L-H transition with P_heat about 1.07 × P_LH: a thin margin. Move the threshold slider to 1.1 and replay: PI's recorded knobs no longer reach H-mode."],
+        [150, "End: Q ≈ 7.4, H98 0.85."],
+      ],
+    },
+    phys_heating_cut: {
+      intro: "The benchmark's exploit on the physics environment: the open-loop reference with all heating off from 105 s. TORAX return 1.81, against 20.96 with the scheduled pedestal.",
+      events: [
+        [101, "L-H transition when the heating switches on, as in the reference."],
+        [106, "Heating off. P_heat falls below 0.8 × P_LH: H-L back-transition."],
+        [107, "L-mode again: the pedestal is gone and the core cools from about 24 keV towards 6 keV. Q spikes for one second, but no H-mode term is paid."],
+        [150, "End: nothing left to exploit. Compare the same preset on the benchmark scenario."],
+      ],
+    },
+    phys_cem: {
+      intro: "The best 9-parameter open-loop schedule on the physics environment (cross-entropy search, 160 episodes): ramp to 14.2 MA with some heating from 89 s. TORAX return 3.26.",
+      events: [
+        [89, "A little heating before the scheduled switch-on."],
+        [101, "H-mode, with less heating than PI and so a thinner margin: it is the first schedule to lose H-mode when the threshold rises (at about 1.02 × the scaling, on TORAX and on the Lab)."],
+      ],
+    },
+    phys_ppo_res: {
+      intro: "PPO on the re-tuned PI, seed 3 (30,000 simulator steps, trained on the physics environment). It heats from the first seconds of the ramp, so q_min stays above 1 until 74 s instead of 49 s. TORAX return 3.63, PI 3.24.",
+      events: [
+        [1, "Heating from the first second: a hotter plasma conducts better, so the current reaches the core later."],
+        [74, "q_min passes below 1, 25 s later than under PI."],
+        [101, "L-H transition; then the network trims the flat-top heating while keeping P_heat above 1.2 × P_LH."],
+      ],
+    },
+    phys_ppo_long: {
+      intro: "PPO on PI trained four times longer (120,000 steps), seed 3: TORAX return 4.28, the best here. It runs 20 MW of ECRH through the late ramp, adds the full 33 MW of NBI at 80–82 s, enters H-mode at 83 s, 18 s before PI, then switches the ECRH off and holds Q at the reward's cap of 10 with the beams alone.",
+      events: [
+        [83, "L-H transition before the end of the ramp: 65 s of paid H-mode against PI's 49."],
+        [85, "ECRH off: Q is capped at 10 in the reward, so once the beams hold Q near 10 the extra 20 MW earns nothing."],
+        [150, "End: Q ≈ 10. On perturbed plasmas it is fragile: on TORAX this seed ends 6 of the 33 held-out episodes above Gym-TORAX's 35 keV core-temperature bound."],
+      ],
+    },
+    phys_ppo_dr: {
+      intro: "PPO on PI trained on randomised plasmas (threshold, hysteresis and pedestal height drawn from their measured uncertainty; 120,000 steps), seed 4: the robust one. It ramps only to 12.3 MA, heats fully, then lowers the current to about 9.4 MA in the flat-top and keeps q_min above 1 throughout. TORAX return 3.15 on the nominal plasma; on TORAX it reaches H-mode on every held-out plasma up to 1.16 × the scaling, where PI fails from 1.09 ×.",
+      events: [
+        [100, "12.3 MA instead of PI's 15 MA: less density, a lower L-H threshold, a wider margin."],
+        [101, "L-H transition."],
+        [120, "The current is lowered in the flat-top, which keeps q_min above 1. The reward does not ask for 12.5 MA, so lowering the current costs nothing here; on ITER it would."],
+      ],
+    },
+    phys_ppo_dr_low: {
+      intro: "Randomised training, seed 2: the policy keeps the current at 3 MA for the whole episode. q_min never falls below 1, so the q_min and q95 terms pay in full (exactly 2.00 on TORAX), and no H-mode is risked. A safe answer to an uncertain threshold, and a reminder that this reward does not ask for the 12.5 MA flat-top.",
+      events: [],
+    },
+    phys_mbpo_res: {
+      intro: "MBPO on the re-tuned PI, seed 2 (20 simulator episodes; TORAX's L-H rule applied inside its model rollouts). TORAX return 3.47. On the Lab its recorded knobs end at 10 s: the Lab's l_i runs about 0.06 below TORAX's in this heated ramp (0.634 against 0.694) and the 0.65 limit catches it. Switch to live: the network reads the Lab's plasma and stays inside the window.",
+      events: [],
+    },
+  });
   const EXTRA_STORY = (lab) => ({ intro: `${lab}: a recorded TORAX episode. Dashed lines are TORAX; the knobs panel replays the knobs it set there, or runs its network live on the Lab.`, events: [] });
 
   // ================================================================== the Lab
@@ -725,11 +807,22 @@
       ctrl: "feedback", live: false, livePref: false, recorded: [], recKnobs: [], knobs: [], needle: null, liveNote: "",
       mode: "watch", running: false, drive: { rate: 0.2, nbi: 0, ecrh: 0, loc: 0.35 }, model: null,
       as: {},
-      colorBy: "Te", tab: "T", coils: false, pins: [], dirty: true,
+      colorBy: "Te", tab: "T", coils: false, pins: [], dirty: true, scen: "benchmark", rewSlot: 0,
       custom: { label: "Custom (your design)", qCap: 10, gate: "temp+plh", wQ: 1 / 50, wH: 1 / 50, wQmin: 1 / 150, wQ95: 1 / 150, pFgw: 0.02, pQmin: 0.01, pFlux: 0, fluxBudget: Infinity, endFgw: Infinity, endQ95: 0, endPenalty: -1000 },
     };
     const params = new URLSearchParams(location.search);
     let LAB = {}, PROF = {};
+    // the two scenarios: the benchmark (Gym-TORAX 1.0, 151 steps) and the physics environment (TORAX 1.4, 150 steps)
+    const PHYS = () => S.scen === "physics";
+    const HOR = () => (PHYS() ? 150 : 151);
+    // the three returns shown everywhere: [key, label, reward config (null: the custom one), short description]
+    const SLOTS = () => PHYS()
+      ? [["p", "physics env", M.REWARD_PRESETS.physics, "H-mode earned, P_heat ≥ 1.2 × P_LH, Q ≤ 10; f_GW > 1 or l_i outside 0.65–1.2 ends it"],
+         ["b", "benchmark", M.REWARD_PRESETS.benchmark, "IterHybrid-v0's formula on this plasma"], ["c", "custom", null, "your design"]]
+      : [["b", "benchmark", M.REWARD_PRESETS.benchmark, "IterHybrid-v0"], ["a", "audited", M.REWARD_PRESETS.audited, "Q ≤ 10, P_SOL ≥ P_LH"],
+         ["c", "custom", null, "your design"]];
+    // H-mode as the physics environment pays it: TORAX's state is H and P_heat ≥ 1.2 × the plasma's true threshold
+    const physPaid = (d) => d.mode === 1 && d.Psol >= 1.2 * (d.plhMul || 1) * d.PLH;
     const POLICY = {}; // exported networks, fetched when live mode is first switched on
 
     // ------------------------------------------------ layout
@@ -738,6 +831,12 @@
     // visual panels. The full simulation parameters and the reward designer sit below the visuals.
     const top = el("div", "lab-top");
     root.appendChild(top);
+    const scenRow = el("div", "lab-seg lab-seg-wide lab-scen");
+    top.appendChild(scenRow);
+    const scenBtns = {
+      benchmark: button(scenRow, "<b>Benchmark</b>: Gym-TORAX 1.0, the pedestal comes on a clock", () => setScenario("benchmark"), "rt-chip on"),
+      physics: button(scenRow, "<b>Physics environment</b>: TORAX 1.4, H-mode earned by power, density control, limits", () => setScenario("physics"), "rt-chip"),
+    };
     const presetBox = el("div", "lab-presets");
     top.appendChild(presetBox);
     const presetBtns = {}, groups = {};
@@ -753,7 +852,8 @@
     });
     const more = document.createElement("select");
     more.className = "rt-select";
-    more.innerHTML = `<option value="">more…</option>` + Object.entries(EXTRA).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+    const fillMore = () => (more.innerHTML = `<option value="">more…</option>` + Object.entries(EXTRA).filter(([, v]) => v.scen === S.scen).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join(""));
+    fillMore();
     more.addEventListener("change", () => more.value && load(more.value));
     groups.feedback.appendChild(more);
     const story = el("div", "lab-story");
@@ -811,12 +911,14 @@
       { g: "Transport", k: "transportMul", label: "transport ×", min: 0.5, max: 2, step: 0.05, def: 1, f: fmtX, side: true },
       { g: "Transport", k: "kc", label: "critical gradient R/L_T", min: 4, max: 12, step: 0.1, def: D.kc, f: (v) => v.toFixed(1) },
       { g: "Transport", k: "chiS", label: "stiffness above it", min: 0.03, max: 0.45, step: 0.01, def: D.chiS, f: f2 },
-      { g: "Pedestal", k: "pedOn", label: "pedestal onset", min: 60, max: 140, step: 1, def: D.pedOn, f: (v) => v + " s", side: true },
-      { g: "Pedestal", k: "TpedH", label: "H-mode pedestal T", min: 1, max: 5, step: 0.1, def: D.TpedH, f: keV },
-      { g: "Pedestal", k: "TpedL", label: "L-mode pedestal T", min: 0.2, max: 1.5, step: 0.05, def: D.TpedL, f: keV },
-      { g: "Density", k: "fL", label: "L-mode density ÷ n_G", min: 0.3, max: 0.9, step: 0.01, def: D.fL, f: f2 },
-      { g: "Density", k: "fH", label: "H-mode density ÷ n_G", min: 0.6, max: 1.3, step: 0.01, def: D.fH, f: f2 },
-      { g: "Density", k: "fuelMul", label: "beam fuelling ×", min: 0, max: 3, step: 0.05, def: 1, f: fmtX, map: (v) => ({ cNBI: D.cNBI * v }) },
+      { g: "Pedestal", k: "pedOn", label: "pedestal onset", min: 60, max: 140, step: 1, def: D.pedOn, f: (v) => v + " s", side: true, scen: "benchmark" },
+      { g: "Pedestal", k: "plhMul", label: "true L-H threshold ÷ Martin scaling", min: 0.54, max: 1.85, step: 0.01, def: 1, f: fmtX, side: true, scen: "physics" },
+      { g: "Pedestal", k: "pedHyst", label: "back to L-mode below … × threshold", min: 0.35, max: 0.8, step: 0.01, def: 0.8, f: f2, scen: "physics" },
+      { g: "Pedestal", k: "TpedH", label: "H-mode pedestal T", min: 1, max: 5, step: 0.1, def: D.TpedH, f: keV, side: true, sideScen: "physics" },
+      { g: "Pedestal", k: "TpedL", label: "L-mode pedestal T", min: 0.2, max: 1.5, step: 0.05, def: D.TpedL, defP: M.PHYSICS.TpedL, f: keV },
+      { g: "Density", k: "fL", label: "L-mode density ÷ n_G", min: 0.3, max: 0.9, step: 0.01, def: D.fL, defP: M.PHYSICS.fL, f: f2 },
+      { g: "Density", k: "fH", label: "H-mode density ÷ n_G", min: 0.6, max: 1.3, step: 0.01, def: D.fH, defP: M.PHYSICS.fH, f: f2 },
+      { g: "Density", k: "fuelMul", label: "beam fuelling ×", min: 0, max: 3, step: 0.05, def: 1, defP: 0, f: fmtX, map: (v) => ({ cNBI: D.cNBI * v }) },
       { g: "Current", k: "Zeff", label: "Z_eff (resistivity, radiation)", min: 1.2, max: 3, step: 0.05, def: D.Zeff, f: f2, side: true },
       { g: "Current", k: "bsMul", label: "bootstrap ×", min: 0, max: 2, step: 0.05, def: 1, f: fmtX, map: (v) => ({ cBS: D.cBS * v }) },
       { g: "Current", k: "cdMul", label: "NBI and EC current drive ×", min: 0, max: 3, step: 0.05, def: 1, f: fmtX, map: (v) => ({ nbiCD: D.nbiCD * v, eccdEff: D.eccdEff * v }) },
@@ -824,8 +926,10 @@
       { g: "Machine and losses", k: "radMul", label: "radiation ×", min: 0, max: 3, step: 0.05, def: 1, f: fmtX, map: (v) => ({ cRad: D.cRad * v }) },
       { g: "Machine and losses", k: "sawPeriod", label: "sawtooth period (when on)", min: 2, max: 20, step: 1, def: D.sawPeriod, f: (v) => v + " s" },
     ];
+    const defOf = (p) => (PHYS() && p.defP !== undefined ? p.defP : p.def);
+    const pedMode0 = () => (PHYS() ? "formation" : "scheduled");
     S.as = { pedMode: "scheduled", sawtooth: false, ...Object.fromEntries(PARAMS.map((p) => [p.k, p.def])) };
-    const asModified = () => S.as.pedMode !== "scheduled" || S.as.sawtooth || PARAMS.some((p) => Math.abs(S.as[p.k] - p.def) > 1e-9);
+    const asModified = () => S.as.pedMode !== pedMode0() || S.as.sawtooth || PARAMS.some((p) => Math.abs(S.as[p.k] - defOf(p)) > 1e-9);
     const PUI = {}, PED_UI = [], SAW_UI = [];
     function paramSlider(parent, p) {
       const s = slider(parent, p.label, p.min, p.max, p.step, S.as[p.k], p.f, (v) => setParam(p.k, v));
@@ -861,23 +965,34 @@
       SAW_UI.push(b);
       return b;
     }
-    function resetParams() {
-      Object.assign(S.as, { pedMode: "scheduled", sawtooth: false });
+    function resetParams(noSim) {
+      Object.assign(S.as, { pedMode: pedMode0(), sawtooth: false });
       PARAMS.forEach((p) => {
-        S.as[p.k] = p.def;
-        (PUI[p.k] || []).forEach((s) => s.set(p.def));
+        S.as[p.k] = defOf(p);
+        (PUI[p.k] || []).forEach((s) => s.set(S.as[p.k]));
       });
       PED_UI.forEach((b) => (b.s.classList.add("on"), b.p.classList.remove("on")));
       SAW_UI.forEach((b) => b.classList.remove("on"));
-      resim();
+      if (!noSim) resim();
     }
+    // sliders that belong to one scenario only; in the side pane, sideScen limits a shared slider to one scenario
+    function applyScenarioUI() {
+      PARAMS.forEach((p) => (PUI[p.k] || []).forEach((s, i) => {
+        const inSide = p.side && i === 0;
+        s.input.parentElement.hidden = (p.scen && p.scen !== S.scen) || (inSide && p.sideScen && p.sideScen !== S.scen);
+      }));
+      PED_UI.forEach((b) => (b.s.parentElement.hidden = PHYS()));
+      PHYS_UI.forEach((n) => (n.hidden = !PHYS()));
+    }
+    const PHYS_UI = [];
 
     // ---- controller hyper-controls
-    const TUNE0 = { kpMul: 1, kiMul: 1, jEnd: 2.0e6, corrMul: 1 };
-    S.tune = { ...TUNE0 };
-    const tuneModified = () => Object.keys(TUNE0).some((k) => S.tune[k] !== TUNE0[k]);
-    const usesPI = (key) => key === "pi" || key === "ppo_res" || key === "mbpo_res";
-    const isResidual = (key) => key === "ppo_res" || key === "mbpo_res";
+    // controller hyper-controls, relative to the scenario's PI (the paper's gains, or the re-tuned ones)
+    const tune0 = () => ({ kpMul: 1, kiMul: 1, jEnd: (PHYS() ? RC.PHYSICS_PI : RC.PAPER_PI).j_end, corrMul: 1 });
+    S.tune = tune0();
+    const tuneModified = () => Object.entries(tune0()).some(([k, v]) => S.tune[k] !== v);
+    const usesPI = (key) => isPI(key) || RESIDUAL_KEYS.includes(key);
+    const isResidual = (key) => RESIDUAL_KEYS.includes(key);
     function setTune(k, v) {
       S.tune[k] = v;
       const p = presetOf(S.key);
@@ -938,15 +1053,15 @@
     sCtl.appendChild(tuneBox);
     const tKp = slider(tuneBox, "PI gain k_p", 0, 3, 0.05, 1, fmtX, (v) => setTune("kpMul", v));
     const tKi = slider(tuneBox, "PI gain k_i", 0, 3, 0.05, 1, fmtX, (v) => setTune("kiMul", v));
-    const tJ = slider(tuneBox, "PI target j(0) at 100 s", 1, 3, 0.05, 2, (v) => v.toFixed(2), (v) => setTune("jEnd", v * 1e6));
+    const tJ = slider(tuneBox, "PI target j(0) at 100 s", 1, 4.5, 0.05, 2, (v) => v.toFixed(2), (v) => setTune("jEnd", v * 1e6));
     const corrWrap = el("div", "");
     tuneBox.appendChild(corrWrap);
     const tCorr = slider(corrWrap, "network correction", 0, 2, 0.05, 1, fmtX, (v) => setTune("corrMul", v));
     const tuneReset = button(tuneBox, "Back to the trained controller", () => {
-      Object.assign(S.tune, TUNE0);
+      Object.assign(S.tune, tune0());
       tKp.set(1);
       tKi.set(1);
-      tJ.set(2);
+      tJ.set(S.tune.jEnd / 1e6);
       tCorr.set(1);
       if (S.live) resim();
       S.dirty = true;
@@ -989,6 +1104,9 @@
     // plasma: the salient parameters
     const sPl = section("Plasma");
     pedChips(sPl);
+    const physNote = el("div", "lab-side-note", "Pedestal: <b>earned by power</b>, as in TORAX 1.4 (L-H when P_heat > the threshold, back below the hysteresis fraction). Move the true threshold: the Martin scaling's 95 % interval for ITER is 0.54–1.85 ×.");
+    sPl.appendChild(physNote);
+    PHYS_UI.push(physNote);
     const plRow = controls(sPl);
     sawChip(plRow);
     const allParams = el("a", "lab-sec-link", "all parameters ↓");
@@ -1003,7 +1121,7 @@
     const sOut = section("Outcome");
     const scoreBox = el("div", "lab-scores lab-scores-side");
     sOut.appendChild(scoreBox);
-    const sv = canvas(sOut, 136);
+    const sv = canvas(sOut, 152);
 
     // ================================================ the visual panels
     // ---- torus
@@ -1084,14 +1202,13 @@
     const rewRow = el("span", "lab-seg");
     pR.tools.prepend(rewRow);
     const rewBtns = {};
-    for (const [k, lab] of [["b", "benchmark"], ["a", "audited"], ["c", "custom"]]) {
-      rewBtns[k] = button(rewRow, lab, () => {
-        S.rewTab = k;
-        for (const kk in rewBtns) rewBtns[kk].classList.toggle("on", kk === k);
+    [0, 1, 2].forEach((i) => {
+      rewBtns[i] = button(rewRow, ["benchmark", "audited", "custom"][i], () => {
+        S.rewSlot = i;
+        for (const kk in rewBtns) rewBtns[kk].classList.toggle("on", +kk === i);
         S.dirty = true;
-      }, "rt-chip" + (k === "b" ? " on" : ""));
-    }
-    S.rewTab = "b";
+      }, "rt-chip" + (i === 0 ? " on" : ""));
+    });
     const rv = canvas(pR.body, 150);
     const ra = canvas(pR.body, 190);
     const audit = el("div", "lab-audit");
@@ -1127,14 +1244,14 @@
 
     // ------------------------------------------------ simulation
     function overrides() {
-      const o = { pedMode: S.as.pedMode, sawtooth: S.as.sawtooth };
+      const o = { ...(PHYS() ? M.PHYSICS : {}), pedMode: S.as.pedMode, sawtooth: S.as.sawtooth };
       for (const p of PARAMS) Object.assign(o, p.map ? p.map(S.as[p.k]) : { [p.k]: S.as[p.k] });
       return o;
     }
     function makeCtrl(key) {
       const p = presetOf(key);
       if (!RC || !p || !p.live) return null;
-      if (p.live === "pi") return RC.piController(S.tune);
+      if (p.live === "pi") return RC.piController(S.tune, PHYS() ? RC.PHYSICS_PI : RC.PAPER_PI);
       return POLICY[key] ? RC.learnedController(POLICY[key], S.tune) : null;
     }
     function simulate() {
@@ -1146,7 +1263,7 @@
         ctrl.reset();
         const acts = [], knobs = [];
         let d = m.state.last;
-        for (let t = 0; t < 151; t++) {
+        for (let t = 0; t < HOR(); t++) {
           const a = ctrl.act(d);
           acts.push({ Ip: a.Ip, nbi: a.nbi, ecrh: a.ecrh });
           knobs.push(a.info);
@@ -1174,8 +1291,9 @@
     // (re-computed from TORAX's j(0), which is exactly what it read), residual agents' PI proposal and correction.
     function recordedKnobInfo(key, e) {
       if (!e || !RC) return [];
-      if (key === "pi") {
-        const pi = RC.makePI(), j0 = [null, ...e.torax.j0];
+      if (isPI(key)) {
+        const g = key === "phys_pi" ? RC.PHYSICS_PI : RC.PAPER_PI;
+        const pi = RC.makePI(g.kp, g.ki, 1e3, RC.IP_MAX, g.j_end), j0 = [null, ...e.torax.j0];
         j0[0] = e.j0_initial || e.torax.j0[0];
         return e.actions.Ip.map((_, t) => ({ pi: pi.act(j0[t] * 1e6).sig }));
       }
@@ -1223,8 +1341,35 @@
     function actionsFromTorax(e) {
       return e.actions.Ip.map((ip, i) => ({ Ip: ip * 1e6, nbi: (e.actions.nbi[i] || 0) * 1e6, ecrh: (e.actions.ecrh[i] || 0) * 1e6 }));
     }
+    function presetVisibility() {
+      for (const k in presetBtns) {
+        const p = presetOf(k);
+        presetBtns[k].hidden = (p.scen !== "both" && p.scen !== S.scen) || (p.kind === "torax" && !LAB[k]);
+      }
+    }
+    function setScenario(sc, noLoad) {
+      S.scen = sc;
+      for (const k in scenBtns) scenBtns[k].classList.toggle("on", k === sc);
+      presetVisibility();
+      fillMore();
+      Object.assign(S.tune, tune0());
+      tKp.set(1);
+      tKi.set(1);
+      tJ.set(S.tune.jEnd / 1e6);
+      tCorr.set(1);
+      S.rewSlot = 0;
+      SLOTS().forEach(([, lab], i) => {
+        rewBtns[i].textContent = lab;
+        rewBtns[i].classList.toggle("on", i === 0);
+      });
+      S.pins = [];
+      resetParams(true);
+      applyScenarioUI();
+      if (!noLoad) load(S.key === "sandbox" ? "sandbox" : sc === "physics" ? "phys_pi" : "pi");
+    }
     function load(key) {
       const p = presetOf(key);
+      if (p.scen !== "both" && p.scen !== S.scen) setScenario(p.scen, true); // a preset carries its scenario
       S.key = key;
       S.kind = p.kind;
       S.label = p.label;
@@ -1326,7 +1471,7 @@
       S.dirty = true;
     }
     function driveStep() {
-      if (S.recs.length - 1 >= 151) {
+      if (S.recs.length - 1 >= HOR()) {
         S.running = false;
         runBtn.textContent = "Run";
         return;
@@ -1338,9 +1483,10 @@
       const d = S.model.step(a);
       S.recs.push(d);
       S.cursor = S.recs.length - 1;
-      const r = M.rewardTerms(d, M.REWARD_PRESETS.benchmark);
-      stepInfo.innerHTML = `Last step: a = (ΔI_p ${S.drive.rate >= 0 ? "+" : ""}${S.drive.rate.toFixed(2)} MA, NBI ${S.drive.nbi.toFixed(1)} MW, ECRH ${S.drive.ecrh.toFixed(1)} MW) → r = <b>${r.total.toFixed(4)}</b> (benchmark)` + (S.recs.length - 1 >= 151 ? " · <b>episode over</b> (151 steps)" : "");
-      if (d.failed || S.recs.length - 1 >= 151) {
+      const [, rLab, rCfg] = SLOTS()[0];
+      const r = M.rewardTerms(d, rCfg);
+      stepInfo.innerHTML = `Last step: a = (ΔI_p ${S.drive.rate >= 0 ? "+" : ""}${S.drive.rate.toFixed(2)} MA, NBI ${S.drive.nbi.toFixed(1)} MW, ECRH ${S.drive.ecrh.toFixed(1)} MW) → r = <b>${r.total.toFixed(4)}</b> (${rLab})` + (S.recs.length - 1 >= HOR() ? ` · <b>episode over</b> (${HOR()} steps)` : "");
+      if (d.failed || S.recs.length - 1 >= HOR()) {
         S.running = false;
         runBtn.textContent = "Run";
       }
@@ -1358,23 +1504,22 @@
     // ------------------------------------------------ drawing
     const ghostAt = (k, t) => (S.torax && S.torax.torax[k] && t >= 1 ? S.torax.torax[k][t - 1] : null);
     function scores(recs) {
-      const rs = recs.slice(1);
-      return {
-        b: M.scoreEpisode(rs, M.REWARD_PRESETS.benchmark),
-        a: M.scoreEpisode(rs, M.REWARD_PRESETS.audited),
-        c: M.scoreEpisode(rs, S.custom),
-      };
+      const rs = recs.slice(1), o = {};
+      for (const [k, , cfg] of SLOTS()) o[k] = M.scoreEpisode(rs, cfg || S.custom);
+      return o;
     }
     function drawTorus() {
       const d = S.recs[S.cursor] || S.recs[0];
       const val = S.colorBy === "Te" ? d.prof.Te : S.colorBy === "j" ? d.prof.j : d.prof.q;
       const crashRecent = d.crashes && S.cursor > 0 && S.recs[S.cursor - 1] && d.crashes > S.recs[S.cursor - 1].crashes;
       const gated = d.Te0 > 10 && d.Ti0 > 10;
+      const physBadge = d.mode === 1 ? (physPaid(d) ? { text: "H-mode, paid", color: "#1baf7a" } : { text: "H-mode, below the 1.2 × margin", color: "#c98500" })
+        : d.mode === 2 ? { text: "L-H transition", color: "#c98500" } : d.mode === 3 ? { text: "H-L back-transition", color: "#e34948" } : { text: "L-mode", color: "#6b6390" };
       torus.draw({
         q: d.prof.q, val, colorBy: S.colorBy, nbi: d.Pnbi, ecrh: d.Pecrh, ecrhLoc: d.ecrhLoc, Ip: d.Ip, coils: S.coils, flux: d.flux,
         flash: crashRecent ? 1 : 0,
         overlay: [`t = ${d.t} s   I_p = ${d.Ip.toFixed(2)} MA`, `T_e(0) = ${d.Te0.toFixed(1)} keV   q_min = ${d.qmin.toFixed(2)}`, `Q = ${d.Q < 100 ? d.Q.toFixed(2) : d.Q.toFixed(0)}`],
-        badge: gated ? (d.psolPlh >= 1 ? { text: "paid as H-mode", color: "#1baf7a" } : { text: "paid as H-mode, P_SOL < P_LH", color: "#e34948" }) : d.hped > 0.5 ? { text: "pedestal up", color: "#c98500" } : { text: "L-mode", color: "#6b6390" },
+        badge: PHYS() ? physBadge : gated ? (d.psolPlh >= 1 ? { text: "paid as H-mode", color: "#1baf7a" } : { text: "paid as H-mode, P_SOL < P_LH", color: "#e34948" }) : d.hped > 0.5 ? { text: "pedestal up", color: "#c98500" } : { text: "L-mode", color: "#6b6390" },
       });
     }
     function drawReadout() {
@@ -1388,7 +1533,8 @@
         cell("T_e(0)", f(d.Te0, 1), f(g("Te0"), 1), "keV", "heat") + cell("T_i(0)", f(d.Ti0, 1), f(g("Ti0"), 1), "keV", "heat") +
         cell("j(0)", f(d.j0, 2), f(g("j0"), 2), "MA/m²", "diffusion") + cell("q_min", f(d.qmin, 2), f(g("qmin"), 2), "", "q") +
         cell("q95", f(d.q95, 2), f(g("q95"), 2), "", "q") + cell("Q", f(d.Q, 2), f(g("Q"), 2), "", "fusion") + cell("H98", f(d.H98, 2), f(g("H98"), 2), "", "ipb98") +
-        cell("f_GW", f(d.fgw, 2), f(g("fgw"), 2), "", "greenwald") + cell("P_SOL / P_LH", f(d.psolPlh, 2), f(g("psolPlh"), 2), "", "plh") +
+        cell("f_GW", f(d.fgw, 2), f(g("fgw"), 2), "", "greenwald") + cell(PHYS() ? "P_heat / P_LH" : "P_SOL / P_LH", f(d.psolPlh, 2), f(g("psolPlh"), 2), "", "plh") +
+        (PHYS() ? cell("l_i(3)", f(d.li, 2), f(g("li"), 2), "", null) + cell("true threshold ÷ scaling", f(d.plhMul, 2), null, "", "plh") : "") +
         cell("β_N", f(d.betaN, 2), f(g("betaN"), 2), "", "betaN") + cell("P_fus", f(d.Pfus, 0), null, "MW", "fusion") + cell("I_bootstrap", f(d.Ibs, 2), null, "MA", "bootstrap") +
         cell("V_loop", f(d.Vloop, 2), null, "V", "flux") + cell("resistive flux", f(d.flux, 0), null, "Wb", "flux") + cell("pedestal T", f(d.Tped, 2), null, "keV", "pedestal");
     }
@@ -1406,15 +1552,16 @@
         { t: "core T_e(0) (orange), T_i(0) (blue) [keV]", yr: [0, 32], s: [["Te0", col.series[1]], ["Ti0", col.series[0]]], g: ["Te0", "Ti0"], hl: [[10, col.bad]] },
         { t: "q_min (green), q95 (blue)", yr: [0, 7], s: [["qmin", col.series[2]], ["q95", col.series[0]]], g: ["qmin", "q95"], hl: [[1, col.bad], [3, col.muted]] },
         { t: "fusion gain Q (log)", yr: [0.01, 1000], log: true, s: [["Q", col.accent]], g: ["Q"] },
-        { t: "f_GW (orange), P_SOL/P_LH (green)", yr: [0, 2.6], s: [["fgw", col.series[1]], ["psolPlh", col.series[2]]], g: ["fgw", "psolPlh"], hl: [[1, col.bad]] },
-        { t: "return: benchmark, audited, custom", cum: true },
+        PHYS() ? { t: "f_GW (orange), P_heat/P_LH (green), l_i (amber)", yr: [0, 2.6], s: [["fgw", col.series[1]], ["psolPlh", col.series[2]], ["li", col.series[3]]], g: ["fgw", "psolPlh", "li"], hl: [[1, col.bad], [1.2, col.muted]] }
+          : { t: "f_GW (orange), P_SOL/P_LH (green)", yr: [0, 2.6], s: [["fgw", col.series[1]], ["psolPlh", col.series[2]]], g: ["fgw", "psolPlh"], hl: [[1, col.bad]] },
+        { t: "return: " + SLOTS().map((x) => x[1]).join(", "), cum: true },
       ];
       const pad = 44, gap = 22, n = rows.length, rh = (h - 40 - gap * (n - 1)) / n;
       const T = 151;
       const recs = S.recs;
       const upto = S.cursor;
       const xs = (fr, k) => fr.sx(k);
-      const cB = cum(sc.b.per), cA = cum(sc.a.per), cC = cum(sc.c.per);
+      const [cB, cA, cC] = SLOTS().map(([k]) => cum(sc[k].per));
       const maxCum = Math.max(4, ...cB, ...cC, ...(S.torax ? S.torax.torax.cum : [0])) * 1.08;
       const minCum = Math.min(0, ...cC, ...cB);
       xv.rows = [];
@@ -1433,7 +1580,7 @@
         S.pins.forEach((pn) => {
           if (r.heat) return;
           if (r.cum) {
-            const c = cum(M.scoreEpisode(pn.recs.slice(1), M.REWARD_PRESETS.benchmark).per);
+            const c = cum(M.scoreEpisode(pn.recs.slice(1), SLOTS()[0][2]).per);
             line(ctx, c.map((v, k) => [fr.sx(k + 1), fr.sy(clamp(v, yr[0], yr[1]))]), pn.color, 1.4);
             return;
           }
@@ -1649,7 +1796,7 @@
       const { ctx, w, h } = rv;
       ctx.clearRect(0, 0, w, h);
       const k = S.cursor - 1;
-      const rows = [["benchmark", sc.b], ["audited", sc.a], ["custom", sc.c]];
+      const rows = SLOTS().map(([k, lab]) => [lab, sc[k]]);
       const vals = rows.map(([, s]) => (k >= 0 && s.per[k] ? s.per[k] : { fusion: 0, h98: 0, qmin: 0, q95: 0, penalty: 0, total: 0 }));
       const xmax = Math.max(0.05, ...vals.map((v) => v.fusion + v.h98 + v.qmin + v.q95)) * 1.15;
       const xmin = Math.min(0, ...vals.map((v) => v.penalty));
@@ -1693,23 +1840,29 @@
       const full = S.recs.length - 1;
       const fmtR = (s) => (s.endT ? `${s.ret.toFixed(2)}<small>ended at ${s.endT} s: ${s.why}</small>` : s.ret.toFixed(2));
       const torWhat = S.kind === "sandbox" ? "the original episode, before you took over" : S.live ? "the same controller on the real simulator" : "same actions on the real simulator";
-      const tor = S.torax ? `<div class="lab-score muted" title="${torWhat}"><span>TORAX</span><b>${S.torax.benchmark.toFixed(2)}</b><small>benchmark, recorded</small></div>` : "";
-      scoreBox.innerHTML =
-        `<div class="lab-score b" title="IterHybrid-v0, ${full} of 151 s"><span>benchmark</span><b>${fmtR(sc.b)}</b><small>${full} of 151 s</small></div>` +
-        `<div class="lab-score a" title="Q capped at 10; H-mode needs P_SOL ≥ P_LH"><span>audited</span><b>${fmtR(sc.a)}</b><small>Q ≤ 10, P_SOL ≥ P_LH</small></div>` +
-        `<div class="lab-score c" title="Your design, set below the visuals"><span>custom</span><b>${fmtR(sc.c)}</b><small>your design</small></div>` + tor;
+      const tor = S.torax ? `<div class="lab-score muted" title="${torWhat}"><span>TORAX</span><b>${S.torax.benchmark.toFixed(2)}</b><small>${PHYS() ? "physics env" : "benchmark"}, recorded</small></div>` : "";
+      scoreBox.innerHTML = SLOTS().map(([k, lab, , what], i) =>
+        `<div class="lab-score ${["b", "a", "c"][i]}" title="${what}"><span>${lab}</span><b>${fmtR(sc[k])}</b><small>${i === 0 ? `${full} of ${HOR()} s` : what.length < 26 ? what : ""}</small></div>`).join("") + tor;
       const rs = S.recs.slice(1);
       const q1 = rs.filter((d) => d.qmin < 1), firstQ = rs.find((d) => d.qmin < 1);
       const fg = rs.filter((d) => d.fgw > 1), maxF = Math.max(0, ...rs.map((d) => d.fgw));
       const fake = rs.filter((d) => d.Te0 > 10 && d.Ti0 > 10 && d.psolPlh < 1);
+      const liOut = rs.filter((d) => d.t <= 100 && (d.li < 0.65 || d.li > 1.2)), firstLi = liOut[0];
+      const hSec = rs.filter((d) => d.mode === 1).length, paid = rs.filter(physPaid).length;
       const maxQ = Math.max(0, ...rs.map((d) => d.Q));
       const last = rs[rs.length - 1];
       const item = (ok, text) => `<li class="${ok ? "ok" : "bad"}">${ok ? "✓" : "✗"} ${text}</li>`;
       audit.innerHTML =
-        `<div class="lab-sub">Physics audit of this run (things the benchmark reward does not check)</div><ul>` +
-        item(q1.length === 0, `q_min < 1 for <b>${q1.length} s</b>${firstQ ? ` (from t = ${firstQ.t} s): sawteeth in a real machine; a hybrid scenario needs q_min just above 1` : ""}`) +
-        item(fg.length === 0, `Greenwald fraction above 1 for <b>${fg.length} s</b>, peak ${maxF.toFixed(2)}`) +
-        item(fake.length === 0, `paid as H-mode while P_SOL < P_LH for <b>${fake.length} s</b>`) +
+        (PHYS()
+          ? `<div class="lab-sub">Physics checks of this run (the physics environment ends the episode on the first two)</div><ul>` +
+            item(!firstLi, `l_i(3) outside 0.65–1.2 during the ramp for <b>${liOut.length} s</b>${firstLi ? ` (first at t = ${firstLi.t} s, l_i = ${firstLi.li.toFixed(2)}): vertical control at risk` : ""}`) +
+            item(fg.length === 0, `Greenwald fraction above 1 for <b>${fg.length} s</b>, peak ${maxF.toFixed(2)}`) +
+            item(hSec > 0, `H-mode for <b>${hSec} s</b>, paid (P_heat ≥ 1.2 × the true threshold) for <b>${paid} s</b>`) +
+            item(q1.length === 0, `q_min < 1 for <b>${q1.length} s</b>${firstQ ? ` (from t = ${firstQ.t} s): a hybrid scenario needs q_min just above 1` : ""}`)
+          : `<div class="lab-sub">Physics audit of this run (things the benchmark reward does not check)</div><ul>` +
+            item(q1.length === 0, `q_min < 1 for <b>${q1.length} s</b>${firstQ ? ` (from t = ${firstQ.t} s): sawteeth in a real machine; a hybrid scenario needs q_min just above 1` : ""}`) +
+            item(fg.length === 0, `Greenwald fraction above 1 for <b>${fg.length} s</b>, peak ${maxF.toFixed(2)}`) +
+            item(fake.length === 0, `paid as H-mode while P_SOL < P_LH for <b>${fake.length} s</b>`)) +
         item(maxQ <= 30, `peak Q = <b>${maxQ < 100 ? maxQ.toFixed(1) : maxQ.toFixed(0)}</b>${maxQ > 30 ? ": a small denominator, not a better plasma" : ""}`) +
         `<li class="info">• resistive flux drawn from the solenoid: <b>${last ? last.flux.toFixed(0) : 0} Wb</b> (free in the benchmark)</li>` +
         (S.as.sawtooth ? `<li class="info">• sawtooth crashes: <b>${last ? last.crashes : 0}</b></li>` : "") +
@@ -1862,7 +2015,7 @@
       if (S.ctrl === "open") return { title: "schedule", meas: null, lines: [`knobs = f(t), t = ${Math.max(0, t - 1)} s`, "reads nothing from the plasma"] };
       if (S.ctrl === "human") return { title: "you", meas: ["your eyes on the screen"], lines: ["reading the plots,", "moving the sliders"] };
       const where = S.live ? "Lab" : "TORAX";
-      if (S.key === "pi" || (info && info.pi && !info.base)) {
+      if (isPI(S.key) || (info && info.pi && !info.base)) {
         const sg = info && info.pi;
         if (!sg) return { title: "PI controller", meas: [t < 1 ? "—" : "nothing after 100 s"], lines: [t < 1 ? "acts from t = 0 s" : "I_p held at its last value", "heating on the clock (open loop)"] };
         return {
@@ -2059,9 +2212,9 @@
       if (S.ctrl === "open") txt = "A schedule: every knob is a function of time alone, fixed before the shot. Change the plasma parameters and the knobs stay where they are; only the plasma changes.";
       else if (S.ctrl === "human") txt = "You are the feedback controller: you read the plasma on this page and set the knobs once per second, from the side pane.";
       else if (S.live) {
-        const reads = S.key === "pi" ? "j(0), the central current density, against a rising target" : `${POLICY[S.key] ? POLICY[S.key].obs_dim : 60} numbers describing the plasma`;
+        const reads = isPI(S.key) ? "j(0), the central current density, against a rising target" : `${POLICY[S.key] ? POLICY[S.key].obs_dim : 60} numbers describing the plasma`;
         txt = `<b>${S.label}, closed loop on the Lab:</b> every second it reads ${reads} from this plasma and sets the knobs from it, so they follow whatever the Lab does, including your changes to its parameters and gains. Dashed: what it did on TORAX.` +
-          (S.key === "pi" ? " Its heating still follows the clock: PI is feedback on I_p only." : "");
+          (isPI(S.key) ? " Its heating still follows the clock: PI is feedback on I_p only." : "");
       } else
         txt = `<b>${S.label}:</b> the knobs it set on TORAX, while reading TORAX's plasma, replayed here without feedback.` +
           (p.live ? " Switch the side pane to <i>live on the Lab</i>, or move one of its gains, to let it read this plasma instead." : "");
@@ -2089,7 +2242,7 @@
     // ------------------------------------------------ side pane: the episode at a glance
     const LANES = [
       ["heating", (d) => (d.Pnbi + d.Pecrh) / 53, "rgb(235,120,30)"],
-      ["H-mode paid", (d) => (d.Te0 > 10 && d.Ti0 > 10 ? (d.psolPlh >= 1 ? 1 : 0.5) : 0), "#1baf7a"],
+      ["H-mode paid", (d) => (PHYS() ? (d.mode === 1 ? (physPaid(d) ? 1 : 0.5) : 0) : d.Te0 > 10 && d.Ti0 > 10 ? (d.psolPlh >= 1 ? 1 : 0.5) : 0), "#1baf7a"],
       ["q_min < 1", (d) => (d.qmin < 1 ? 1 : 0), "#e34948"],
       ["f_GW > 1", (d) => (d.fgw > 1 ? 1 : 0), "#c98500"],
     ];
@@ -2166,7 +2319,7 @@
     });
 
     // ------------------------------------------------ side pane: outcomes as sparklines
-    const SPARK = [
+    const SPARK_BENCH = [
       { k: "qmin", lab: "q_min", yr: [0, 4], thr: 1, ok: (v) => v >= 1, f: (v) => v.toFixed(2) },
       { k: "q95", lab: "q95", yr: [0, 8], thr: 3, ok: (v) => v >= 3, f: (v) => v.toFixed(2) },
       { k: "fgw", lab: "f_GW", yr: [0, 1.6], thr: 1, ok: (v) => v <= 1, f: (v) => v.toFixed(2) },
@@ -2175,10 +2328,15 @@
       { k: "Q", lab: "Q", yr: [0, 25], thr: 10, ok: (v) => v >= 10, f: (v) => (v < 100 ? v.toFixed(1) : v.toFixed(0)) },
       { k: "H98", lab: "H98", yr: [0, 1.6], thr: 1, ok: (v) => v >= 1, f: (v) => v.toFixed(2) },
     ];
+    const SPARK_PHYS = SPARK_BENCH.map((r) => (r.k === "psolPlh"
+      ? { k: "psolPlh", lab: "P_heat/P_LH", yr: [0, 3], thr: 1.2, ok: (v, d) => v >= 1.2 * (d.plhMul || 1), f: (v) => v.toFixed(2) } : r))
+      .concat([{ k: "li", lab: "l_i(3)", yr: [0.4, 1.4], thr: 0.65, ok: (v, d) => d.t > 100 || (v >= 0.65 && v <= 1.2), f: (v) => v.toFixed(2) }]);
+    const sparkRows = () => (PHYS() ? SPARK_PHYS : SPARK_BENCH);
     function drawSpark() {
       const col = colors();
       const { ctx, w, h } = sv;
       ctx.clearRect(0, 0, w, h);
+      const SPARK = sparkRows();
       const rh = (h - 4) / SPARK.length, x0 = 72, x1 = w - 62;
       const recs = S.recs, cur = Math.min(S.cursor, recs.length - 1);
       const sx = (t) => x0 + ((x1 - x0) * t) / 151;
@@ -2202,7 +2360,7 @@
         line(ctx, recs.slice(1, cur + 1).map((d) => [sx(d.t), sy(d[r.k])]), col.fg, 1.5);
         const d = recs[cur];
         if (d && cur > 0) {
-          const ok = r.ok(d[r.k]);
+          const ok = r.ok(d[r.k], d);
           ctx.fillStyle = ok ? good : bad;
           ctx.beginPath();
           ctx.arc(sx(d.t), sy(d[r.k]), 3, 0, 2 * Math.PI);
@@ -2430,12 +2588,12 @@
       const col = colors();
       const { ctx, w, h } = ra;
       ctx.clearRect(0, 0, w, h);
-      const s = sc[S.rewTab], per = s.per, c = S.cursor;
+      const slot = SLOTS()[S.rewSlot], s = sc[slot[0]], per = s.per, c = S.cursor;
       const names = [["q95", col.series[3]], ["qmin", col.series[2]], ["h98", col.series[1]], ["fusion", col.series[0]]];
       const ymax = Math.max(0.06, ...per.map((p) => p.fusion + p.h98 + p.qmin + p.q95)) * 1.1;
       const ymin = Math.min(0, ...per.map((p) => (p.penalty > -1 ? p.penalty : 0)));
       const box = { x: 46, y: 22, w: w - 62, h: h - 52 };
-      const label = { b: "benchmark", a: "audited", c: "custom" }[S.rewTab];
+      const label = slot[1];
       const fr = frame(ctx, col, box, [0, 151], [ymin, ymax], { title: `${label} reward per second, by term; return so far ${cum(per.slice(0, c)).pop()?.toFixed(2) ?? "0.00"} of ${s.ret.toFixed(2)}`, xlabel: "time [s]" });
       let base = per.map(() => 0);
       names.forEach(([k, cc]) => {
@@ -2526,11 +2684,15 @@
     Promise.all([getJSON("lab"), getJSON("profiles").catch(() => ({}))]).then(([L, P]) => {
       LAB = L;
       PROF = P;
-      const pk = params.get("preset");
-      // presets whose recorded episode is not in lab.json yet are hidden
-      PRESETS.forEach((p) => p.kind === "torax" && !LAB[p.key] && (presetBtns[p.key].hidden = true));
+      let pk = params.get("preset");
+      if (!(pk && presetOf(pk) && (presetOf(pk).kind !== "torax" || LAB[pk]))) pk = null;
+      // the scenario: ?scenario=physics, or the one the requested preset belongs to
+      const scen = params.get("scenario") === "physics" || (pk && presetOf(pk).scen === "physics") ? "physics" : "benchmark";
+      setScenario(scen, true); // also hides presets whose recorded episode is not in lab.json
       if (params.get("live") === "1") S.livePref = true;
-      load(pk && presetOf(pk) && (presetOf(pk).kind !== "torax" || LAB[pk]) ? pk : "pi");
+      const th = +params.get("threshold");
+      if (th && scen === "physics") setParam("plhMul", clamp(th, 0.54, 1.85), true);
+      load(pk && (presetOf(pk).scen === scen || presetOf(pk).scen === "both") ? pk : scen === "physics" ? "phys_pi" : "pi");
       const t0 = +params.get("t");
       if (t0) S.cursor = clamp(t0, 0, S.recs.length - 1);
       const cb = params.get("color");
