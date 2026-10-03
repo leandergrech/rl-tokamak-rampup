@@ -37,7 +37,7 @@ log:
 repo: https://github.com/leandergrech/rl-tokamak-rampup
 step: 7
 state: done
-updated: 2026-10-02T17:17:52Z
+updated: 2026-10-03T11:44:26Z
 blockers: none
 next: Leander reviews the robustness section; next environment version should require the flat-top current (band around 12.5 MA)
 log:
@@ -46,6 +46,7 @@ log:
 - 2026-10-02T13:40:00Z PI re-tuned (155 candidates): kp 0.1, ki 0.3, j(0) target to 3.75 MA/m^2 -> 3.2418; paper gains fail at 9 s (l_i 0.647). Open loop 3.0889, heating cut 1.81, no heating 1.70, random 20/20 terminated on l_i, CEM 3.2601 (160 episodes). Earlier statement that no PI passes the 1.0 limit was wrong (incomplete first grid): the re-tuned PI peaks at l_i 0.977
 - 2026-10-02T14:48:59Z vast.ai (personal account, instance 53868046, EPYC 7742 64 cores, $0.30/h, $0.26 total, destroyed): batch 1 PPO on PI 3.56 +- 0.10 (5/5 > PI), MBPO on PI 1/5 > PI (trims flat-top heating below P_LH; learned model keeps H-mode) -> kept in .runs/vast6/attempt1. ConfinementAdvance applies TORAX's L-H rule in model rollouts (exact on 2,086 logged steps), mode flags encode L/H/L->H/H->L exactly. Batch 2: PPO on PI 3.486 +- 0.143 (5/5 > PI, 3.25-3.63), MBPO on PI 3.24/3.31/3.47/-999.59 (l_i at 32 s)/3.46. Laptop re-evaluation exact; policies in release checkpoints-physics-v1; docs/04b-physics-env.md
 - 2026-10-02T17:17:52Z randomisation (PhysicsConfig.randomize: L-H threshold factor 0.54-1.85 log-uniform, hysteresis 0.35-0.8, T_ped 2.4-3.6 keV, in-place TORAX runtime update, hidden from the agent) and scripts/physics_robustness.py (33 held-out plasmas, seed 20261002). vast.ai personal account, instance 53877231 (EPYC 7502, 64 cores, $0.315/h, $0.66, destroyed): PPO on PI randomised 30k (nominal 3.34/3.26/1.76/1.69/3.48), 120k randomised (2.82/2.87/2.00/2.00/3.15) and 120k nominal (3.73/3.64/3.60/4.28/3.69, 3.79 +- 0.28). Robustness: threshold factor decides; >=1.09 every ~15 MA policy loses H-mode, 12.5 MA open loop keeps it to 1.18; nominal PPO 30k beats PI on 158/165; 120k nominal 12/165 limit failures; randomised 120k: 4 of 5 seeds stay at 3-3.8 MA (reward has no current term), seed 4 robust (H-mode up to 1.16, 0 failures, worst 1.97). Cloud and laptop agree (runs exact, robustness 2e-9). Policies in release checkpoints-physics-v2
+- 2026-10-03T11:44:26Z Ramp-up Lab updated for the physics environment: scenario switch (benchmark / physics), 9 physics presets replaying TORAX 1.4 episodes, 5 physics networks live (67-number observation), re-tuned PI live, threshold-factor slider (?threshold=), l_i and earned-H-mode readouts. Model: TORAX 1.4 L-H state machine per step, Martin + low-density branch, density controller 0.6/0.85 n_G, l_i x 0.66; fitted TpedL 0.3 keV, tauN 6.3 s, plhCal 1.1 (benchmark calibration unchanged). H-mode entry second matches TORAX on every preset; returns 0.1-0.3 lower; critical threshold factors OL 1.23 / PI 1.10 / CEM 1.02 (TORAX ~1.18 / 1.06-1.09 / 1.00-1.02); MBPO s2 recorded ends at 10 s on l_i (Lab l_i 0.06 low), live stays inside. Checks: networks <= 6e-6, PI 3.7e-5 / 1.3e-4 MA, observation 7.8e-6 / 1.4e-5. pytest both stacks pass, mkdocs --strict ok
 
 ## Fork task
 repo: https://github.com/leandergrech/gymtorax (branch fix/audited-iter-hybrid-reward; pinned backport branch fix/audited-iter-hybrid-reward-v1.0 off tag v1.0.0)
