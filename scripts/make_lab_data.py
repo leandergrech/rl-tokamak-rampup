@@ -29,7 +29,20 @@ EPISODES = {  # key: (label, csv)
     "ppo_res": ("PPO on PI (residual, audited reward)", "data/runs/ppo_res_s0/final_episode.csv"),
     "mbpo_res": ("MBPO on PI (residual, audited reward, best checkpoint)", "data/runs/mbpo_res_s0/best_episode.csv"),
 }
+# The physics environment (rl_tokamak.physics, gymtorax 1.1.1 / TORAX 1.4.3): keys start with "phys_"
+PHYSICS_EPISODES = {
+    "phys_open_loop": ("Open-loop reference", "data/physics/trajectories/open_loop.csv"),
+    "phys_pi": ("PI controller, re-tuned", "data/physics/trajectories/pi.csv"),
+    "phys_heating_cut": ("Heating cut at 105 s", "data/physics/trajectories/heating_cut.csv"),
+    "phys_cem": ("Best open-loop schedule (CEM)", "data/physics/trajectories/cem_best.csv"),
+    "phys_ppo_res": ("PPO on PI, seed 3", "data/physics/runs/ppo_res_s3/final_episode.csv"),
+    "phys_ppo_long": ("PPO on PI, 120k steps, seed 3", "data/physics/runs/ppo_res_long_s3/final_episode.csv"),
+    "phys_ppo_dr": ("PPO on PI, randomised training, seed 4", "data/physics/runs/ppo_dr_long_s4/final_episode.csv"),
+    "phys_ppo_dr_low": ("PPO on PI, randomised training, seed 2 (stays at 3 MA)", "data/physics/runs/ppo_dr_long_s2/final_episode.csv"),
+    "phys_mbpo_res": ("MBPO on PI, seed 2", "data/physics/runs/mbpo_res_s2/final_episode.csv"),
+}
 J0_INITIAL = 0.38294746  # MA/m^2, TORAX's j_total(rho=0) at reset (the ITER hybrid initial state is fixed)
+J0_INITIAL_PHYSICS = 0.38595163  # the same on gymtorax 1.1.1 / TORAX 1.4.3
 TRACES = {
     "Ip": "Ip_MA", "Pnbi": "P_NBI_MW", "Pecrh": "P_ECRH_MW", "Te0": "T_e0", "Ti0": "T_i0", "j0": "j0_MA_m2",
     "qmin": "q_min", "q95": "q95", "Q": "Q_fusion", "H98": "H98", "fgw": "fgw_n_e_line_avg", "betaN": "beta_N",
@@ -42,11 +55,12 @@ def _r(x: float, nd: int = 5):
 
 def main() -> None:
     out = {}
-    for key, (label, path) in EPISODES.items():
+    for key, (label, path) in {**EPISODES, **PHYSICS_EPISODES}.items():
         if not Path(path).exists():
             continue
         d = pd.read_csv(path)
         d = d[d["q_min"].notna()]
+        physics = key.startswith("phys_")
         entry = {
             "label": label,
             "benchmark": _r(float(d["r_bench"].sum())),
@@ -57,9 +71,14 @@ def main() -> None:
             },
             "torax": {k: [_r(float(v)) for v in d[c]] for k, c in TRACES.items()},
         }
-        entry["torax"]["psolPlh"] = [_r(float(v)) for v in d["P_SOL_total"] / d["P_LH"]]
+        # the physics environment compares the heating power (radiation subtracted, no dW/dt) with the threshold
+        entry["torax"]["psolPlh"] = [_r(float(v)) for v in (d["P_heat_total"] if physics else d["P_SOL_total"]) / d["P_LH"]]
         entry["torax"]["cum"] = [_r(float(v)) for v in d["r_bench"].cumsum()]
-        entry["j0_initial"] = J0_INITIAL
+        if physics:
+            entry["scenario"] = "physics"
+            entry["torax"]["li"] = [_r(float(v)) for v in d["li3"]]
+            entry["torax"]["mode"] = [int(v) for v in d["confinement_mode"]]
+        entry["j0_initial"] = J0_INITIAL_PHYSICS if physics else J0_INITIAL
         if "base_ip" in d:
             cfg = json.loads((Path(path).parent / "config.json").read_text())
             entry["scale"] = cfg["env_config"]["extra"]["residual"]["scale"]

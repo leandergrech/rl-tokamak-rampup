@@ -6,7 +6,9 @@
  * The PI controller mirrors src/rl_tokamak/controllers.py line by line. Learned policies run their exported actor
  * networks (scripts/export_lab_policies.py) on observation vectors built from the Lab's state the way
  * src/rl_tokamak/env.py builds them from TORAX's (observation set "profiles"); residual policies add their
- * correction to the PI controller's proposal as src/rl_tokamak/residual.py does.
+ * correction to the PI controller's proposal as src/rl_tokamak/residual.py does. Policies trained on the physics
+ * environment (rl_tokamak.physics) also read TORAX's confinement state and P_heat (env.PHYSICS_EXTRA) and sit on
+ * the re-tuned PI (PHYSICS_PI).
  * Works in the browser (window.RTControl) and in Node (scripts/check_lab_control.mjs checks it against PyTorch).
  */
 (function (root, factory) {
@@ -20,6 +22,9 @@
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
   // A/m^2, the PI's reference for j(0): 0.6 MA/m^2 at t = 0 rising linearly to jEnd (2.0 MA/m^2) at 100 s
   const jTarget = (t, jEnd = 2.0e6) => 0.2e6 + 0.4e6 + ((jEnd - 0.6e6) * t) / 100;
+  // PI gains: the paper's (benchmark) and the re-tuned ones of the physics environment (rl_tokamak.physics.PHYSICS_PI)
+  const PAPER_PI = { kp: 0.7, ki: 34.257, j_end: 2.0e6 };
+  const PHYSICS_PI = { kp: 0.1, ki: 0.3, j_end: 3.75e6 };
 
   // ------------------------------------------------------------------ PI (controllers.PIController)
   function makePI(kp = 0.7, ki = 34.257, ipMin = 1e3, ipMax = IP_MAX, jEnd = 2.0e6) {
@@ -68,6 +73,7 @@
   const FEATURE_NAMES = ["t", "I_p (applied)", "P_NBI (applied)", "P_ECRH (applied)", ...SCALARS.map((s) => s[0]), "T_e(0)", "T_i(0)", "j(0)",
     ...PROFILES.flatMap(([n, , , rh]) => rh.map((r) => `${n}(${r.toFixed(2)})`))];
   const RESIDUAL_NAMES = ["PI: I_p rate", "PI: P_NBI", "PI: P_ECRH", "PI: integral"];
+  const PHYSICS_NAMES = ["H-mode or entering it", "in a transition", "P_heat"];
 
   function interpOn(arr, grid, x) {
     const n = arr.length;
@@ -78,11 +84,13 @@
     return arr[n - 1];
   }
   // d: Lab diagnostics (tokamak-model.js) after d.t steps; d.grid optionally gives each profile's rho grid.
-  function rawFeatures(d) {
+  // physics: append the confinement flags (L 00, H 10, L->H 11, H->L 01) and P_heat [W] (Lab: P_SOL, no dW/dt)
+  function rawFeatures(d, physics) {
     const x = [d.t / (HORIZON - 1), (d.Ip * 1e6) / IP_MAX, (d.Pnbi * 1e6) / NBI_MAX, (d.Pecrh * 1e6) / ECRH_MAX];
     for (const [, k, u] of SCALARS) x.push(d[k] * u);
     x.push(d.Te0, d.Ti0, d.j0 * 1e6);
     for (const [, k, u, rh] of PROFILES) for (const r of rh) x.push(interpOn(d.prof[k], d.grid && d.grid[k], r) * u);
+    if (physics) x.push(d.mode === 1 || d.mode === 2 ? 1 : 0, d.mode === 2 || d.mode === 3 ? 1 : 0, (d.Pheat ?? d.Psol) * 1e6);
     return x.map((v) => (isFinite(v) ? v : 0));
   }
   function normalise(raw, obs) {
@@ -119,13 +127,14 @@
     return [clamp((act.Ip - ipNow) / IP_RAMP, -1, 1), (2 * act.nbi) / NBI_MAX - 1, (2 * act.ecrh) / ECRH_MAX - 1];
   }
 
-  // tune (optional): {kpMul, kiMul, jEnd [A/m^2], corrMul}: the Lab's hyper-controls; defaults reproduce the paper's PI
-  const piFrom = (tune) => {
-    const t = tune || {};
-    return makePI(0.7 * (t.kpMul ?? 1), 34.257 * (t.kiMul ?? 1), 1e3, IP_MAX, t.jEnd ?? 2.0e6);
+  // tune (optional): {kpMul, kiMul, jEnd [A/m^2], corrMul}: the Lab's hyper-controls, relative to base gains
+  // ({kp, ki, j_end}; default the paper's PI)
+  const piFrom = (tune, base) => {
+    const t = tune || {}, b = base || PAPER_PI;
+    return makePI(b.kp * (t.kpMul ?? 1), b.ki * (t.kiMul ?? 1), 1e3, IP_MAX, t.jEnd ?? b.j_end);
   };
-  function piController(tune) {
-    const pi = piFrom(tune);
+  function piController(tune, base) {
+    const pi = piFrom(tune, base);
     return {
       kind: "feedback",
       reads: "j(0), the central current density",
@@ -138,7 +147,8 @@
   }
 
   function learnedController(spec, tune) {
-    const res = spec.action.residual, pi = res ? piFrom(tune) : null;
+    const res = spec.action.residual, pi = res ? piFrom(tune, res.pi_gains) : null;
+    const physics = !!(spec.obs && spec.obs.physics);
     const corr = (tune && tune.corrMul) ?? 1;
     return {
       kind: "feedback",
@@ -146,7 +156,7 @@
       reset: () => pi && pi.reset(),
       act(d) {
         const ipNow = d.Ip * 1e6;
-        let x = normalise(rawFeatures(d), spec.obs);
+        let x = normalise(rawFeatures(d, physics), spec.obs);
         let base = null, sig = null;
         if (res) {
           pi.ip = ipNow; // rate-limit against the applied current (residual.py)
@@ -179,6 +189,6 @@
 
   return {
     makePI, piController, learnedController, scheduleController, rawFeatures, normalise, forward, selfCheck, jTarget,
-    FEATURE_NAMES, RESIDUAL_NAMES, IP_RAMP, NBI_MAX, ECRH_MAX, IP_MAX, HEAT_ON_STEP, RAMP_END,
+    FEATURE_NAMES, RESIDUAL_NAMES, PHYSICS_NAMES, PAPER_PI, PHYSICS_PI, IP_RAMP, NBI_MAX, ECRH_MAX, IP_MAX, HEAT_ON_STEP, RAMP_END,
   };
 });

@@ -3,7 +3,8 @@
 vector src/rl_tokamak/env.py builds from them, so the JavaScript observation can be checked feature by feature.
 
 python scripts/make_lab_fixture.py /tmp/lab_feature_fixture.json      # one TORAX episode, about 1 min idle
-node scripts/check_lab_control.mjs /tmp/lab_feature_fixture.json --robustness
+python scripts/make_lab_fixture.py /tmp/lab_physics_fixture.json --physics   # the physics environment (.[dev-physics])
+node scripts/check_lab_control.mjs /tmp/lab_feature_fixture.json /tmp/lab_physics_fixture.json --robustness
 """
 
 from __future__ import annotations
@@ -35,16 +36,24 @@ def record(env, obs: dict, x: np.ndarray, t: int) -> dict:
            "Te0": float(p["T_e"][0]), "Ti0": float(p["T_i"][0]), "j0": float(p["j_total"][0]) / 1e6}
     rec.update({k: _scalar(s, name) / u for k, (name, u) in SCALARS.items()})
     rec["prof"] = {k: [float(v) / u for v in p[name]] for k, (name, u, _) in PROFILES.items()}
+    if env.physics is not None:  # the physics environment also observes the confinement mode and P_heat
+        rec["mode"] = int(env._mode)
+        rec["Pheat"] = _scalar(s, "P_heat_total") / 1e6
     rec["grid"] = {k: grid for k, (_, _, grid) in PROFILES.items()}
     rec["x"] = [float(v) for v in x]
     return rec
 
 
-def main(out: str) -> None:
+def main(out: str, physics: bool = False) -> None:
     from rl_tokamak.env import EnvConfig, make_env, set_single_thread
 
     set_single_thread()
-    env = make_env(EnvConfig(extra={"residual": {"base": "pi", "scale": [1, 2, 2]}}))
+    extra = {"residual": {"base": "pi", "scale": [1, 2, 2]}}
+    if physics:
+        from rl_tokamak.physics import PHYSICS_PI
+
+        extra = {"physics": {}, "residual": {**extra["residual"], "pi_gains": dict(PHYSICS_PI)}}
+    env = make_env(EnvConfig(extra=extra))
     x, _ = env.reset()
     recs = []
     for t in range(env.horizon):
@@ -59,4 +68,5 @@ def main(out: str) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "lab_feature_fixture.json")
+    args = [a for a in sys.argv[1:] if a != "--physics"]
+    main(args[0] if args else "lab_feature_fixture.json", physics="--physics" in sys.argv)

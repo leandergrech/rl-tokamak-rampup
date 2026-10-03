@@ -28,6 +28,15 @@ POLICIES = {  # Lab key: (run directory, checkpoint)
     "ppo_res": ("data/runs/ppo_res_s0", "final"),
     "mbpo_res": ("data/runs/mbpo_res_s0", "best"),
 }
+# the physics environment's runs: export them from the physics stack (.[dev-physics]), e.g.
+#   python scripts/export_lab_policies.py --physics
+PHYSICS_POLICIES = {
+    "phys_ppo_res": ("data/physics/runs/ppo_res_s3", "final"),
+    "phys_ppo_long": ("data/physics/runs/ppo_res_long_s3", "final"),
+    "phys_ppo_dr": ("data/physics/runs/ppo_dr_long_s4", "final"),
+    "phys_ppo_dr_low": ("data/physics/runs/ppo_dr_long_s2", "final"),
+    "phys_mbpo_res": ("data/physics/runs/mbpo_res_s2", "final"),
+}
 SIG = 6
 
 
@@ -40,12 +49,13 @@ def _layers(pairs) -> list[dict]:
 
 
 def export(key: str, run_dir: Path, which: str) -> dict:
-    from rl_tokamak.env import IP_RAMP, EnvConfig, load_obs_stats
+    from rl_tokamak.env import IP_RAMP, EnvConfig, load_obs_stats, nominal
     from rl_tokamak.policies import load_policy
 
     meta = json.loads((run_dir / "config.json").read_text())
-    env_cfg = EnvConfig(**{**meta["env_config"], "log_dir": None})
+    env_cfg = nominal(EnvConfig(**{**meta["env_config"], "log_dir": None}))  # randomised runs: the nominal plasma
     assert env_cfg.obs_set == "profiles" and env_cfg.action_set == "powers" and env_cfg.ip_mode == "delta", key
+    physics = env_cfg.extra.get("physics") is not None
     from rl_tokamak.checkpoints import ensure
 
     stem = "policy" if which == "final" else "policy_best"
@@ -72,11 +82,17 @@ def export(key: str, run_dir: Path, which: str) -> dict:
     else:
         raise ValueError(ckpt["kind"])
     spec["layers"] = _layers(pairs)
-    mu, sdv = load_obs_stats("profiles")
-    spec["obs"] = {"set": "profiles", "mean": _r(mu), "std": _r(sdv), "clip": env_cfg.clip_obs}
+    mu, sdv = load_obs_stats("profiles", physics)
+    # physics: the observation ends with TORAX's confinement flags and P_heat (env.PHYSICS_EXTRA)
+    spec["obs"] = {"set": "profiles", "mean": _r(mu), "std": _r(sdv), "clip": env_cfg.clip_obs, "physics": physics}
     residual = env_cfg.extra.get("residual")
-    spec["action"] = {"ip_min": env_cfg.ip_min, "ip_ramp": IP_RAMP,
-                      "residual": {"base": residual["base"], "scale": list(residual["scale"])} if residual else None}
+    res = None
+    if residual:
+        res = {"base": residual["base"], "scale": list(residual["scale"])}
+        if residual.get("pi_gains"):
+            res["pi_gains"] = residual["pi_gains"]  # the re-tuned PI of the physics environment
+    spec["action"] = {"ip_min": env_cfg.ip_min, "ip_ramp": IP_RAMP, "residual": res}
+    spec["scenario"] = "physics" if physics else "benchmark"
     spec["obs_dim"] = int(pairs[0][0].shape[1])
 
     # self-check: observations of the recorded TORAX episode, re-created from its own run, and PyTorch's actions
@@ -106,6 +122,8 @@ def main(argv: list[str]) -> None:
 
     set_single_thread()
     jobs = dict(POLICIES)
+    if argv and argv[0] == "--physics":
+        jobs, argv = dict(PHYSICS_POLICIES), argv[1:]
     if argv:  # explicit key=run_dir[:final|best] arguments replace the default set
         jobs = {}
         for a in argv:
