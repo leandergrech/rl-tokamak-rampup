@@ -77,6 +77,7 @@ $$
 
 - **Gym-TORAX:** h rises from 0 to 1 between 100 and 105 s, whatever the plasma does.
 - **Lab, scheduled:** the same onset (adjustable), with the rise compressed to 2 s by the calibration. **Lab, power-triggered:** h relaxes to 1 (τ = 2 s) while P_SOL ≥ P_LH, decays to 0 (τ = 1 s) when P_SOL < 0.8 P_LH, and holds its state in between.
+- **Physics environment (TORAX 1.4, and the Lab's physics mode):** h is 1 in H-mode and 0 in L-mode, and the mode follows TORAX's state machine once per step: L → H when P_heat > P_LH, H → L when P_heat < 0.8 P_LH (P_heat: heating minus radiation, as TORAX's formation model computes it). T_ped = 3 keV in H-mode; in L-mode no pedestal is imposed (Lab: 0.3 keV, fitted). TORAX ramps the pedestal over 0.5 s ([The physics environment](../04b-physics-env.md#what-the-environment-changes)).
 - **See:** [Heat, confinement and fusion](4-heat-and-fusion.md#l-mode-h-mode-and-the-pedestal).
 
 ## Fusion power and gain {#eq-fusion}
@@ -113,6 +114,7 @@ $$
 
 - c_NB = 0.009 × 10²⁰ m⁻³ per MW of beam power; profile n(ρ̂) ∝ 1 − 0.35 ρ̂².
 - **TORAX:** a particle-transport equation with Greenwald-fraction boundary conditions (0.35 at the edge, 0.85 at the pedestal top).
+- **Physics environment:** the machine's density controller sets the target, f = 0.6 in L-mode (gas puff) and 0.85 in H-mode (pedestal fuelling); Lab: τ_n = 6.3 s (fitted), c_NB = 0.
 
 ## L–H threshold {#eq-plh}
 
@@ -121,6 +123,7 @@ P_{LH} = 0.0488\,\bar n_{e,20}^{0.717}\, B^{0.803}\, S^{0.941}\ \mathrm{MW}, \qq
 $$
 
 - Martin (2008) scaling; S is the plasma surface area. **Audited reward:** the gate requires P_SOL ≥ P_LH.
+- **Physics environment:** TORAX 1.4 adds the low-density branch: below n_min = 0.07 I_p^0.34 a^−0.95 B^0.62 (R/a)^0.4 (10²⁰ m⁻³, [R37](../07-references.md#r37)) the threshold rises as P_LH(n_min) (n_min/n)². The true threshold is uncertain by a factor 0.54–1.85 (95 %); the Lab's *true L-H threshold ÷ Martin scaling* multiplies it. Lab: × 1.1 to match TORAX's surface and density.
 
 ## Normalised beta {#eq-betaN}
 
