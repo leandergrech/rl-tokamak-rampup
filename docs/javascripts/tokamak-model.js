@@ -11,6 +11,11 @@
  *   Ti[j]  ion temperature [keV]
  *   nbar   line-averaged electron density [1e20 m^-3] (0-D, relaxes to a Greenwald-scaled target)
  *   hped   pedestal state 0 (L-mode) .. 1 (H-mode)
+ *   mode   confinement mode as TORAX 1.4 reports it (pedMode "formation"): 0 L, 1 H, 2 L->H, 3 H->L
+ *
+ * Two scenarios share the model: the benchmark (Gym-TORAX 1.0, pedestal on a clock; the DEFAULTS) and the physics
+ * environment (rl_tokamak.physics on TORAX 1.4; PHYSICS): pedestal formed by power with TORAX's state machine,
+ * the low-density branch of the L-H threshold, density held by the machine's controller, and its own limits.
  *
  * Works in the browser (window.RTModel) and in Node (module.exports) so it can be calibrated offline.
  */
@@ -39,6 +44,10 @@
     // pedestal: T(rho_ped) boundary value, L-mode and H-mode heights
     rhoPed: 0.91, TpedL: 0.5, TpedH: 3.0, Tedge: 0.2,
     pedMode: "scheduled", pedOn: 100, pedRise: 2, pedTau: 2.0, pedHyst: 0.8,
+    plhMul: 1.0, // true L-H threshold / Martin scaling (power-triggered modes)
+    plhCal: 1.0, // calibration of the Lab's threshold to TORAX's (its surface and density differ; PHYSICS sets it)
+    liCal: 0.66, // the cylinder's internal inductance -> TORAX's l_i(3) (least squares on 2,581 physics-environment steps: 0.666, rmse 0.042; benchmark 0.647)
+    lowDensity: false, // true: TORAX 1.4's low-density branch (P_LH ~ n^-2 below Ryter's n_min); false: held at its minimum
     // density: d nbar/dt = (target - nbar)/tauN, target = f(h) n_G(Ip) + cNBI * P_NBI[MW]
     fL: 0.603, fH: 1.0, cNBI: 0.00928, tauN: 21.6, dil: 0.95, nPeak: 0.35,
     // heating and current drive
@@ -51,6 +60,12 @@
     // initial state
     Ip0: 3.0e6, Te0init: 3.7, nbar0: 0.222, jPeak0: 1.92,
   };
+
+  // The physics environment (rl_tokamak.physics): what differs from DEFAULTS. Density targets are the machine's
+  // controller references (no beam fuelling: the TORAX configuration has no NBI particle source); TpedL is the
+  // L-mode edge the transport model gives at the pedestal top once no pedestal is imposed (fitted, see
+  // scripts/calibrate_lab_model.mjs --physics).
+  const PHYSICS = { pedMode: "formation", lowDensity: true, plhMul: 1.0, plhCal: 1.1, pedHyst: 0.8, TpedH: 3.0, TpedL: 0.3, fL: 0.6, fH: 0.85, cNBI: 0, tauN: 6.3 };
 
   // ------------------------------------------------------------------ physics helpers
   function sigmavDT(T) {
@@ -68,9 +83,13 @@
     return 0.0562 * Math.pow(IpMA, 0.93) * Math.pow(B, 0.15) * Math.pow(n19, 0.41) * Math.pow(Math.max(PMW, 1e-3), -0.69) *
       Math.pow(R, 1.97) * Math.pow(kappa, 0.78) * Math.pow(eps, 0.58) * Math.pow(M, 0.19);
   }
-  function pLH(n20, B, S) {
-    // Martin (2008) threshold, MW, with the low-density branch held at its minimum
-    return 0.0488 * Math.pow(Math.max(n20, 0.25), 0.717) * Math.pow(B, 0.803) * Math.pow(S, 0.941);
+  const martin = (n20, B, S) => 0.0488 * Math.pow(n20, 0.717) * Math.pow(B, 0.803) * Math.pow(S, 0.941);
+  function pLH(n20, B, S, low) {
+    // Martin (2008) threshold, MW. Below the density of the threshold minimum: held at the minimum (benchmark Lab), or,
+    // with low = {IpMA, a, R} (TORAX 1.4), rising as (n_min / n)^2 with Ryter's n_min = 0.7 I_p^0.34 a^-0.95 B^0.62 (R/a)^0.4.
+    if (!low) return martin(Math.max(n20, 0.25), B, S);
+    const nMin = 0.07 * Math.pow(Math.max(low.IpMA, 0.1), 0.34) * Math.pow(low.a, -0.95) * Math.pow(B, 0.62) * Math.pow(low.R / low.a, 0.4);
+    return n20 > nMin ? martin(n20, B, S) : martin(nMin, B, S) * Math.pow(nMin / Math.max(n20, 1e-3), 2);
   }
 
   function tridiag(a, b, c, d, n) {
@@ -114,7 +133,7 @@
       }
       st = {
         t: 0, I, Te, Ti, Ip: p.Ip0, nbar: p.nbar0, hped: 0, chiE: new Float64Array(N), chiI: new Float64Array(N),
-        W: 0, flux: 0, sawTimer: 0, crashes: [], last: null, failed: false,
+        W: 0, flux: 0, sawTimer: 0, crashes: [], last: null, failed: false, mode: 0,
         act: { Ip: p.Ip0, nbi: 0, ecrh: 0, ecrhLoc: p.ecrhLoc, nbiLoc: p.nbiLoc },
       };
       st.W = thermalEnergy();
@@ -180,6 +199,7 @@
     function pedestalT() {
       return p.TpedL + (p.TpedH - p.TpedL) * st.hped;
     }
+    const pLHnow = (n20, IpA) => p.plhCal * pLH(n20, p.B, S, p.lowDensity ? { IpMA: IpA / 1e6, a, R } : null);
     function thermalEnergy() {
       let W = 0;
       for (let j = 0; j <= N; j++) W += 1.5 * nAt(j) * 1e20 * KEV * (st.Te[j] + p.dil * st.Ti[j]) * vol[j];
@@ -307,11 +327,13 @@
       const Paux = act.nbi + act.ecrh;
       const Palpha = Pfus / 5.03;
       const Psol = Pohm + Paux + Palpha - Prad;
-      const PLH = pLH(st.nbar, p.B, S) * 1e6;
+      const PLH = pLHnow(st.nbar, IpNew) * 1e6;
       if (p.pedMode === "scheduled") {
         st.hped = Math.min(1, Math.max(0, (st.t + dt - p.pedOn) / p.pedRise));
+      } else if (p.pedMode === "formation") {
+        st.hped = st.mode === 1 || st.mode === 2 ? 1 : 0; // set once per action second in step(), as TORAX does
       } else {
-        const on = Psol >= PLH ? 1 : Psol < p.pedHyst * PLH ? 0 : st.hped > 0.5 ? 1 : 0;
+        const on = Psol >= p.plhMul * PLH ? 1 : Psol < p.pedHyst * p.plhMul * PLH ? 0 : st.hped > 0.5 ? 1 : 0;
         st.hped += ((on - st.hped) * dt) / (on ? p.pedTau : p.pedTau / 2);
         st.hped = Math.min(1, Math.max(0, st.hped));
       }
@@ -364,7 +386,7 @@
       const W = thermalEnergy();
       const IpMA = st.Ip / 1e6;
       const n19 = st.nbar * 10;
-      const s = src || { Pfus: 0, Pohm: 0, Prad: 0, Paux: 0, Palpha: 0, Psol: 0, PLH: pLH(st.nbar, p.B, S) * 1e6, Vloop: 0, Inb: 0, Iec: 0, jbs: new Float64Array(N + 1), jni: new Float64Array(N + 1) };
+      const s = src || { Pfus: 0, Pohm: 0, Prad: 0, Paux: 0, Palpha: 0, Psol: 0, PLH: pLHnow(st.nbar, st.Ip) * 1e6, Vloop: 0, Inb: 0, Iec: 0, jbs: new Float64Array(N + 1), jni: new Float64Array(N + 1) };
       const dWdt = st.last ? (W - st.last.W) / Math.max(1e-6, t - st.last.t) : 0;
       const Pheat = s.Pohm + s.Paux + s.Palpha;
       const Ploss = Math.max(Pheat - dWdt, 1e5);
@@ -379,7 +401,7 @@
         num += Bth * Bth * vol[j];
       }
       const BthA = (MU0 * st.Ip) / (2 * Math.PI * a * p.sPol);
-      const li = num / (BthA * BthA * V);
+      const li = (p.liCal * num) / (BthA * BthA * V);
       let Ibs = 0;
       for (let j = 0; j <= N; j++) Ibs += s.jbs[j] * (vol[j] / (2 * Math.PI * R));
       const Qfus = s.Pfus / Math.max(s.Paux + s.Pohm, 1e5);
@@ -396,6 +418,7 @@
         Pohm: s.Pohm / 1e6, Prad: s.Prad / 1e6, Paux: s.Paux / 1e6, Psol: s.Psol / 1e6, PLH: s.PLH / 1e6,
         psolPlh: s.Psol / s.PLH, betaN: (betaT * a * p.B) / Math.max(IpMA, 0.1), li, Vloop: s.Vloop, flux: st.flux,
         Ibs: Ibs / 1e6, Inb: s.Inb / 1e6, Iec: s.Iec / 1e6, hped: st.hped, Tped: pedestalT(), crashes: st.crashes.length,
+        mode: st.mode, plhMul: p.plhMul,
         prof: {
           Te: Array.from(st.Te), Ti: Array.from(st.Ti), j: Array.from(jj, (v) => v / 1e6), q: Array.from(q),
           jni: Array.from(s.jni, (v) => v / 1e6), jbs: Array.from(s.jbs, (v) => v / 1e6),
@@ -417,6 +440,12 @@
         nbiLoc: action.nbiLoc !== undefined ? action.nbiLoc : p.nbiLoc,
       };
       const ns = p.substeps, dt = 1 / ns, Ip0 = st.Ip;
+      if (p.pedMode === "formation" && st.last) {
+        // TORAX 1.4's state machine, once per step from the state at its start: L -> L-H when P_heat > P_LH,
+        // L-H -> H, H -> H-L when P_heat < hysteresis * P_LH, H-L -> L (the 0.5 s ramp fits inside the 1 s step)
+        const L = st.last, thr = p.plhMul * L.PLH, m0 = st.mode;
+        st.mode = m0 === 2 ? 1 : m0 === 3 ? 0 : m0 === 0 && L.Psol > thr ? 2 : m0 === 1 && L.Psol < p.pedHyst * thr ? 3 : m0;
+      }
       let src;
       for (let k = 1; k <= ns; k++) src = substep(dt, Ip0 + ((IpEnd - Ip0) * k) / ns, st.act);
       const d = diagnostics(Math.round(st.t), src);
@@ -448,11 +477,15 @@
   const REWARD_PRESETS = {
     benchmark: { label: "IterHybrid-v0 (benchmark)", qCap: Infinity, gate: "temp", wQ: 1 / 50, wH: 1 / 50, wQmin: 1 / 150, wQ95: 1 / 150, pFgw: 0, pQmin: 0, pFlux: 0, fluxBudget: Infinity, endFgw: Infinity, endQ95: 0, endPenalty: -1000 },
     audited: { label: "Audited (Q ≤ 10, P_SOL ≥ P_LH)", qCap: 10, gate: "temp+plh", wQ: 1 / 50, wH: 1 / 50, wQmin: 1 / 150, wQ95: 1 / 150, pFgw: 0, pQmin: 0, pFlux: 0, fluxBudget: Infinity, endFgw: Infinity, endQ95: 0, endPenalty: -1000 },
+    // rl_tokamak.physics: H-mode terms only in H-mode (the confinement state) with P_heat >= 1.2 x the true threshold;
+    // the episode ends at f_GW > 1 or l_i(3) outside [0.65, 1.2] up to 100 s
+    physics: { label: "Physics environment", qCap: 10, gate: "mode", margin: 1.2, wQ: 1 / 50, wH: 1 / 50, wQmin: 1 / 150, wQ95: 1 / 150, pFgw: 0, pQmin: 0, pFlux: 0, fluxBudget: Infinity, endFgw: 1.0, endQ95: 0, liMin: 0.65, liMax: 1.2, liUntil: 100, endPenalty: -1000 },
   };
   function rewardTerms(d, cfg) {
     let gated = d.Te0 > 10 && d.Ti0 > 10;
     if (cfg.gate === "temp+plh") gated = gated && d.psolPlh >= 1;
     if (cfg.gate === "pedestal") gated = d.hped > 0.5 && d.psolPlh >= 1;
+    if (cfg.gate === "mode") gated = d.mode === 1 && d.Psol >= (cfg.margin || 1) * (d.plhMul || 1) * d.PLH;
     const terms = {
       fusion: gated ? (cfg.wQ * Math.min(d.Q, cfg.qCap)) / 10 : 0,
       h98: gated ? cfg.wH * Math.min(d.H98, 1) : 0,
@@ -475,11 +508,13 @@
         why = "numerical failure";
         break;
       }
-      if (d.fgw > cfg.endFgw || d.q95 < cfg.endQ95) {
+      const liOut = cfg.liUntil !== undefined && d.t <= cfg.liUntil && (d.li < cfg.liMin || d.li > cfg.liMax);
+      if (d.fgw > cfg.endFgw || d.q95 < cfg.endQ95 || liOut) {
         ret += cfg.endPenalty;
         per.push({ total: cfg.endPenalty, fusion: 0, h98: 0, qmin: 0, q95: 0, penalty: cfg.endPenalty });
         endT = d.t;
-        why = d.fgw > cfg.endFgw ? `Greenwald fraction ${d.fgw.toFixed(2)} > ${cfg.endFgw}` : `q95 ${d.q95.toFixed(2)} < ${cfg.endQ95}`;
+        why = d.fgw > cfg.endFgw ? `Greenwald fraction ${d.fgw.toFixed(2)} > ${cfg.endFgw}`
+          : liOut ? `l_i ${d.li.toFixed(2)} outside [${cfg.liMin}, ${cfg.liMax}] at t = ${d.t} s` : `q95 ${d.q95.toFixed(2)} < ${cfg.endQ95}`;
         break;
       }
       const tr = rewardTerms(d, cfg);
@@ -525,5 +560,5 @@
     return recs;
   }
 
-  return { create, DEFAULTS, REWARD_PRESETS, rewardTerms, scoreEpisode, POLICIES, runEpisode, sigmavDT, tauIPB98, pLH, greenwald, MU0 };
+  return { create, DEFAULTS, PHYSICS, REWARD_PRESETS, rewardTerms, scoreEpisode, POLICIES, runEpisode, sigmavDT, tauIPB98, pLH, greenwald, MU0 };
 });
