@@ -386,9 +386,54 @@ svg.rt-ic { fill: none !important; }
 .lab-heatstrip .rt-note { margin-top: 0.15rem; font-size: 0.58rem; }
 .lab-scores-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .lab-scores-side .lab-score span { white-space: normal; font-size: 0.5rem; }
-/* full screen: the whole Lab, scrolling inside */
-.rt-lab:fullscreen { overflow-y: auto; background: var(--md-default-bg-color); padding: 1rem 1.2rem; }
-.rt-lab:fullscreen .lab-side { top: 0.5rem; max-height: calc(100vh - 1rem); }
+/* full screen: a layout of its own (lab.js moves the Lab's elements into .lab-fsgrid and back) */
+html.lab-fs-lock, html.lab-fs-lock body { overflow: hidden; }
+.rt-lab.lab-fs { position: fixed; inset: 0; z-index: 300; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; overflow: hidden; background: var(--md-default-bg-color); }
+.rt-lab.lab-fs::before, .rt-lab.lab-fs > .lab-top, .rt-lab.lab-fs > .lab-main { display: none; }
+.lab-fsgrid[hidden] { display: none; }
+.lab-fs .lab-fsgrid { display: grid; height: 100%; height: 100dvh; }
+.fs-desk .lab-fsgrid { grid-template-columns: minmax(15rem, 17rem) minmax(0, 1fr) minmax(23rem, 34%); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "top top top" "side stage inst" "play play play"; }
+.fs-phone .lab-fsgrid { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; grid-template-areas: "top" "stage" "inst" "play"; }
+.fs-top { grid-area: top; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; padding: 0.4rem 0.8rem; border-bottom: 1px solid var(--rt-rule); background: color-mix(in srgb, var(--md-default-bg-color) 85%, var(--md-primary-fg-color) 5%); }
+.fs-title { font-family: "Space Grotesk", sans-serif; font-size: 0.78rem; }
+.fs-scen { margin: 0; }
+.fs-preset { max-width: 16rem; font-size: 0.66rem; padding: 0.22rem 0.4rem; }
+.fs-top .lab-bar { position: static; margin: 0 0 0 auto; }
+.fs-side { grid-area: side; min-height: 0; overflow-y: auto; border-right: 1px solid var(--rt-rule); }
+.fs-side .lab-side, .fs-body .lab-side { position: static; max-height: none; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.fs-stage { grid-area: stage; min-height: 0; overflow: hidden; }
+.fs-stage .lab-panel { border: 0; border-radius: 0; background: transparent; padding: 0.4rem 0.7rem 0.3rem; }
+.lab-fs .lab-fold { cursor: default; }
+.lab-fs .lab-chev { display: none; }
+.fs-stage .lab-torus .lab-body > .rt-note, .lab-fs .lab-heatstrip .rt-note { display: none; }
+.fs-stage .lab-narr { min-height: 0; }
+.fs-inst { grid-area: inst; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--rt-rule); }
+.fs-tabs { flex: none; display: flex; gap: 0.25rem; padding: 0.4rem 0.6rem; overflow-x: auto; scrollbar-width: thin; border-bottom: 1px solid var(--rt-rule); }
+.fs-tabs .rt-chip { opacity: 1; white-space: nowrap; }
+.fs-tabs .rt-chip.on { background: var(--md-accent-fg-color); border-color: var(--md-accent-fg-color); color: #fff; }
+.fs-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0.2rem 0.2rem 0.6rem; }
+.fs-body > * { display: none; }
+.fs-body > .fs-on { display: block; }
+.fs-body .lab-panel { border: 0; border-radius: 0; background: transparent; }
+.fs-body .lab-heatstrip { border: 0; margin: 0; padding: 0.5rem 0.6rem; }
+.fs-inst .lab-kgrid { grid-template-columns: minmax(0, 1fr); }
+.fs-inst .lab-readout, .fs-inst .lab-ctl .lab-readout { grid-template-columns: repeat(auto-fill, minmax(6.4rem, 1fr)); }
+.fs-play { grid-area: play; border-top: 1px solid var(--rt-rule); background: color-mix(in srgb, var(--md-default-bg-color) 85%, var(--md-primary-fg-color) 5%); }
+.fs-play .lab-sec { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.8rem; border: 0; margin: 0; padding: 0.35rem 0.8rem; }
+.fs-play .lab-sec-title { display: none; }
+.fs-play .rt-controls { flex: none; margin: 0; gap: 0.3rem; }
+.fs-play .rt-ctl { flex: 1 1 14rem; display: flex; gap: 0.5rem; }
+.fs-play .rt-ctl input[type="range"] { flex: 1; width: auto; }
+.fs-play .rt-canvas-wrap { flex: 1.3 1 18rem; }
+.fs-phone .fs-inst { border-left: 0; }
+.fs-phone .fs-stage { border-bottom: 1px solid var(--rt-rule); }
+.fs-phone .fs-stage .lab-head { margin-bottom: 0.15rem; }
+.fs-phone .fs-play .rt-canvas-wrap, .fs-phone .fs-play .rt-select { display: none; }
+.fs-phone .fs-play .rt-ctl { flex-basis: 10rem; }
+.fs-phone .fs-preset { max-width: none; flex: 1 1 10rem; }
+.fs-phone .fs-title { display: none; }
+.fs-phone .lab-cards { top: 5.6rem; }
+.lab-fs .lab-cards { top: 3rem; }
 @media (max-width: 760px) {
   .lab-bar { position: static; justify-content: flex-start; flex-wrap: wrap; margin: 0 0 0.5rem; }
   .lab-tool span { display: none; }
@@ -409,3 +454,22 @@ svg.rt-ic { fill: none !important; }
   .lab-sb .lab-cls { display: none; }
   .lab-sb td { min-width: 3.2rem; padding: 0.2rem 0.15rem; }
 }
+.fs-desk .fs-tabs { flex-wrap: wrap; overflow-x: visible; }
+/* phone full screen: keep the plasma and the tabs both in view */
+.fs-phone .fs-top { padding: 0.3rem 0.5rem; gap: 0.3rem; }
+.fs-phone .fs-scen .rt-chip { padding: 0.22rem 0.5rem; }
+.fs-phone .fs-preset { flex: 1 1 8rem; min-width: 0; }
+.fs-phone .fs-top .lab-bar { margin: 0; flex-basis: 100%; justify-content: flex-end; }
+.fs-phone .fs-top .lab-tool { padding: 0.2rem 0.5rem; }
+.fs-phone .fs-stage .lab-panel { padding: 0.25rem 0.5rem 0.3rem; }
+.fs-phone .fs-stage .lab-title, .fs-phone .fs-stage .lab-eqbtn { display: none; }
+.fs-phone .fs-stage .lab-head { justify-content: flex-start; }
+.fs-phone .lab-hud-text { display: none; }
+.fs-phone .lab-narr { font-size: 0.6rem; line-height: 1.4; padding: 0.25rem 0.5rem; margin-top: 0.2rem; max-height: calc(4.2em + 0.5rem); overflow: hidden; cursor: pointer; }
+.fs-phone .lab-narr.open { max-height: none; }
+/* a phone on its side: the plasma on the left, the tabs on the right */
+.fs-land .lab-fsgrid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "top top" "stage inst" "play play"; }
+.fs-land .fs-stage { overflow-y: auto; border-bottom: 0; border-right: 1px solid var(--rt-rule); }
+.fs-land .fs-top .lab-bar { flex-basis: auto; margin-left: auto; }
+.fs-phone .fs-tabs { padding: 0.3rem 0.5rem; }
+.fs-phone .fs-play .lab-sec { padding: 0.25rem 0.5rem; gap: 0.2rem 0.5rem; }

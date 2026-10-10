@@ -1265,7 +1265,7 @@
         if (open) P.cvs.forEach((c) => c.fit());
         S.dirty = true;
       };
-      tbtn.addEventListener("click", () => P.set(!P.open, true));
+      tbtn.addEventListener("click", () => isFull() || P.set(!P.open, true));
       FOLDS.push(P);
       return P;
     }
@@ -1522,7 +1522,8 @@
       coilBtn.classList.toggle("on", S.coils);
     }, "rt-chip");
     const tv = canvas(pT.body, root.clientWidth < 560 ? 330 : 400);
-    const torus = makeTorus(tv, { topPad: 24 }); // room for the status over the plasma
+    const torusOpts = { topPad: 24 }; // room for the status over the plasma
+    const torus = makeTorus(tv, torusOpts);
     // the status of the shot, over the plasma: phase and confinement, who drives, the key numbers
     const hud = el("div", "lab-hud");
     tv.c.parentElement.appendChild(hud);
@@ -1531,6 +1532,7 @@
     // one line on what is happening at the cursor
     const narr = el("div", "lab-narr");
     narr.setAttribute("aria-live", "polite");
+    narr.addEventListener("click", () => narr.classList.toggle("open")); // on a phone in full screen it is clamped
     pT.body.appendChild(narr);
     // the two heating systems at human scale: frequency as colour and wavelength, power as brightness and height
     const hsBox = el("div", "lab-heatstrip");
@@ -1657,6 +1659,7 @@
       help: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.6-3 4.5M12 17.5h.01",
       grid: "M4 4h16v16H4zM4 9.3h16M4 14.6h16M9.3 4v16M14.6 4v16",
       full: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5",
+      exit: "M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5",
     };
     const svgIcon = (d) => `<svg class="lab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
     const bar = el("div", "lab-bar");
@@ -1697,6 +1700,7 @@
       for (const k in cards) cards[k].c.hidden = k !== openCard;
       for (const k in cards) if (tools[k]) tools[k].setAttribute("aria-pressed", String(k === openCard));
       if (openCard === "scores" && SB.scen !== S.scen && !SB.running) runScoreboard();
+      tools.story.setAttribute("aria-pressed", String(isFull() ? openCard === "fsstory" : !story.hidden));
     }
     function setStory(on) {
       story.hidden = !on;
@@ -1704,20 +1708,175 @@
       tools.story.setAttribute("aria-pressed", String(on));
       store.set("story", on);
     }
-    tool("story", "story", "Story", "Show or hide the story of the preset above the Lab", () => setStory(story.hidden));
+    tool("story", "story", "Story", "Show or hide the story of the preset", () => (isFull() ? showCard("fsstory") : setStory(story.hidden)));
     tools.story.setAttribute("aria-pressed", String(!story.hidden));
     tool("layers", "tag", "Labels", "What is drawn on the plasma (L)", () => showCard("layers"));
     tool("acr", "az", "A–Z", "Acronyms and symbols spelled out", () => showCard("acr"));
     tool("about", "help", "About", "How to read the plasma view, and the keys (?)", () => showCard("about"));
     tool("scores", "grid", "Scoreboard", "Every preset on the Lab against the uncertain input (S)", () => showCard("scores"));
     const fullBtn = tool("full", "full", "", "Full screen (F)", () => toggleFull());
-    const isFull = () => document.fullscreenElement === root;
+
+    // ================================================ full screen: a layout of its own, for desktop and for phones
+    // Desktop (wide): scenario, preset and tools on a top bar; the side pane on the left; the plasma in the middle,
+    // as large as the screen allows; one instrument at a time on the right (tabs); playback along the bottom.
+    // Phone (narrow or portrait): the plasma on top, tabs under it (the controls are one of them), playback at the
+    // bottom. The Lab's own elements move into this layout and back. The browser's full screen is used where it
+    // exists; elsewhere (iPhones) the Lab simply covers the page.
+    const isFull = () => root.classList.contains("lab-fs");
+    const fs = el("div", "lab-fsgrid");
+    fs.hidden = true;
+    root.appendChild(fs);
+    const fsTop = el("div", "fs-top"), fsSide = el("div", "fs-side"), fsStage = el("div", "fs-stage"), fsInst = el("div", "fs-inst"), fsPlay = el("div", "fs-play");
+    const fsTabs = el("div", "fs-tabs"), fsBody = el("div", "fs-body");
+    fsTabs.setAttribute("role", "tablist");
+    fsInst.append(fsTabs, fsBody);
+    fs.append(fsTop, fsSide, fsStage, fsInst, fsPlay);
+    const fsScen = el("div", "lab-seg fs-scen");
+    const fsScenBtns = {
+      benchmark: button(fsScen, "Benchmark", () => setScenario("benchmark"), "rt-chip"),
+      physics: button(fsScen, "Physics env.", () => setScenario("physics"), "rt-chip"),
+    };
+    const fsPreset = document.createElement("select");
+    fsPreset.className = "rt-select fs-preset";
+    fsPreset.setAttribute("aria-label", "Preset");
+    fsPreset.addEventListener("change", () => fsPreset.value && load(fsPreset.value));
+    fsTop.append(el("b", "fs-title", "Ramp-up Lab"), fsScen, fsPreset);
+    const cFsStory = card("fsstory", "What this preset shows");
+    function fsSync() {
+      for (const k in fsScenBtns) fsScenBtns[k].classList.toggle("on", k === S.scen);
+      const opt = (k, lab) => `<option value="${k}">${lab}</option>`;
+      fsPreset.innerHTML = ["open", "feedback", "human"].map((c) => {
+        const items = PRESETS.filter((q) => q.ctrl === c && presetBtns[q.key] && !presetBtns[q.key].hidden).map((q) => opt(q.key, q.label));
+        if (c === "feedback") items.push(...Object.entries(EXTRA).filter(([k, v]) => v.scen === S.scen && LAB[k]).map(([k, v]) => opt(k, v.label)));
+        return items.length ? `<optgroup label="${CTRL[c].tag}">${items.join("")}</optgroup>` : "";
+      }).join("");
+      fsPreset.value = S.key;
+    }
+    // what goes into the tabs: in the desktop layout the controls and the heating strip have places of their own
+    const FS_ITEMS = [
+      { id: "controls", lab: "Controls", node: () => side, phone: true },
+      { id: "numbers", lab: "Numbers", P: () => pN },
+      { id: "heat", lab: "Heating", node: () => hsBox, phone: true },
+      { id: "knobs", lab: "Knobs", P: () => pK },
+      { id: "traces", lab: "Traces", P: () => pX },
+      { id: "profiles", lab: "Profiles", P: () => pP },
+      { id: "ops", lab: "Operating space", P: () => pO },
+      { id: "maps", lab: "Maps", P: () => pM },
+      { id: "power", lab: "Power", P: () => pB },
+      { id: "reward", lab: "Reward", P: () => pR },
+      { id: "setup", lab: "Set-up", P: () => pA },
+      { id: "design", lab: "Reward design", P: () => pDz },
+    ];
+    const home = new Map(); // element -> [parent, next sibling] before it moved
+    function place(node, parent) {
+      if (!home.has(node)) home.set(node, [node.parentNode, node.nextSibling]);
+      parent.appendChild(node);
+    }
+    function goHome() {
+      [...home.entries()].reverse().forEach(([node, [parent, next]]) => parent.insertBefore(node, next));
+      home.clear();
+    }
+    let fsMode = null, fsSaved = null, tvH0 = tv.h;
+    const fsItems = () => FS_ITEMS.filter((it) => (fsMode !== "desk" || !it.phone) && (it.id !== "heat" || layers.heatstrip));
+    const itemNode = (it) => (it.P ? it.P().p : it.node());
+    function fsLayout(force) {
+      if (!isFull()) return;
+      // desk: wide screens; land: a phone on its side (plasma left, tabs right); phone: upright
+      const mode = innerWidth >= 900 && innerWidth >= innerHeight * 0.9 ? "desk" : innerWidth > innerHeight ? "land" : "phone";
+      if (mode !== fsMode || force) {
+        goHome();
+        fsMode = mode;
+        root.classList.toggle("fs-desk", mode === "desk");
+        root.classList.toggle("fs-phone", mode !== "desk");
+        root.classList.toggle("fs-land", mode === "land");
+        torusOpts.topPad = mode === "desk" ? 24 : 4;
+        place(bar, fsTop);
+        place(sPlay, fsPlay);
+        place(pT.p, fsStage);
+        place(story, cFsStory.body);
+        if (mode === "desk") place(side, fsSide);
+        fsTabs.innerHTML = "";
+        for (const it of fsItems()) {
+          place(itemNode(it), fsBody);
+          const b = button(fsTabs, it.lab, () => fsShowTab(it.id), "rt-chip");
+          b.dataset.tab = it.id;
+          b.setAttribute("role", "tab");
+        }
+        story.hidden = false;
+        pT.set(true);
+        fsShowTab(store.get("fs-tab-" + mode, mode === "desk" ? "numbers" : "controls"));
+      }
+      requestAnimationFrame(fsFit);
+    }
+    function fsShowTab(id) {
+      const items = fsItems();
+      const cur = items.find((it) => it.id === id) || items[0];
+      for (const it of items) {
+        const on = it === cur;
+        itemNode(it).classList.toggle("fs-on", on);
+        if (it.P) it.P().set(on);
+      }
+      fsTabs.querySelectorAll("button").forEach((b) => {
+        b.classList.toggle("on", b.dataset.tab === cur.id);
+        b.setAttribute("aria-selected", String(b.dataset.tab === cur.id));
+      });
+      store.set("fs-tab-" + fsMode, cur.id);
+      if (cur.id === "heat") hsv.fit();
+      if (cur.id === "controls") (sv.fit(), tl.fit());
+      S.dirty = true;
+    }
+    // the plasma as large as the stage allows (desktop); about 40 % of the screen height on a phone
+    function fsFit() {
+      if (!isFull()) return;
+      const others = pT.p.offsetHeight - tv.c.offsetHeight;
+      tv.h = Math.round(fsMode === "phone" ? Math.max(200, Math.min(innerHeight * 0.34, innerWidth * 0.95)) : Math.max(fsMode === "land" ? 160 : 260, fsStage.clientHeight - others - 4));
+      fitAll();
+    }
+    function fsEnter() {
+      fsSaved = new Map(FOLDS.map((P) => [P, P.open]));
+      tvH0 = tv.h;
+      root.classList.add("lab-fs");
+      fs.hidden = false;
+      document.documentElement.classList.add("lab-fs-lock");
+      fsSync();
+      fsLayout(true);
+      fullBtn.innerHTML = `${svgIcon(ICON.exit)}<span></span>`;
+      fullBtn.title = "Leave full screen (F or Esc)";
+      fullBtn.setAttribute("aria-pressed", "true");
+      if (root.requestFullscreen && !document.fullscreenElement) root.requestFullscreen().catch(() => {});
+    }
+    function fsExit() {
+      if (!isFull()) return;
+      showCard(null);
+      goHome();
+      root.classList.remove("lab-fs", "fs-desk", "fs-phone", "fs-land");
+      torusOpts.topPad = 24;
+      narr.classList.remove("open");
+      fs.hidden = true;
+      fsMode = null;
+      document.documentElement.classList.remove("lab-fs-lock");
+      FOLDS.forEach((P) => P.set(fsSaved.get(P)));
+      FS_ITEMS.forEach((it) => itemNode(it).classList.remove("fs-on"));
+      story.hidden = store.get("story", true) === false;
+      tv.h = tvH0;
+      fullBtn.innerHTML = `${svgIcon(ICON.full)}<span></span>`;
+      fullBtn.title = "Full screen (F)";
+      fullBtn.setAttribute("aria-pressed", "false");
+      if (document.fullscreenElement === root) document.exitFullscreen().catch(() => {});
+      requestAnimationFrame(() => (fitAll(), pT.p.scrollIntoView({ block: "nearest" })));
+    }
     function toggleFull(force) {
       const on = force === undefined ? !isFull() : force;
-      if (on && root.requestFullscreen && !isFull()) root.requestFullscreen().catch(() => {});
-      if (!on && isFull()) document.exitFullscreen().catch(() => {});
+      on ? fsEnter() : fsExit();
     }
-    document.addEventListener("fullscreenchange", () => fullBtn.setAttribute("aria-pressed", String(isFull())));
+    // leaving the browser's full screen (Esc) leaves the layout too
+    document.addEventListener("fullscreenchange", () => !document.fullscreenElement && isFull() && fsExit());
+    let fsRaf = 0;
+    window.addEventListener("resize", () => {
+      if (!isFull()) return;
+      cancelAnimationFrame(fsRaf);
+      fsRaf = requestAnimationFrame(() => fsLayout(false));
+    });
 
     // ---- labels: the layers drawn on the plasma
     const cLay = card("layers", "Labels on the plasma");
@@ -2040,7 +2199,7 @@
       const col = colors(), { ctx, w, h } = hsv;
       ctx.clearRect(0, 0, w, h);
       const tnow = REDUCED_MOTION ? 0.4 : performance.now() / 1000;
-      const narrow = w < 520;
+      const narrow = w < 440;
       const x0 = narrow ? 92 : Math.min(150, w * 0.3), x1 = narrow ? w - 6 : w - Math.min(190, w * 0.32), lane = 24, top = 4;
       const ec = d ? d.Pecrh : 0, nb = d ? d.Pnbi : 0;
       const lam0 = 64, vpx = 70; // ECRH drawn wavelength [px] and the speed of light on screen [px/s]
@@ -2257,6 +2416,7 @@
       resetParams(true);
       applyScenarioUI();
       if (!noLoad) load(S.key === "sandbox" ? "sandbox" : sc === "physics" ? "phys_pi" : "pi");
+      else if (isFull()) fsSync();
     }
     function load(key) {
       const p = presetOf(key);
@@ -2304,7 +2464,8 @@
       driveBox.hidden = S.mode !== "drive";
       takeBtn.hidden = S.mode === "drive";
       renderStory(STORIES[key] || EXTRA_STORY(p.label));
-      if (story.hidden && tools.story) tools.story.classList.add("news");
+      if (isFull()) fsSync();
+      else if (story.hidden && tools.story) tools.story.classList.add("news");
       S.dirty = true;
     }
     function renderStory(st) {
@@ -3208,6 +3369,7 @@
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "Escape") {
         if (openCard) showCard(null);
+        else if (isFull()) fsExit();
         return;
       }
       if (tag === "INPUT" && e.target.type !== "range" && e.target.type !== "checkbox") return;
@@ -3583,6 +3745,11 @@
       for (const [P, fn] of SUM) P.sum.textContent = P.open ? "" : fn();
     }
 
+    function fitAll() {
+      [tv, hsv, kv, ks, sv, tl, mv, bv, ra, xv, pv, ov, rv].forEach((c) => c.fit());
+      S.dirty = true;
+    }
+
     // ------------------------------------------------ main loop (pauses when off-screen)
     let visible = true, acc = 0, lastTs = 0;
     if (window.IntersectionObserver) new IntersectionObserver((es) => (visible = es[0].isIntersecting)).observe(root);
@@ -3651,27 +3818,13 @@
       if (tm) setParam("transportMul", clamp(tm, 0.5, 2), true);
       if (params.get("play") === "1") togglePlay();
       FOLDS.forEach((P) => store.get("fold-" + P.id, true) === false && P.set(false));
+      if (params.get("full") === "1") fsEnter();
       S.dirty = true;
       requestAnimationFrame(frameLoop);
     });
     return {
       redraw: () => (S.dirty = true),
-      resize: () => {
-        tv.fit();
-        hsv.fit();
-        kv.fit();
-        ks.fit();
-        sv.fit();
-        tl.fit();
-        mv.fit();
-        bv.fit();
-        ra.fit();
-        xv.fit();
-        pv.fit();
-        ov.fit();
-        rv.fit();
-        S.dirty = true;
-      },
+      resize: () => (isFull() ? fsFit() : fitAll()),
     };
   }
   RT.register("lab", wLab);

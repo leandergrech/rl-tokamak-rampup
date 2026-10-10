@@ -95,9 +95,9 @@
       const w = Math.max(280, holder.clientWidth);
       const dpr = window.devicePixelRatio || 1;
       c.width = Math.round(w * dpr);
-      c.height = Math.round(height * dpr);
+      c.height = Math.round(st.h * dpr); // st.h may be changed after creation (the Lab's full-screen layout)
       c.style.width = w + "px";
-      c.style.height = height + "px";
+      c.style.height = st.h + "px";
       st.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       st.w = w;
       return st;
