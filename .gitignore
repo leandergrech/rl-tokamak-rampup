@@ -20,3 +20,4 @@ data/physics/runs/*/policy*.pt
 data/*/.cache/
 data/.cache/
 .claude/launch.json
+node_modules/

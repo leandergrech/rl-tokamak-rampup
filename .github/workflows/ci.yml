@@ -31,3 +31,30 @@ jobs:
       - name: Docs build
         if: matrix.extras == 'dev'
         run: mkdocs build --strict
+
+  lab-mobile:
+    # HMI-MOBILE-SPEC.md: the Ramp-up Lab on phones, checked in a headless browser on six phone profiles and a
+    # desktop. The two timing checks are advisory on shared runners (scripts/check_lab_mobile.mjs --strict-timing).
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "mkdocs>=1.6,<2" "mkdocs-material>=9.5"
+      - run: mkdocs build --strict
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Playwright library (the runner's Chrome is used)
+        run: npm install --no-save --no-package-lock playwright-core@1.50.1
+      - name: Mobile acceptance tests
+        run: node scripts/check_lab_mobile.mjs --site site --report lab-mobile-report.json --shots lab-mobile-shots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lab-mobile
+          path: |
+            lab-mobile-report.json
+            lab-mobile-shots
