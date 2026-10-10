@@ -1,5 +1,8 @@
 /* Primer widgets built on the reduced ramp-up model (tokamak-model.js):
- *   lab      the Ramp-up Lab: presets that replay recorded TORAX actions, a sandbox you drive, a benchmark designer
+ *   lab      the Ramp-up Lab: presets that replay recorded TORAX actions, a sandbox you drive, a benchmark designer.
+ *            Around the plasma view: a status chip, event callouts, hover tooltips, one line of narration and the
+ *            heating at human scale; a toolbar of cards (story, labels, acronyms, about, scoreboard) and full screen;
+ *            every panel folds to a one-line summary.
  *   machine  the tokamak as a 3D picture: coils, plasma current, field lines, actuators
  *   power    0-D power balance: heating vs losses, fusion gain, and why Q explodes when P_aux -> 0
  *   opspace  the operating space (Greenwald fraction vs 1/q95) with recorded TORAX trajectories
@@ -1163,6 +1166,25 @@
     // H-mode as the physics environment pays it: TORAX's state is H and P_heat ≥ 1.2 × the plasma's true threshold
     const physPaid = (d) => d.mode === 1 && d.Psol >= 1.2 * (d.plhMul || 1) * d.PLH;
     const POLICY = {}; // exported networks, fetched when live mode is first switched on
+    // per-viewer conveniences (layers on the plasma, folded panels, the story's visibility); the Lab works without them
+    const store = {
+      get(k, d) {
+        try {
+          const v = localStorage.getItem("rt-lab-" + k);
+          return v === null ? d : JSON.parse(v);
+        } catch (e) {
+          return d;
+        }
+      },
+      set(k, v) {
+        try {
+          localStorage.setItem("rt-lab-" + k, JSON.stringify(v));
+        } catch (e) {
+          /* private window: keep it for this visit only */
+        }
+      },
+    };
+    const layers = Object.assign({ labels: true, lines: true, beams: true, callouts: true, narration: true, heatstrip: true }, store.get("layers", {}));
 
     // ------------------------------------------------ layout
     // Above: who turns the knobs (the presets) and the story. Below that a workspace: a side pane that stays in
@@ -1197,6 +1219,7 @@
     groups.feedback.appendChild(more);
     const story = el("div", "lab-story");
     top.appendChild(story);
+    story.hidden = store.get("story", true) === false;
 
     const main = el("div", "lab-main");
     root.appendChild(main);
@@ -1208,10 +1231,17 @@
     content.appendChild(grid);
     const below = el("div", "lab-grid lab-below");
     content.appendChild(below);
+    // every panel folds to its title (click it) and then shows a one-line summary; the state is remembered
+    const FOLDS = [];
     function panel(cls, title, eqIds, parent) {
       const p = el("section", "lab-panel " + cls);
       const head = el("div", "lab-head");
-      head.appendChild(el("span", "lab-title", title));
+      const tbtn = el("button", "lab-title lab-fold", `<span class="lab-chev" aria-hidden="true"></span>${title}`);
+      tbtn.type = "button";
+      tbtn.title = "Fold or unfold this panel";
+      tbtn.setAttribute("aria-expanded", "true");
+      const sum = el("span", "lab-sum");
+      head.append(tbtn, sum);
       const tools = el("span", "lab-tools");
       head.appendChild(tools);
       p.appendChild(head);
@@ -1226,7 +1256,18 @@
         }, "rt-chip lab-eqbtn");
       }
       (parent || grid).appendChild(p);
-      return { p, head, tools, body, drawer };
+      const P = { p, head, tools, body, drawer, sum, cvs: [], open: true, summary: null, id: cls.split(" ")[0] };
+      P.set = (open, byUser) => {
+        P.open = open;
+        p.classList.toggle("folded", !open);
+        tbtn.setAttribute("aria-expanded", String(open));
+        if (byUser) store.set("fold-" + P.id, open);
+        if (open) P.cvs.forEach((c) => c.fit());
+        S.dirty = true;
+      };
+      tbtn.addEventListener("click", () => P.set(!P.open, true));
+      FOLDS.push(P);
+      return P;
     }
     function select(parent, label, opts, value, on) {
       const wrap = el("label", "rt-ctl");
@@ -1366,10 +1407,11 @@
     spd.addEventListener("change", () => (S.speed = +spd.value));
     tRow.appendChild(spd);
     button(tRow, "Pin", () => pinRun(), "rt-btn").title = "Keep this run as a grey line while you try something else (up to three)";
-    button(tRow, "Clear", () => {
+    const clearBtn = button(tRow, "Clear pins", () => {
       S.pins = [];
       S.dirty = true;
-    }, "rt-btn").title = "Clear the pinned runs";
+    }, "rt-btn");
+    clearBtn.title = "Remove the pinned runs from every plot";
     const tSl = slider(sPlay, "time", 0, 151, 1, 0, (v) => v + " s", (v) => {
       S.cursor = Math.min(v, S.recs.length - 1);
       S.playing = false;
@@ -1392,7 +1434,8 @@
     sCtl.appendChild(tuneBox);
     const tKp = slider(tuneBox, "PI gain k_p", 0, 3, 0.05, 1, fmtX, (v) => setTune("kpMul", v));
     const tKi = slider(tuneBox, "PI gain k_i", 0, 3, 0.05, 1, fmtX, (v) => setTune("kiMul", v));
-    const tJ = slider(tuneBox, "PI target j(0) at 100 s", 1, 4.5, 0.05, 2, (v) => v.toFixed(2), (v) => setTune("jEnd", v * 1e6));
+    const tJ = slider(tuneBox, "PI j(0) target", 1, 4.5, 0.05, 2, (v) => v.toFixed(2) + " MA/m²", (v) => setTune("jEnd", v * 1e6));
+    tJ.input.parentElement.title = "The central current density PI steers towards at 100 s; its target rises linearly from 0.6 MA/m² at the start.";
     const corrWrap = el("div", "");
     tuneBox.appendChild(corrWrap);
     const tCorr = slider(corrWrap, "network correction", 0, 2, 0.05, 1, fmtX, (v) => setTune("corrMul", v));
@@ -1443,7 +1486,7 @@
     // plasma: the salient parameters
     const sPl = section("Plasma");
     pedChips(sPl);
-    const physNote = el("div", "lab-side-note", "Pedestal: <b>earned by power</b>, as in TORAX 1.4 (L-H when P_heat > the threshold, back below the hysteresis fraction). Move the true threshold: the Martin scaling's 95 % interval for ITER is 0.54–1.85 ×.");
+    const physNote = el("div", "lab-side-note", "Pedestal <b>earned by power</b>, as in TORAX 1.4. The true threshold is uncertain: 0.54–1.85 × the Martin scaling (95 %).");
     sPl.appendChild(physNote);
     PHYS_UI.push(physNote);
     const plRow = controls(sPl);
@@ -1478,9 +1521,24 @@
       S.coils = !S.coils;
       coilBtn.classList.toggle("on", S.coils);
     }, "rt-chip");
-    const tv = canvas(pT.body, root.clientWidth < 560 ? 300 : 370);
-    const torus = makeTorus(tv, {});
-    note(pT.body, "Drag to rotate. Colours: the chosen profile on two cut faces; red ring: the q = 1 surface; field lines on three flux surfaces wind with the local q.");
+    const tv = canvas(pT.body, root.clientWidth < 560 ? 330 : 400);
+    const torus = makeTorus(tv, { topPad: 24 }); // room for the status over the plasma
+    // the status of the shot, over the plasma: phase and confinement, who drives, the key numbers
+    const hud = el("div", "lab-hud");
+    tv.c.parentElement.appendChild(hud);
+    const hudChip = el("span", "lab-hud-chip"), hudText = el("div", "lab-hud-text"), hudTags = el("div", "lab-hud-tags");
+    hud.append(hudChip, hudText, hudTags);
+    // one line on what is happening at the cursor
+    const narr = el("div", "lab-narr");
+    narr.setAttribute("aria-live", "polite");
+    pT.body.appendChild(narr);
+    // the two heating systems at human scale: frequency as colour and wavelength, power as brightness and height
+    const hsBox = el("div", "lab-heatstrip");
+    pT.body.appendChild(hsBox);
+    const hsv = canvas(hsBox, 104);
+    note(hsBox, "Heating at human scale. Wavelengths are compressed (10× the frequency draws 1.8× shorter) and the light is slowed about 10¹¹×; ECRH's cyan is a false colour, the beam's red Balmer-α light is real. Taller and brighter: more power. The atoms fly at 3 % of light speed, drawn faster than that.");
+    note(pT.body, "Drag to rotate; hover any part for its name and live values (tap on a phone). <b>About</b>, top right, explains the colours.");
+    pT.cvs.push(tv, hsv);
     // ---- numbers at the cursor
     const pN = panel("lab-ctl", "Numbers at the cursor", ["reward", "flux"]);
     const readout = el("div", "lab-readout");
@@ -1496,10 +1554,12 @@
     kGrid.append(kLeft, kRight);
     const kv = canvas(kLeft, 318);
     const ks = canvas(kRight, 318);
+    pK.cvs.push(kv, ks);
 
     // ---- traces
     const pX = panel("lab-traces", "Traces: the episode so far (solid: Lab, dashed: TORAX)", ["fusion", "ipb98", "plh"]);
     const xv = canvas(pX.body, 560);
+    pX.cvs.push(xv);
     // ---- profiles
     const pP = panel("lab-prof", "Radial profiles at the cursor", ["heat", "pedestal"]);
     const tabRow = el("span", "lab-seg");
@@ -1515,9 +1575,11 @@
       }, "rt-chip");
     }
     const pv = canvas(pP.body, 270);
+    pP.cvs.push(pv);
     // ---- operating space
     const pO = panel("lab-ops", "Operating space", ["greenwald", "q", "betaN"]);
     const ov = canvas(pO.body, 270);
+    pO.cvs.push(ov);
     // ---- space-time maps
     const pM = panel("lab-maps", "Space-time maps: each profile through the whole episode", ["diffusion", "heat", "q"]);
     const mapRow = el("span", "lab-seg");
@@ -1532,10 +1594,12 @@
     }
     S.mapTab = "T";
     const mv = canvas(pM.body, 330);
+    pM.cvs.push(mv);
     note(pM.body, "Time runs left to right, the minor radius ρ̂ bottom (axis) to top (edge). Red line: the q = 1 surface; dashed: the pedestal top; dots: where the NBI (orange) and ECRH (cyan) power goes. The part after the cursor is dimmed. Underneath: the same map from TORAX where its profiles were recorded (PI, open loop, heating cut, PPO on PI, MBPO on PI), otherwise a second quantity from the Lab.");
     // ---- power and current balance
     const pB = panel("lab-balance", "Where the power and the current come from", ["sources", "plh", "bootstrap"]);
     const bv = canvas(pB.body, 340);
+    pB.cvs.push(bv);
     // ---- reward over time
     const pR = panel("lab-reward", "Reward: this second, and through the episode", ["reward", "audited"]);
     const rewRow = el("span", "lab-seg");
@@ -1550,6 +1614,7 @@
     });
     const rv = canvas(pR.body, 150);
     const ra = canvas(pR.body, 190);
+    pR.cvs.push(rv, ra);
     const audit = el("div", "lab-audit");
     pR.body.appendChild(audit);
 
@@ -1580,6 +1645,493 @@
     select(cRow3, "or q95 <", [["0", "never"], ["2", "2"], ["2.5", "2.5"], ["3", "3"]], "0", (v) => ((S.custom.endQ95 = +v), (S.dirty = true)));
     select(cRow3, "with", [["-1000", "−1000"], ["-10", "−10"], ["-1", "−1"], ["0", "0"]], "-1000", (v) => ((S.custom.endPenalty = +v), (S.dirty = true)));
     note(pDz.body, "The benchmark and audited rewards are fixed; this one is yours. Its return appears in the side pane and as the third bar and curve of the reward panel.");
+
+
+    // ================================================ toolbar and information cards (top right)
+    // Story folds the story above; the other buttons open one card at a time. Keys: ? About, L labels, S scoreboard,
+    // F full screen, Esc closes.
+    const ICON = {
+      story: "M4 5.5C6.5 4.5 9.5 4.5 12 6c2.5-1.5 5.5-1.5 8-.5v13c-2.5-1-5.5-1-8 .5-2.5-1.5-5.5-1.5-8-.5zM12 6v13",
+      tag: "M3 12V4h8l10 10-8 8L3 12zM7.5 8.5h.01",
+      az: "M3 18l4-12 4 12M4.3 14h5.4M14 6h7l-7 12h7",
+      help: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.6-3 4.5M12 17.5h.01",
+      grid: "M4 4h16v16H4zM4 9.3h16M4 14.6h16M9.3 4v16M14.6 4v16",
+      full: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5",
+    };
+    const svgIcon = (d) => `<svg class="lab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
+    const bar = el("div", "lab-bar");
+    bar.setAttribute("role", "toolbar");
+    bar.setAttribute("aria-label", "Lab tools");
+    root.insertBefore(bar, root.firstChild);
+    const cardBox = el("div", "lab-cards");
+    bar.after(cardBox);
+    const tools = {}, cards = {};
+    let openCard = null;
+    function tool(id, icon, text, title, on) {
+      const b = el("button", "lab-tool", `${svgIcon(ICON[icon])}<span>${text}</span>`);
+      b.type = "button";
+      b.title = title;
+      b.setAttribute("aria-label", title);
+      b.addEventListener("click", on);
+      bar.appendChild(b);
+      return (tools[id] = b);
+    }
+    function card(id, title, wide) {
+      const c = el("section", "lab-card" + (wide ? " wide" : ""));
+      c.setAttribute("role", "dialog");
+      c.setAttribute("aria-label", title);
+      const h = el("div", "lab-card-head", `<b>${title}</b>`);
+      const x = el("button", "lab-card-x", "×");
+      x.type = "button";
+      x.setAttribute("aria-label", "Close");
+      x.addEventListener("click", () => showCard(null));
+      h.appendChild(x);
+      const body = el("div", "lab-card-body");
+      c.append(h, body);
+      c.hidden = true;
+      cardBox.appendChild(c);
+      return (cards[id] = { c, body });
+    }
+    function showCard(id) {
+      openCard = openCard === id ? null : id;
+      for (const k in cards) cards[k].c.hidden = k !== openCard;
+      for (const k in cards) if (tools[k]) tools[k].setAttribute("aria-pressed", String(k === openCard));
+      if (openCard === "scores" && SB.scen !== S.scen && !SB.running) runScoreboard();
+    }
+    function setStory(on) {
+      story.hidden = !on;
+      tools.story.classList.remove("news");
+      tools.story.setAttribute("aria-pressed", String(on));
+      store.set("story", on);
+    }
+    tool("story", "story", "Story", "Show or hide the story of the preset above the Lab", () => setStory(story.hidden));
+    tools.story.setAttribute("aria-pressed", String(!story.hidden));
+    tool("layers", "tag", "Labels", "What is drawn on the plasma (L)", () => showCard("layers"));
+    tool("acr", "az", "A–Z", "Acronyms and symbols spelled out", () => showCard("acr"));
+    tool("about", "help", "About", "How to read the plasma view, and the keys (?)", () => showCard("about"));
+    tool("scores", "grid", "Scoreboard", "Every preset on the Lab against the uncertain input (S)", () => showCard("scores"));
+    const fullBtn = tool("full", "full", "", "Full screen (F)", () => toggleFull());
+    const isFull = () => document.fullscreenElement === root;
+    function toggleFull(force) {
+      const on = force === undefined ? !isFull() : force;
+      if (on && root.requestFullscreen && !isFull()) root.requestFullscreen().catch(() => {});
+      if (!on && isFull()) document.exitFullscreen().catch(() => {});
+    }
+    document.addEventListener("fullscreenchange", () => fullBtn.setAttribute("aria-pressed", String(isFull())));
+
+    // ---- labels: the layers drawn on the plasma
+    const cLay = card("layers", "Labels on the plasma");
+    const LAYER_TEXT = [
+      ["labels", "Part names", "central solenoid, launcher, injector, rational surfaces"],
+      ["lines", "Field lines", "on three flux surfaces, winding with the local q"],
+      ["beams", "Heating beams", "the ECRH microwave and the NBI atoms in the machine"],
+      ["callouts", "Event callouts", "heating on, transitions, q_min < 1, limits, as they happen"],
+      ["narration", "Narration", "one line under the plasma on what is happening"],
+      ["heatstrip", "Heating at human scale", "the two heating systems side by side: frequency, wavelength, power"],
+    ];
+    const layerChecks = {};
+    LAYER_TEXT.forEach(([k, t, d]) => {
+      const lab = el("label", "lab-check");
+      const c = document.createElement("input");
+      c.type = "checkbox";
+      c.checked = !!layers[k];
+      c.addEventListener("change", () => setLayer(k, c.checked));
+      lab.append(c, el("span", "", `<b>${t}</b><small>${d}</small>`));
+      cLay.body.appendChild(lab);
+      layerChecks[k] = c;
+    });
+    cLay.body.appendChild(el("p", "lab-card-more", "Hover a part of the plasma (or tap it on a touch screen) for its name and live values. <kbd>L</kbd> toggles the part names."));
+    function setLayer(k, on) {
+      layers[k] = on;
+      if (layerChecks[k]) layerChecks[k].checked = on;
+      store.set("layers", layers);
+      narr.hidden = !layers.narration;
+      hsBox.hidden = !layers.heatstrip;
+      if (layers.heatstrip) hsv.fit();
+      S.dirty = true;
+    }
+    narr.hidden = !layers.narration;
+    hsBox.hidden = !layers.heatstrip;
+
+    // ---- acronyms
+    const ACRONYMS = [
+      ["Machine and heating", [["ITER", "the tokamak under construction in France; the scenario here is its hybrid ramp-up"], ["TORAX", "Google DeepMind's open-source transport simulator; Gym-TORAX wraps it as an RL environment"], ["CS", "central solenoid, the transformer that drives the current"], ["NBI", "neutral beam injection: 1 MeV deuterium atoms, 33 MW"], ["ECRH", "electron cyclotron resonance heating: 170 GHz microwaves, 20 MW"], ["ECCD", "electron cyclotron current drive"], ["Balmer-α (D-α)", "the red 656 nm line deuterium atoms emit when excited"]]],
+      ["Plasma", [["I_p", "plasma current [MA]"], ["j(0)", "current density on the magnetic axis [MA/m²]"], ["q, q_min, q95", "safety factor: toroidal turns per poloidal turn of a field line; its minimum; its value at 95 % of the flux"], ["ρ̂", "normalised minor radius, 0 on axis, 1 at the edge"], ["T_e, T_i", "electron and ion temperature [keV]"], ["n_e, f_GW", "electron density; its ratio to the Greenwald limit"], ["P_LH", "the L-H threshold power (Martin 2008 scaling)"], ["P_SOL, P_heat", "power leaving across the edge; heating power as TORAX 1.4 compares it with P_LH"], ["L-mode, H-mode", "low and high confinement; H-mode has an edge pedestal"], ["H98", "confinement time relative to the IPB98(y,2) scaling"], ["Q", "fusion gain: fusion power over heating power"], ["β_N", "normalised plasma pressure"], ["l_i(3)", "internal inductance: how peaked the current is"], ["V_loop", "loop voltage"]]],
+      ["Controllers and learning", [["PI", "proportional-integral feedback controller"], ["RL", "reinforcement learning"], ["PPO", "proximal policy optimisation (model-free RL)"], ["MBPO", "model-based policy optimisation"], ["TD3+BC", "offline RL: TD3 with a behaviour-cloning term"], ["CEM", "cross-entropy method, a search over schedules"]]],
+    ];
+    const cAcr = card("acr", "Acronyms and symbols");
+    ACRONYMS.forEach(([g, items]) => {
+      cAcr.body.appendChild(el("h4", "", g));
+      cAcr.body.appendChild(el("dl", "lab-acr", items.map(([a, d]) => `<dt>${a}</dt><dd>${d}</dd>`).join("")));
+    });
+    cAcr.body.appendChild(el("p", "lab-card-more", `More in the <a href="${pageURL("primer/8-field")}#glossary">glossary</a>.`));
+
+    // ---- about
+    const cAbout = card("about", "About the plasma view");
+    cAbout.body.innerHTML =
+      `<p>An ITER-sized torus cut open twice. The <b>cut faces</b> show nested flux surfaces coloured by T_e, j or q (buttons above the view). The <b>red ring</b> is the q = 1 surface, the dashed one q = 2; <b>field lines</b> on three surfaces wind with the local q; the blue fill in the <b>central solenoid</b> is the flux used so far.</p>` +
+      `<h4>Heating</h4><ul>` +
+      `<li><b>ECRH</b> is a wave: 170 GHz microwaves (λ = 1.76 mm) from a launcher in an upper port, drawn 400× longer and slowed about 10¹¹×. Height and brightness grow with power; it fades where the electrons absorb it.</li>` +
+      `<li><b>NBI</b> is not a wave but a beam of 1 MeV deuterium atoms, drawn as moving dots that thin out as the plasma ionises them; the red glow is the Balmer-α light they emit.</li>` +
+      `<li>The <b>strip under the plasma</b> compares the two on one scale: frequency as colour and wavelength, power as height and brightness.</li></ul>` +
+      `<h4>Status</h4><ul>` +
+      `<li>The <b>chip</b> on the view: the phase of the shot and the confinement state as the reward sees it.</li>` +
+      `<li><b>Callouts</b> pin events to the part where they happen; a <b>red pulsing edge</b> means a limit is violated, and the view flashes red when one is crossed during playback.</li>` +
+      `<li>The <b>narration</b> under the view says what is happening and who is turning the knobs.</li></ul>` +
+      `<h4>Keys</h4><p><kbd>Space</kbd> play or pause · <kbd>←</kbd> <kbd>→</kbd> step 1 s (with <kbd>Shift</kbd> 10 s) · <kbd>F</kbd> full screen · <kbd>L</kbd> part names · <kbd>S</kbd> scoreboard · <kbd>?</kbd> this card · <kbd>Esc</kbd> close</p>` +
+      `<p class="lab-card-more"><a href="#model-card">Model card</a>: what the reduced model is, how it was calibrated against TORAX and where it is wrong.</p>`;
+
+    // ---- scoreboard: every preset on the Lab, with the uncertain input varied
+    const cSB = card("scores", "Scoreboard: every preset on the Lab", true);
+    const sbHead = el("div", "lab-sb-head");
+    const sbTable = el("div", "lab-sb");
+    cSB.body.append(sbHead, sbTable);
+    const SB = { scen: null, running: false, rows: [] };
+    const sbCols = () => (PHYS()
+      ? { k: "plhMul", lab: "true L-H threshold ÷ Martin", vals: [0.9, 1, 1.1, 1.2], f: (v) => v.toFixed(1) + "×", cfg: M.REWARD_PRESETS.physics, ret: "physics-environment return" }
+      : { k: "transportMul", lab: "transport ×", vals: [0.7, 1, 1.5], f: (v) => v.toFixed(1) + "×", cfg: M.REWARD_PRESETS.audited, ret: "audited return" });
+    function sbPresets() {
+      const keys = PRESETS.filter((p) => p.scen === S.scen && p.kind !== "sandbox" && (p.kind === "lab" || LAB[p.key])).map((p) => p.key);
+      return keys.concat(Object.keys(EXTRA).filter((k) => EXTRA[k].scen === S.scen && LAB[k]));
+    }
+    function sbRun(key, k, v) {
+      const p = presetOf(key), base = { ...(PHYS() ? M.PHYSICS : {}), pedMode: pedMode0(), sawtooth: false };
+      for (const q of PARAMS) {
+        const val = q.k === k ? v : defOf(q);
+        Object.assign(base, q.map ? q.map(val) : { [q.k]: val });
+      }
+      const m = M.create(base), recs = [m.state.last];
+      const ctrl = p.live === "pi" ? RC.piController(null, PHYS() ? RC.PHYSICS_PI : RC.PAPER_PI) : p.live === "policy" && POLICY[key] ? RC.learnedController(POLICY[key], null) : null;
+      if (ctrl) {
+        ctrl.reset();
+        let d = m.state.last;
+        for (let t = 0; t < HOR(); t++) {
+          const a = ctrl.act(d);
+          d = m.step({ Ip: a.Ip, nbi: a.nbi, ecrh: a.ecrh });
+          recs.push(d);
+          if (d.failed) break;
+        }
+      } else {
+        const acts = p.kind === "lab" ? Array.from({ length: 151 }, (_, t) => LAB_ACTIONS[key](t)) : actionsFromTorax(LAB[key]);
+        for (const a of acts) {
+          const d = m.step(a);
+          recs.push(d);
+          if (d.failed) break;
+        }
+      }
+      return recs;
+    }
+    async function runScoreboard() {
+      const scen = S.scen, C = sbCols(), keys = sbPresets();
+      SB.running = true;
+      SB.scen = scen;
+      SB.rows = keys.map((key) => ({ key, cells: [] }));
+      const t0 = performance.now();
+      let n = 0;
+      for (const row of SB.rows) {
+        if (presetOf(row.key).live === "policy" && !POLICY[row.key]) {
+          drawScoreboard(`loading the ${presetOf(row.key).label} network…`);
+          try {
+            POLICY[row.key] = await getJSON("policies/" + row.key);
+          } catch (e) {
+            /* scored on its recorded knobs instead */
+          }
+        }
+        for (const v of C.vals) {
+          if (S.scen !== scen) return (SB.running = false), (SB.scen = null);
+          const recs = sbRun(row.key, C.k, v), sc = M.scoreEpisode(recs.slice(1), C.cfg);
+          const paid = recs.slice(1, sc.endT || undefined).filter((d) => (PHYS() ? physPaid(d) : d.Te0 > 10 && d.Ti0 > 10 && d.psolPlh >= 1)).length;
+          row.cells.push({ v, ret: sc.ret, endT: sc.endT, why: sc.why, paid, live: presetOf(row.key).live && (presetOf(row.key).live === "pi" || POLICY[row.key]) });
+          drawScoreboard(`running ${++n} of ${keys.length * C.vals.length} episodes…`);
+          await new Promise((r) => setTimeout(r, 0));
+        }
+      }
+      SB.running = false;
+      SB.secs = (performance.now() - t0) / 1000;
+      drawScoreboard();
+    }
+    function drawScoreboard(status) {
+      const C = sbCols();
+      sbHead.innerHTML = `<p>Each cell is one ${HOR()} s episode on the Lab: <b>${C.ret}</b>, with <b>${C.lab}</b> set as in the column and every other parameter at its calibrated value. ` +
+        `Controllers run <b>live</b>, reading the Lab's plasma; schedules replay their knobs. Small print: seconds paid as H-mode. Click a cell to open that run.</p>` +
+        `<p class="lab-sb-status">${status || (SB.rows.length ? `Done in ${(SB.secs || 0).toFixed(1)} s, in your browser. The best preset in each column is outlined.` : "")}</p>`;
+      if (!SB.rows.length) return (sbTable.innerHTML = "");
+      const cols = C.vals.map((_, j) => SB.rows.map((r) => r.cells[j]).filter((c) => c && !c.endT).map((c) => c.ret));
+      const lo = cols.map((c) => Math.min(...c)), hi = cols.map((c) => Math.max(...c));
+      const tone = (c, j) => (c.endT ? "end" : hi[j] - lo[j] < 1e-6 ? "h1" : ["h5", "h4", "h3", "h2", "h1"][Math.min(4, Math.floor((5 * (c.ret - lo[j])) / (hi[j] - lo[j] + 1e-9)))]);
+      sbTable.innerHTML = `<table class="lab-sb-t"><thead><tr><th>Preset</th>${C.vals.map((v) => `<th>${C.lab}<br><b>${C.f(v)}</b></th>`).join("")}</tr></thead><tbody>` +
+        SB.rows.map((r) => {
+          const p = presetOf(r.key);
+          return `<tr><th><span class="lab-cls ${CTRL[p.ctrl].cls === "fb" ? "" : CTRL[p.ctrl].cls}">${CTRL[p.ctrl].tag}</span>${p.label}</th>` +
+            C.vals.map((v, j) => {
+              const c = r.cells[j];
+              if (!c) return `<td class="pending">…</td>`;
+              const best = !c.endT && Math.abs(c.ret - hi[j]) < 1e-9;
+              return `<td class="${tone(c, j)}${best ? " best" : ""}" data-key="${r.key}" data-v="${v}" title="${c.endT ? `ended at ${c.endT} s: ${c.why}` : `${C.ret} ${c.ret.toFixed(3)}`}${c.live ? " (live)" : " (recorded knobs)"}">` +
+                `<b>${c.endT ? "ended" : c.ret.toFixed(2)}</b><small>${c.endT ? `at ${c.endT} s` : `H ${c.paid} s`}</small></td>`;
+            }).join("") + `</tr>`;
+        }).join("") + `</tbody></table>`;
+    }
+    sbTable.addEventListener("click", (e) => {
+      const td = e.target.closest("td[data-key]");
+      if (!td) return;
+      const key = td.dataset.key, v = +td.dataset.v, C = sbCols();
+      resetParams(true);
+      if (presetOf(key).live) S.livePref = true;
+      load(key);
+      setParam(C.k, v, true);
+      showCard(null);
+      pT.p.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+
+    // ================================================ events, narration and the status over the plasma
+    // What happens in this run, second by second: drives the callouts on the plasma, the narration and the flash.
+    let EVC = { key: "", list: [], end: null };
+    function physEnd() {
+      return eventsOf().end;
+    }
+    function eventsOf() {
+      const R = S.recs, key = `${S.recsVersion}|${R.length}|${S.scen}|${S.as.pedMode}`;
+      if (EVC.key === key) return EVC;
+      const list = [];
+      const add = (t, kind, tone, anchor, title, text) => list.push({ t, kind, tone, anchor, title, text });
+      let qDone = false, fDone = false, xDone = false, flatDone = false, pedDone = false, sawN = 0;
+      for (let i = 1; i < R.length; i++) {
+        const d = R[i], p = R[i - 1], P1 = d.Pnbi + d.Pecrh, P0 = p.Pnbi + p.Pecrh;
+        if (P1 - P0 > 5) add(i, "heat", "event", d.Pnbi > 1 ? "nbi" : "ecrh", P0 < 1 ? "Heating on" : "More heating", `${P0.toFixed(0)} → ${P1.toFixed(0)} MW: NBI ${d.Pnbi.toFixed(0)}, ECRH ${d.Pecrh.toFixed(0)}`);
+        else if (P0 - P1 > 5) add(i, "cut", "warn", "edge", P1 < 1 ? "Heating off" : "Heating cut", `${P0.toFixed(0)} → ${P1.toFixed(0)} MW`);
+        if (!qDone && d.qmin < 1) {
+          qDone = true;
+          add(i, "q1", "warn", "q1", "q_min < 1", "a q = 1 surface appears: sawteeth in a real machine, and the reward's q_min term shrinks");
+        }
+        if (!fDone && d.fgw > 1 && !PHYS()) {
+          fDone = true;
+          add(i, "fgw", "bad", "edge", "Greenwald limit crossed", `f_GW ${d.fgw.toFixed(2)} > 1: a disruption risk the benchmark does not check`);
+        }
+        if (PHYS()) {
+          if (d.mode === 2 && p.mode !== 2) add(i, "lh", "event", "edge", "L-H transition", `P_heat ${(p.Psol / (p.plhMul * p.PLH)).toFixed(2)} × the threshold: the pedestal forms and the density controller moves to 0.85 n_G`);
+          if (d.mode === 3 && p.mode !== 3) add(i, "hl", "bad", "edge", "Back to L-mode", "P_heat fell below 0.8 × the threshold: the pedestal collapses");
+        } else if (S.as.pedMode === "scheduled") {
+          if (!pedDone && d.hped > 0.5) {
+            pedDone = true;
+            add(i, "ped", "event", "edge", "Pedestal on schedule", "Gym-TORAX raises it at its onset time, whatever the plasma does");
+          }
+        } else {
+          if (d.hped > 0.5 && p.hped <= 0.5) add(i, "lh", "event", "edge", "Pedestal up", "P_SOL crossed P_LH (power-triggered)");
+          if (d.hped < 0.5 && p.hped >= 0.5) add(i, "hl", "bad", "edge", "Pedestal lost", "P_SOL fell below 0.8 × P_LH");
+        }
+        if (!PHYS() && !xDone && d.Te0 > 10 && d.Ti0 > 10 && d.psolPlh < 1 && d.hped > 0.5) {
+          xDone = true;
+          add(i, "exploit", "bad", "edge", "Paid as H-mode below the threshold", `P_SOL is ${d.psolPlh.toFixed(2)} × P_LH, but the benchmark only checks core temperatures`);
+        }
+        if (!flatDone && i > 3 && Math.abs(d.Ip - p.Ip) < 0.004 && p.Ip - R[i - 2].Ip > 0.02) {
+          flatDone = true;
+          add(i, "flat", "event", "core", `Flat-top at ${d.Ip.toFixed(1)} MA`, "the current stops rising");
+        }
+        if (S.as.sawtooth && d.crashes > p.crashes && sawN++ < 2) add(i, "saw", "event", "q1", "Sawtooth crash", "the core inside q = 1 flattens in an instant");
+      }
+      let end = null;
+      if (PHYS()) {
+        const sc0 = M.scoreEpisode(R.slice(1), M.REWARD_PRESETS.physics);
+        if (sc0.endT) {
+          end = { t: sc0.endT, why: sc0.why.replace(/ at t = \d+ s$/, "") };
+          add(sc0.endT, "end", "bad", /^l_i/.test(sc0.why) ? "core" : "edge", "Episode over", end.why + ": the physics environment stops here");
+        }
+      }
+      list.sort((a, b) => a.t - b.t);
+      EVC = { key, list, end };
+      return EVC;
+    }
+    const TONE_COLOR = { event: "#2a78d6", warn: "#c98500", bad: "#e34948", ok: "#1baf7a", idle: "#8a84a8" };
+    function statusAt(d) {
+      // the chip over the plasma: phase of the shot and confinement as the reward sees it
+      const end = PHYS() && physEnd();
+      if (end && d.t >= end.t) return { text: `EPISODE OVER · ${end.why.split(" ")[0] === "Greenwald" ? "Greenwald limit" : "inductance window"}`, color: "#e34948" };
+      const phase = d.t === 0 ? "START" : d.t <= 100 ? "RAMP-UP" : "FLAT-TOP";
+      if (PHYS()) {
+        const st = d.mode === 1 ? (physPaid(d) ? ["H-mode, paid", "#1baf7a"] : ["H-mode, below the 1.2× margin", "#c98500"]) : d.mode === 2 ? ["L-H transition", "#c98500"] : d.mode === 3 ? ["back to L-mode", "#e34948"] : ["L-mode", "#6b6390"];
+        return { text: `${phase} · ${st[0]}`, color: st[1] };
+      }
+      const gated = d.Te0 > 10 && d.Ti0 > 10;
+      const st = gated ? (d.psolPlh >= 1 ? ["paid as H-mode", "#1baf7a"] : ["paid as H-mode, P_SOL < P_LH", "#e34948"]) : d.hped > 0.5 ? ["pedestal up", "#c98500"] : ["L-mode", "#6b6390"];
+      return { text: `${phase} · ${st[0]}`, color: st[1] };
+    }
+    let hudKey = "";
+    function drawHud() {
+      const d = S.recs[S.cursor] || S.recs[0];
+      if (!d) return;
+      const st = statusAt(d);
+      const who = S.mode === "drive" || S.kind === "sandbox" ? "you drive" : S.ctrl === "open" ? "schedule" : S.live ? "live on the Lab" : "recorded on TORAX";
+      // what differs from the calibrated plasma and the trained controller, as amber tags
+      const tags = PARAMS.filter((q) => (!q.scen || q.scen === S.scen) && Math.abs(S.as[q.k] - defOf(q)) > 1e-9).map((q) => `${q.label} ${q.f(S.as[q.k])}`);
+      if (S.as.pedMode !== pedMode0()) tags.unshift("pedestal: power-triggered");
+      if (S.as.sawtooth) tags.unshift("sawtooth model on");
+      if (S.live && tuneModified()) tags.push("controller retuned");
+      const key = `${st.text}|${S.label}|${who}|${d.t}|${S.scen}|${tags.join(",")}`;
+      if (key === hudKey) return;
+      hudKey = key;
+      hudTags.innerHTML = tags.map((t) => `<span>⚙ ${t}</span>`).join("");
+      hudChip.textContent = st.text;
+      hudChip.style.background = st.color;
+      hudText.innerHTML = `<b>${S.label}</b> <span>· ${who} · ${PHYS() ? "physics environment" : "benchmark"}</span><br>` +
+        `<span>t = ${d.t} s · I_p ${d.Ip.toFixed(2)} MA · T_e(0) ${d.Te0.toFixed(1)} keV · q_min ${d.qmin.toFixed(2)} · Q ${d.Q < 100 ? d.Q.toFixed(2) : d.Q.toFixed(0)}</span>`;
+    }
+    function narrate(i) {
+      const R = S.recs, d = R[i];
+      if (!d) return ["idle", ""];
+      const p = R[Math.max(0, i - 1)], dIp = d.Ip - p.Ip, Ph = d.Pnbi + d.Pecrh;
+      const you = S.mode === "drive" || S.kind === "sandbox";
+      const who = you ? "you" : S.ctrl === "open" ? "the schedule" : S.live ? "the controller, live on the Lab," : "the controller, as recorded on TORAX,";
+      const ramp = dIp > 0.004 ? `raising I_p by ${dIp.toFixed(2)} MA/s${dIp > 0.198 ? " (the rate limit)" : ""}` : dIp < -0.004 ? `lowering I_p by ${(-dIp).toFixed(2)} MA/s` : `holding I_p at ${d.Ip.toFixed(1)} MA`;
+      const act = i > 0 ? ` ${who[0].toUpperCase() + who.slice(1)} ${you ? "are" : "is"} ${ramp}, with ${Ph > 0.5 ? Ph.toFixed(0) + " MW of heating" : "no heating"}.` : "";
+      const end = PHYS() ? physEnd() : null;
+      if (end && i > end.t) return ["bad", `<b>The physics environment ended this episode at ${end.t} s</b> (${end.why}). From there on you see the Lab carrying on, for reference.`];
+      if (i === 0 && you && S.mode === "drive")
+        return ["idle", `t = 0: a ${d.Ip.toFixed(0)} MA ohmic plasma. <b>You drive</b>: set the I_p ramp, NBI and ECRH in the side pane, then press <b>Run</b> (space) or <b>Step 1 s</b>. Each second earns the reward of that step.`];
+      if (i === 0) return ["idle", `t = 0: a ${d.Ip.toFixed(0)} MA ohmic plasma, T_e(0) ${d.Te0.toFixed(1)} keV, q_min ${d.qmin.toFixed(1)}. Press <b>Play</b> (space) to run the ${HOR()} s ramp-up, or drag the time.`];
+      const ev = eventsOf().list.filter((e) => e.t <= i && i < e.t + 4).pop();
+      if (ev) return [ev.tone, `<b>${ev.title}</b>${ev.t < i ? ` (${i - ev.t} s ago)` : ""}: ${ev.text}.${act}`];
+      let tone = "ok", msg;
+      if (PHYS()) {
+        const r = d.Psol / (d.plhMul * d.PLH);
+        if (d.mode === 1) [tone, msg] = physPaid(d) ? ["ok", `H-mode, paid: P_heat ${r.toFixed(2)} × the threshold (at least 1.2 needed). Q ${d.Q.toFixed(1)}, H98 ${d.H98.toFixed(2)}.`] : ["warn", `H-mode, but P_heat is only ${r.toFixed(2)} × the threshold: below the 1.2 × margin, so the H-mode terms are not paid.`];
+        else if (Ph > 1) [tone, msg] = ["warn", `Still L-mode: P_heat is ${r.toFixed(2)} × the threshold (true threshold ${d.plhMul.toFixed(2)} × the Martin scaling). The pedestal needs P_heat above it.`];
+      } else {
+        const gated = d.Te0 > 10 && d.Ti0 > 10;
+        if (gated && d.psolPlh < 1) [tone, msg] = ["bad", `Paid as H-mode with P_SOL only ${d.psolPlh.toFixed(2)} × P_LH: the benchmark checks core temperatures, not the threshold. The audited reward pays nothing here.`];
+        else if (gated) msg = `Paid as H-mode: core above 10 keV and P_SOL ${d.psolPlh.toFixed(2)} × P_LH. Q ${d.Q.toFixed(1)}, H98 ${d.H98.toFixed(2)}.`;
+        else if (d.t > 100 || Ph > 1) [tone, msg] = ["warn", `Not paid as H-mode: the reward needs T_e(0) and T_i(0) above 10 keV (now ${d.Te0.toFixed(1)} and ${d.Ti0.toFixed(1)}).`];
+      }
+      if (!msg) msg = `Ramp-up: the current soaks in from the edge; j(0) ${d.j0.toFixed(2)} MA/m², q_min ${d.qmin.toFixed(2)}${d.qmin < 1 ? " (below 1)" : ""}.`;
+      else if (d.qmin < 1) msg += ` q_min ${d.qmin.toFixed(2)} < 1.`;
+      if (d.qmin < 1 && tone === "ok") tone = "warn";
+      if (d.fgw > 1 && !PHYS()) {
+        msg += ` f_GW ${d.fgw.toFixed(2)}: above the Greenwald limit.`;
+        tone = tone === "bad" ? "bad" : "warn";
+      }
+      return [tone, msg + act];
+    }
+    let narrKey = "";
+    function drawNarration() {
+      if (!layers.narration) return;
+      const [tone, msg] = narrate(S.cursor);
+      const key = tone + msg;
+      if (key === narrKey) return;
+      narrKey = key;
+      narr.innerHTML = `<i class="lab-dot" style="background:${TONE_COLOR[tone]}"></i><span>${msg}</span>`;
+    }
+    // the callouts at the cursor: events of the last eight seconds, the latest two
+    function calloutsAt(i) {
+      if (!layers.callouts) return [];
+      return eventsOf().list.filter((e) => e.t <= i && i < e.t + 8).slice(-2)
+        .map((e) => ({ anchor: e.anchor, title: `${e.title} · ${e.t} s`, text: e.text, color: TONE_COLOR[e.tone], alpha: i - e.t > 5 ? 0.55 : 1 }));
+    }
+    let flashT = -1e9, lastCur = 0;
+    function noteCrossing() {
+      // during playback, crossing a bad event flashes the plasma view red
+      if (S.playing || S.running) for (const e of eventsOf().list) if (e.tone === "bad" && lastCur < e.t && S.cursor >= e.t) flashT = performance.now();
+      lastCur = S.cursor;
+    }
+
+    // ---- heating at human scale
+    function drawHeatStrip() {
+      if (!layers.heatstrip || !pT.open) return;
+      const d = S.recs[S.cursor] || S.recs[0];
+      const col = colors(), { ctx, w, h } = hsv;
+      ctx.clearRect(0, 0, w, h);
+      const tnow = REDUCED_MOTION ? 0.4 : performance.now() / 1000;
+      const narrow = w < 520;
+      const x0 = narrow ? 92 : Math.min(150, w * 0.3), x1 = narrow ? w - 6 : w - Math.min(190, w * 0.32), lane = 24, top = 4;
+      const ec = d ? d.Pecrh : 0, nb = d ? d.Pnbi : 0;
+      const lam0 = 64, vpx = 70; // ECRH drawn wavelength [px] and the speed of light on screen [px/s]
+      const lamOf = (f) => lam0 * Math.pow(f / HEAT.ecrh.f, -0.25);
+      const rows = [
+        { lab: "ECRH", val: `${ec.toFixed(1)} MW`, on: ec > 0.05, pn: ec / 20, rgb: EC_RGB, f: HEAT.ecrh.f, right: "170 GHz · λ 1.76 mm" },
+        { lab: "NBI", val: `${nb.toFixed(1)} MW`, on: nb > 0.05, pn: nb / 33, rgb: NBI_RGB, atoms: true, right: "1 MeV D atoms · 9,800 km/s" },
+        { lab: "beam light", val: "Balmer-α", on: nb > 0.05, pn: (0.3 * nb) / 33, rgb: DA_RGB, f: C_LIGHT / HEAT.dalpha.lam, right: "457 THz · λ 656 nm" },
+      ];
+      ctx.font = FONT_SMALL;
+      ctx.textBaseline = "middle";
+      rows.forEach((r, k) => {
+        const y = top + lane * k + lane / 2;
+        ctx.fillStyle = col.fg;
+        ctx.font = "600 " + FONT_SMALL;
+        ctx.fillText(narrow ? r.lab.replace("beam light", "Balmer-α") : r.lab, 4, narrow ? y - 5 : y);
+        ctx.font = FONT_SMALL;
+        ctx.fillStyle = col.muted;
+        if (narrow) ctx.fillText(r.on ? (r.atoms || r.f === HEAT.ecrh.f ? r.val : "656 nm") : "off", 4, y + 6);
+        else {
+          ctx.fillText(r.on ? r.val : "off", 4 + Math.min(70, x0 * 0.48), y);
+          ctx.fillText(r.right, x1 + 10, y);
+        }
+        ctx.strokeStyle = col.grid;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x0, y);
+        ctx.lineTo(x1, y);
+        ctx.stroke();
+        if (!r.on) return;
+        const pn = clamp(r.pn, 0, 1.3), A = 3 + 7 * Math.sqrt(pn), alpha = 0.3 + 0.7 * Math.min(1, pn);
+        if (r.atoms) {
+          const N = Math.round(8 + 30 * Math.min(1, pn)), span = x1 - x0, v = vpx * 0.33;
+          for (let j = 0; j < N; j++) {
+            const r1 = Math.sin(j * 12.9898) * 43758.5453, jit = r1 - Math.floor(r1);
+            const x = x0 + ((tnow * v + (j * span) / N + jit * 8) % span), yy = y + (jit - 0.5) * 8;
+            const g = ctx.createLinearGradient(x - 14, yy, x, yy);
+            g.addColorStop(0, rgba(r.rgb, 0));
+            g.addColorStop(1, rgba(r.rgb, alpha));
+            ctx.strokeStyle = g;
+            ctx.lineWidth = 2.4;
+            ctx.beginPath();
+            ctx.moveTo(Math.max(x0, x - 14), yy);
+            ctx.lineTo(x, yy);
+            ctx.stroke();
+            ctx.fillStyle = `rgba(255,236,190,${Math.min(1, alpha + 0.2)})`;
+            ctx.beginPath();
+            ctx.arc(x, yy, 2.3, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+          return;
+        }
+        const lam = lamOf(r.f), kk = (2 * Math.PI) / lam, om = (2 * Math.PI * vpx) / lam;
+        ctx.strokeStyle = rgba(r.rgb, alpha * 0.25);
+        ctx.lineWidth = 2 * A + 4;
+        ctx.beginPath();
+        ctx.moveTo(x0, y);
+        ctx.lineTo(x1, y);
+        ctx.stroke();
+        ctx.strokeStyle = rgba(r.rgb, alpha);
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        for (let x = x0; x <= x1; x += 1) {
+          const yy = y - A * Math.sin(kk * (x - x0) - om * tnow);
+          x === x0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+        }
+        ctx.stroke();
+      });
+      // the spectrum: one log scale of frequency, the bands in the colours used above
+      const sy = top + lane * 3 + 8, f0 = 8, f1 = 16, X = (lf) => x0 + ((lf - f0) / (f1 - f0)) * (x1 - x0);
+      for (let x = x0; x < x1; x++) {
+        ctx.fillStyle = rgba(specRGB(f0 + ((f1 - f0) * (x - x0)) / (x1 - x0)), 0.9);
+        ctx.fillRect(x, sy, 1.2, 6);
+      }
+      ctx.fillStyle = col.muted;
+      ctx.fillText("frequency", 4, narrow ? sy + 10 : sy + 3);
+      ctx.textAlign = "center";
+      [[9, "1 GHz"], [12, "1 THz"], [15, "1 PHz"]].forEach(([lf, t]) => ctx.fillText(t, X(lf), sy + 15));
+      ctx.fillText("visible", X(14.74), sy - 6);
+      ctx.textAlign = "left";
+      for (const [lf, rgb, on] of [[Math.log10(HEAT.ecrh.f), EC_RGB, ec > 0.05], [Math.log10(C_LIGHT / HEAT.dalpha.lam), DA_RGB, nb > 0.05]]) {
+        ctx.fillStyle = rgba(rgb, on ? 1 : 0.35);
+        ctx.beginPath();
+        ctx.moveTo(X(lf), sy - 1);
+        ctx.lineTo(X(lf) - 4, sy - 7);
+        ctx.lineTo(X(lf) + 4, sy - 7);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.textBaseline = "alphabetic";
+    }
 
     // ------------------------------------------------ simulation
     function overrides() {
@@ -1752,6 +2304,7 @@
       driveBox.hidden = S.mode !== "drive";
       takeBtn.hidden = S.mode === "drive";
       renderStory(STORIES[key] || EXTRA_STORY(p.label));
+      if (story.hidden && tools.story) tools.story.classList.add("news");
       S.dirty = true;
     }
     function renderStory(st) {
@@ -1852,13 +2405,13 @@
       const val = S.colorBy === "Te" ? d.prof.Te : S.colorBy === "j" ? d.prof.j : d.prof.q;
       const crashRecent = d.crashes && S.cursor > 0 && S.recs[S.cursor - 1] && d.crashes > S.recs[S.cursor - 1].crashes;
       const gated = d.Te0 > 10 && d.Ti0 > 10;
-      const physBadge = d.mode === 1 ? (physPaid(d) ? { text: "H-mode, paid", color: "#1baf7a" } : { text: "H-mode, below the 1.2 × margin", color: "#c98500" })
-        : d.mode === 2 ? { text: "L-H transition", color: "#c98500" } : d.mode === 3 ? { text: "H-L back-transition", color: "#e34948" } : { text: "L-mode", color: "#6b6390" };
+      const end = PHYS() && physEnd();
+      const alarm = (end && d.t >= end.t) || (!PHYS() && d.fgw > 1) ? 1 : !PHYS() && gated && d.psolPlh < 1 ? 0.6 : 0;
       torus.draw({
         q: d.prof.q, val, colorBy: S.colorBy, nbi: d.Pnbi, ecrh: d.Pecrh, ecrhLoc: d.ecrhLoc, Ip: d.Ip, coils: S.coils, flux: d.flux,
-        flash: crashRecent ? 1 : 0,
-        overlay: [`t = ${d.t} s   I_p = ${d.Ip.toFixed(2)} MA`, `T_e(0) = ${d.Te0.toFixed(1)} keV   q_min = ${d.qmin.toFixed(2)}`, `Q = ${d.Q < 100 ? d.Q.toFixed(2) : d.Q.toFixed(0)}`],
-        badge: PHYS() ? physBadge : gated ? (d.psolPlh >= 1 ? { text: "paid as H-mode", color: "#1baf7a" } : { text: "paid as H-mode, P_SOL < P_LH", color: "#e34948" }) : d.hped > 0.5 ? { text: "pedestal up", color: "#c98500" } : { text: "L-mode", color: "#6b6390" },
+        prof: d.prof, ne20: d.nbar, labels: layers.labels, lines: layers.lines, beams: layers.beams,
+        flash: crashRecent ? 1 : 0, alarm, redFlash: clamp(1 - (performance.now() - flashT) / 900, 0, 1),
+        callouts: calloutsAt(S.cursor),
       });
     }
     function drawReadout() {
@@ -2349,6 +2902,9 @@
     }
     const sgn = (v, n, u) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(n)}${u ? " " + u : ""}`;
     // what the controller read and decided in the second ending at the cursor
+    // a network's input size, before its file is loaded: 60 features (+3 in the physics environment: the two
+    // confinement flags and P_heat), +4 on top of PI (its proposal and integral)
+    const nInputs = () => (POLICY[S.key] ? POLICY[S.key].obs_dim : (isResidual(S.key) ? 64 : 60) + (PHYS() ? 3 : 0));
     function controllerText(k) {
       const info = k.info, t = k.t;
       if (S.ctrl === "open") return { title: "schedule", meas: null, lines: [`knobs = f(t), t = ${Math.max(0, t - 1)} s`, "reads nothing from the plasma"] };
@@ -2363,7 +2919,7 @@
           lines: [`e = j* − j(0) = ${sgn(sg.error / 1e6, 2)} MA/m²`, `I_p = 3 MA + kp·e + ki·∫e = ${(sg.desired / 1e6).toFixed(2)} MA${sg.sat ? " (limited)" : ""}`, "heating on the clock (open loop)"],
         };
       }
-      const P = POLICY[S.key], nIn = P ? P.obs_dim : info && info.base ? 64 : 60;
+      const nIn = nInputs();
       if (info && info.base) {
         const d = info.total.map((v, i) => v - info.base[i]);
         const pr = k.prop;
@@ -2551,7 +3107,7 @@
       if (S.ctrl === "open") txt = "A schedule: every knob is a function of time alone, fixed before the shot. Change the plasma parameters and the knobs stay where they are; only the plasma changes.";
       else if (S.ctrl === "human") txt = "You are the feedback controller: you read the plasma on this page and set the knobs once per second, from the side pane.";
       else if (S.live) {
-        const reads = isPI(S.key) ? "j(0), the central current density, against a rising target" : `${POLICY[S.key] ? POLICY[S.key].obs_dim : 60} numbers describing the plasma`;
+        const reads = isPI(S.key) ? "j(0), the central current density, against a rising target" : `${nInputs()} numbers describing the plasma`;
         txt = `<b>${S.label}, closed loop on the Lab:</b> every second it reads ${reads} from this plasma and sets the knobs from it, so they follow whatever the Lab does, including your changes to its parameters and gains. Dashed: what it did on TORAX.` +
           (isPI(S.key) ? " Its heating still follows the clock: PI is feedback on I_p only." : "");
       } else
@@ -2637,12 +3193,31 @@
     tl.c.addEventListener("pointerdown", (e) => ((tlDrag = true), tlScrub(e)));
     tl.c.addEventListener("pointermove", (e) => tlDrag && tlScrub(e));
     window.addEventListener("pointerup", () => (tlDrag = false));
-    // keys: space plays or pauses, arrows step (shift: 10 s); ignored while typing in a control
+    // keys: space plays or pauses, arrows step (shift: 10 s), anywhere while the Lab is in view; the letter keys
+    // (F full screen, L part names, S scoreboard, ? about) only after a click inside the Lab, since the site uses
+    // F and S for its search. Ignored while typing in a control.
+    let labActive = false;
+    root.addEventListener("pointerdown", () => (labActive = true));
+    root.addEventListener("focusin", () => (labActive = true));
+    document.addEventListener("pointerdown", (e) => root.contains(e.target) || (labActive = false));
     document.addEventListener("keydown", (e) => {
       const tag = (e.target && e.target.tagName) || "";
       if (/INPUT|SELECT|TEXTAREA|BUTTON/.test(tag) && e.key === " ") return;
       if (/SELECT|TEXTAREA/.test(tag) || !root.isConnected) return;
-      if (!visible) return;
+      if (!visible && !isFull()) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === "Escape") {
+        if (openCard) showCard(null);
+        return;
+      }
+      if (tag === "INPUT" && e.target.type !== "range" && e.target.type !== "checkbox") return;
+      const k = e.key.toLowerCase(), letter = { f: () => toggleFull(), l: () => setLayer("labels", !layers.labels), s: () => showCard("scores"), "?": () => showCard("about") }[k];
+      if (letter) {
+        if (!labActive && !isFull()) return;
+        e.preventDefault();
+        e.stopPropagation(); // keep the site's search shortcuts out of it
+        return letter();
+      }
       if (e.key === " ") {
         e.preventDefault();
         togglePlay();
@@ -2965,21 +3540,47 @@
 
     function drawAll() {
       const sc = scores(S.recs);
-      drawReadout();
-      drawTraces(sc);
-      drawProfiles();
-      drawOps();
-      drawReward(sc);
-      drawRewardArea(sc);
+      if (pN.open) drawReadout();
+      if (pX.open) drawTraces(sc);
+      if (pP.open) drawProfiles();
+      if (pO.open) drawOps();
+      if (pR.open) {
+        drawReward(sc);
+        drawRewardArea(sc);
+      }
       drawScores(sc);
-      updateKnobBanner();
-      drawKnobStrips();
+      if (pK.open) {
+        updateKnobBanner();
+        drawKnobStrips();
+      }
       drawSpark();
       drawTimeline();
-      drawMaps();
-      drawBalance();
+      if (pM.open) drawMaps();
+      if (pB.open) drawBalance();
+      drawNarration();
+      drawSums(sc);
+      tSl.input.max = HOR();
       tSl.set(S.cursor);
-      tSl.input.max = 151;
+    }
+    // one line for each folded panel
+    function drawSums(sc) {
+      const d = S.recs[S.cursor] || S.recs[0];
+      if (!d) return;
+      const f = (v, n) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(n));
+      const SUM = new Map([
+        [pT, () => `t = ${d.t} s · ${statusAt(d).text.toLowerCase()}`],
+        [pN, () => `t = ${d.t} s · I_p ${f(d.Ip, 2)} MA · T_e(0) ${f(d.Te0, 1)} keV · Q ${f(d.Q, 2)}`],
+        [pK, () => `I_p ${f(d.Ip, 2)} MA · NBI ${f(d.Pnbi, 1)} MW · ECRH ${f(d.Pecrh, 1)} MW`],
+        [pX, () => `q_min ${f(d.qmin, 2)} · f_GW ${f(d.fgw, 2)} · Q ${f(d.Q, 2)}`],
+        [pP, () => `q_min ${f(d.qmin, 2)} · q95 ${f(d.q95, 2)} · T_e(0) ${f(d.Te0, 1)} keV`],
+        [pO, () => `f_GW ${f(d.fgw, 2)} · 1/q95 ${f(1 / d.q95, 2)} · β_N ${f(d.betaN, 2)}`],
+        [pM, () => "T_e, j, q and n_e over the whole episode"],
+        [pB, () => `P_NBI + P_ECRH ${f(d.Pnbi + d.Pecrh, 0)} MW · bootstrap ${f(d.Ibs, 2)} MA`],
+        [pR, () => SLOTS().map(([k, lab]) => `${lab} ${sc[k].ret.toFixed(2)}`).join(" · ")],
+        [pA, () => (asModified() ? "modified: not the calibrated plasma" : "calibrated to TORAX")],
+        [pDz, () => `custom return ${sc.c.ret.toFixed(2)}`],
+      ]);
+      for (const [P, fn] of SUM) P.sum.textContent = P.open ? "" : fn();
     }
 
     // ------------------------------------------------ main loop (pauses when off-screen)
@@ -3009,8 +3610,13 @@
             driveStep();
           }
         } else acc = 0;
-        drawTorus();
-        drawKnobs(dt);
+        if (S.cursor !== lastCur) noteCrossing();
+        if (pT.open) {
+          drawTorus();
+          drawHud();
+          drawHeatStrip();
+        }
+        if (pK.open) drawKnobs(dt);
         if (S.dirty) {
           S.dirty = false;
           drawAll();
@@ -3044,6 +3650,7 @@
       const tm = +params.get("transport");
       if (tm) setParam("transportMul", clamp(tm, 0.5, 2), true);
       if (params.get("play") === "1") togglePlay();
+      FOLDS.forEach((P) => store.get("fold-" + P.id, true) === false && P.set(false));
       S.dirty = true;
       requestAnimationFrame(frameLoop);
     });
@@ -3051,6 +3658,7 @@
       redraw: () => (S.dirty = true),
       resize: () => {
         tv.fit();
+        hsv.fit();
         kv.fit();
         ks.fit();
         sv.fit();
