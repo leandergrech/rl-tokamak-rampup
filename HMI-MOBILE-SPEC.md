@@ -1,6 +1,7 @@
 # The Ramp-up Lab on phones: HMI and UX specification
 
-**Status:** implemented; validation results in [§7](#7-validation-results).
+**Status:** implemented and validated in three rounds (automated acceptance, two rounds of independent expert
+evaluation); results in [§7](#7-validation-results). A usability test with people (§6.3) has not been run yet.
 **Scope:** the Ramp-up Lab (`docs/primer/7-lab.md`, `docs/javascripts/lab.js`, `docs/stylesheets/theme.css`) on phones and
 other small viewports. The desktop layout is out of scope except where it must stay unchanged (M14).
 **Tests:** `scripts/check_lab_mobile.mjs` (automated acceptance, also run in CI); the independent evaluation and the
@@ -91,34 +92,49 @@ tab is open and however far its content is scrolled, both stay entirely inside t
 about a third of the height (200–300 px); on its side, the left half.
 
 **M4 · A compressed playback line.** One row at the bottom, ≤ 56 px tall plus the safe-area inset. Contents, left to right:
-Play/Pause (icon), back to the start (icon), the scrubber (all remaining width) with event ticks (heating changes, L-H
-transitions, q_min < 1, limits and the end of the episode) and the time ("110 s"), speed (a button cycling 0.5×, 1×, 2×,
-4× that shows its value) and Pin (icon, with the number of pins as a badge). No other text. Icons have accessible names
-and tooltips. Tapping anywhere on the track jumps there. In the sandbox, Play runs and pauses the drive.
+Play/Pause (icon), back to the start (icon), the time line (all remaining width), the time, speed (a button cycling
+0.5×, 1×, 2×, 4× that shows its value) and Pin (icon, with the number of pins as a badge). No other text. Icons have
+accessible names and tooltips. In the sandbox, Play runs and pauses the drive.
+- **The time line** is the Lab's own control (the same on every browser): a tap anywhere jumps there (WCAG 2.5.7), and a
+  tap within 6 px of an event tick snaps to that event and names it in a bubble ("100 s · Heating on"); a drag scrubs
+  through every second; dragging with the finger lifted 40 px above the bar scrubs five times finer. Ticks are coloured
+  by kind: heating orange, H-mode green, q_min < 1 amber, limits and losses red, the rest grey. The played part is
+  filled. Keyboard: arrows ±1 s, Page Up/Down ±10 s, Home, End.
+- **The time** is a button: it opens a stepper (−10 s, −1 s, the time, +1 s, +10 s; 44 px buttons) for an exact second.
 
 **M5 · A one-row app bar.** ≤ 52 px: Close (left), the preset picker (both scenarios, grouped by scenario and by who
 turns the knobs), More (⋯, right). More opens a menu of ≥ 44 px rows: Story, Labels, Acronyms, About, Scoreboard,
 Clear pins, the other scenario. The scenario of the current preset is visible in the picker.
 
-**M6 · Instruments as tabs.** Under the plasma (upright) or beside it (on its side): Controls, Numbers, Heating, Knobs,
+**M6 · Instruments as tabs.** Under the plasma (upright) or beside it (on its side): Controls, Numbers, Heating waves, Knobs,
 Traces, Profiles, Operating space, Maps, Power, Reward, Set-up, Reward design. The strip scrolls sideways and keeps the
-selected tab in view; only the tab content scrolls, with contained overscroll (no page bounce, no pull-to-refresh). The
-last tab is remembered per orientation.
+selected tab in view, fading at an edge with more tabs behind it; only the tab content scrolls, with contained overscroll
+(no page bounce, no pull-to-refresh). A rotation keeps the open tab; a new session opens on the tab last used in that
+orientation. The Controls tab scrolls with a finger like every other tab. On touch, content reacts only to deliberate
+gestures: a number's history opens on a tap (never on a swipe, never following its label's link) and closes on a scroll;
+a plot moves the time only on a tap or a sideways drag, never on a vertical swipe.
 
 ### Ergonomics and legibility
 
 **M7 · Touch targets.** Primary controls (Close, the preset picker, More, Play, back to start, speed, Pin, the tabs) are
-≥ 44 × 44 CSS px. Every other target is ≥ 24 × 24 or has 24 px of clear space (WCAG 2.5.8). The scrubber's track is
-≥ 32 px tall.
+≥ 44 × 44 CSS px. Every other target is ≥ 24 × 24 or has 24 px of clear space (WCAG 2.5.8). The time line's touch area
+is ≥ 44 px tall. **Sliders on touch** change only with a sideways drag (12 px, at least twice as sideways as vertical);
+a vertical swipe that starts on one scrolls and leaves it alone, and so does a tap on its track (it may only be stopping
+a scroll). A slider's value is a button that opens the same stepper as the time, for exact values (one step, ten steps).
 
 **M8 · Legibility.** Text in the app bar, playback line and tabs is ≥ 12 px; elsewhere ≥ 11 px, except the window
-labels of the averages (≥ 9 px). Contrast as WCAG 1.4.3 and 1.4.11, in light and dark themes. *review*
+labels of the averages (≥ 9 px; 10–11 px on phones). Contrast as WCAG 1.4.3 and 1.4.11, in light and dark themes:
+accent-filled controls use a darker accent under white text in the light theme and dark text on the bright accent in
+the dark one; status chips and limit pills use fills dark enough for white text; pass/fail values carry a sign (✗) as
+well as a colour.
 
 **M9 · Orientation and safe areas.** Both orientations work and the layout follows a rotation without losing state; bars
 respect the safe-area insets; neither the page nor the layout scrolls sideways.
 
-**M10 · Status at a glance.** The status chip (phase · confinement) stays on the plasma; red is used only for limits and
-alarms; the narration under the plasma is clamped to two lines and expands on a tap. *review*
+**M10 · Status at a glance.** The status chip (phase · confinement) stays on the plasma, with a pill for each limit that
+is violated at the cursor (f_GW > 1 red, q_min < 1 amber, l_i outside its window red); red is used only for limits and
+alarms; the narration under the plasma is clamped to two lines, marked "more ▾" when it continues, and expands on a tap.
+What differs from the calibrated plasma and the trained controller is shown as amber tags with a *reset* (and Undo).
 
 ### Behaviour
 
@@ -129,7 +145,10 @@ loads the state and scrolls the Lab into view. Arriving from another page with a
 page behind it.
 
 **M12 · Robustness.** Leaving keeps the preset, time, pins and parameters; entering again resumes them. Rotating keeps
-them. A second Close or Back does not leave the page.
+them. **Back and Esc close the innermost layer first**: a stepper, the menu or a card, then the Lab; never the page. A
+tap outside a card closes it and does nothing else; ✕ leaves in one tap even with a card open. Pins say what differs,
+duplicates are refused, the fourth replaces the first with a message, and Clear pins can be undone. Toasts never block
+the content under them.
 
 **M13 · Responsiveness.** Playback stays smooth in full screen: the Lab's script time per animation frame has a median
 under 33 ms (a 30 frames-per-second budget) with the CPU slowed four times, as Chrome's mid-tier-phone emulation does;
@@ -163,4 +182,48 @@ advisory elsewhere, since a busy or shared machine measures itself rather than t
 
 ## 7. Validation results
 
-*Filled in after each validation round.*
+### 7.1 Automated acceptance (`scripts/check_lab_mobile.mjs`)
+
+| Round | What it ran | Result |
+|---|---|---|
+| 1, first build | 55 checks per phone profile, scrolling with `scrollTop`, tapping by selector | 45 of 52 on the first profile. It found: the page jumping by the Lab's height on leaving (scroll anchoring while the browser's full screen ended), selected tabs scrolled out of view, playback not paused until Back landed, a phone on its side given the desktop layout, the plasma 11 px over its budget, the menu taller than a phone on its side, the speed label lagging a frame |
+| 2, after the expert evaluation | real touch gestures through the DevTools protocol added (the evaluation showed scripted scrolling hides touch defects), contrast computed, overlays, stepper, pins | 473 of 473 in CI |
+| 3, after the second evaluation | regression checks for its findings (reset and sliders, a slightly sideways swipe on a slider, drags past ticks, ✕ with a card open) | 74 checks per phone profile; see the latest CI run. It found two more defects: Esc left the Lab with the stepper open, and ✕ with a card open could step back past the page (two history steps racing), both fixed |
+
+**Timing (M13)**, on GitHub's runner (idle, four virtual CPUs): the full-screen layout opens in 47–76 ms on every phone
+profile; during playback with the CPU slowed four times the Lab's script time per frame has a median of 4.9 ms and a
+90th percentile of 18.2 ms (budget: median 33 ms). On the development machine, busy with unrelated jobs, the same checks
+are reported as advisory.
+
+### 7.2 Independent expert evaluation, round 1 (`hmi/mobile-evaluation-round1.md`)
+
+A reviewer who had not built the layout ran a cognitive walkthrough of U1–U6 and a heuristic evaluation on three phone
+profiles, light and dark, with real touch input. **27 findings: 1 severity 4, 7 severity 3, 10 severity 2, 9 severity 1.**
+Task verdicts: U1 yes; U2, U3 partly; U4 no; U5 yes with friction; U6 yes.
+
+The severity 4 finding: the Controls tab could not be scrolled by a finger (it kept the desktop side pane's own scroll
+box), so the plasma parameters, the sandbox's knobs and the outcome were out of reach. The severity 3 findings: stale
+controls in the Controls tab; swipes changing sliders; a tap on a number's name leaving the Lab; swipes opening
+histories; finding an exact second; contrast below AA for accent fills and status chips; and tap-to-jump depending on
+the browser's native slider. **All 8 were fixed.** Of the 19 lower-severity findings, 17 were addressed (F09 in part: ticks
+coloured, named and snapped to, but clusters not merged); F22 was left and F27 accepted.
+
+### 7.3 Independent expert evaluation, round 2 (`hmi/mobile-evaluation-round2.md`)
+
+The same reviewer re-checked the build with the fixes. **12 of the 13 re-checked findings fixed, F03 partly fixed.**
+Task verdicts: **all six succeed** (U3 with some friction: five events within 4 px around the L-H transition). New
+findings: N1 (severity 3: the what-if reset left the controller's sliders showing old values), N2–N4 (severity 2: a
+slightly sideways start on a slider still changed it; drags snapped past seconds near ticks; two contrast failures in
+the Controls tab now reachable on phones), N5–N11 (severity 1). **N1–N7, N9 and N10 were fixed**, N8 was a wording fix in
+the page; N11 (some tick colours similar) remains.
+
+### 7.4 Open, and not yet validated
+
+- **Not fixed:** labels on the 3-D plasma can still collide (round 1 F22, severity 1); some tick colours are similar
+  (round 2 N11, severity 1); the preset picker sits at the top, out of one thumb's easy reach (F27, accepted).
+- **Not validated on real devices:** iPhone Safari (the time line and gestures use standard pointer events and should
+  behave the same, but this was only tested in a Chromium-based browser), the real Fullscreen API on Android phones,
+  safe-area insets on phones with a notch or rounded corners, and momentum scrolling.
+- **Not run:** the usability test with people (§6, item 3). It is the next step: the automated and expert rounds show
+  the design meets its requirements and has no known problem above severity 1; only people show whether it is easy to
+  use for them.
