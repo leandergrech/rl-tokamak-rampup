@@ -3,7 +3,7 @@ repo: https://github.com/leandergrech/rl-tokamak-rampup
 pages: https://leandergrech.github.io/rl-tokamak-rampup/
 step: 7
 state: done
-updated: 2026-10-02T17:17:52Z
+updated: 2026-10-10T09:24:19Z
 blockers: none
 next: Leander reviews docs/04b-physics-env.md (physics environment and robustness) and docs/upstream drafts
 log:
@@ -32,6 +32,7 @@ log:
 - 2026-10-02T12:30:04Z probe (scripts/probe_pedestal_formation.py, gymtorax 1.1.1 / TORAX 1.4.3): TORAX's power-triggered pedestal (L-H when P_SOL > P_LH Martin 2008, H-L below 0.8 P_LH; added in TORAX 1.4.0) instead of the time schedule, same actions, IterHybrid-v0 reward: open loop 3.26 -> 3.43, heating cut 20.96 -> 2.48, no heating 12.62 -> 1.69 (never H-mode); PI with paper gains fails on both (I_p wound down); same cost per episode. TORAX sawtooth model with defaults: NaN at 111 s
 - 2026-10-02T13:10:00Z data/ back under 20 MB (7.1 MB tracked): the 77 policy files (25.7 MB) moved to release checkpoints-v1 (approved by Leander); rl_tokamak.checkpoints downloads it on first use and checks SHA-256 per file against data/checkpoints.json; reproduce.sh fetches first; pytest 24 passed; mkdocs --strict ok
 - 2026-10-02T17:17:52Z STATUS.md restored: an edit on 2026-10-02 (commit 327ea8c) had split this file on a heading quoted in the line above and dropped this section's log and the physics heading; rebuilt from commit fc104b3 plus the physics section's later entries
+- 2026-10-10T09:24:19Z Ramp-up Lab usability pass (GUI strategies of a sibling project's lab, its dashboard look kept): status chip over the plasma (phase, confinement as the reward sees it, controller, numbers, amber tags for changed parameters), one line of narration, event callouts pinned to parts, red pulsing edge / flash on limits, hover tooltips on every part (cut face gives rho, T_e, j, q, n_e), ECRH drawn as a 170 GHz wave (400x longer, ~1e11x slower, amplitude ~ sqrt(P)), NBI as 1 MeV D atoms (not a wave) with Balmer-alpha glow, a 'heating at human scale' strip (frequency as colour and compressed wavelength, power as height), toolbar cards (Story, Labels, A-Z, About, Scoreboard: every preset vs transport or L-H threshold, live, 2.5 s in the browser), full screen, foldable panels with summaries, keys F/L/S/? after a click in the Lab. HMI fixes: Clear pins, PI target unit, time slider horizon, network input count 63/67 in physics, sandbox narration. Bug: check_lab_control ran physics episodes 151 steps (now 150); Lab page table corrected (-0.03 to -0.05). Tested in headless Chrome (desktop, 1920, phone, dark), mkdocs --strict ok
 
 ## Physics environment task
 repo: https://github.com/leandergrech/rl-tokamak-rampup
