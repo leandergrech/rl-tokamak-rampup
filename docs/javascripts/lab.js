@@ -1464,14 +1464,17 @@
     const corrWrap = el("div", "");
     tuneBox.appendChild(corrWrap);
     const tCorr = slider(corrWrap, "network correction", 0, 2, 0.05, 1, fmtX, (v) => setTune("corrMul", v));
-    const tuneReset = button(tuneBox, "Back to the trained controller", () => {
-      Object.assign(S.tune, tune0());
-      tKp.set(1);
-      tKi.set(1);
+    function setTuneAll(t) {
+      Object.assign(S.tune, t);
+      tKp.set(S.tune.kpMul);
+      tKi.set(S.tune.kiMul);
       tJ.set(S.tune.jEnd / 1e6);
-      tCorr.set(1);
-      if (S.live) resim();
+      tCorr.set(S.tune.corrMul);
       S.dirty = true;
+    }
+    const tuneReset = button(tuneBox, "Back to the trained controller", () => {
+      setTuneAll(tune0());
+      if (S.live) resim();
     }, "rt-btn");
     const takeBtn = button(sCtl, "Take the controls from here", () => takeControl(), "rt-btn lab-take");
     const driveBox = el("div", "lab-drive");
@@ -1559,12 +1562,12 @@
       if (!e.target.closest(".lab-hud-reset")) return;
       const before = { as: { ...S.as }, tune: { ...S.tune } };
       resetParams();
-      Object.assign(S.tune, tune0());
+      setTuneAll(tune0());
       if (S.live) resim();
       toast("Back to the calibrated plasma and the trained controller", "Undo", () => {
         Object.keys(before.as).forEach((k) => (S.as[k] = before.as[k]));
         PARAMS.forEach((q) => (PUI[q.k] || []).forEach((sl) => sl.set(S.as[q.k])));
-        Object.assign(S.tune, before.tune);
+        setTuneAll(before.tune);
         resim();
       });
     });
@@ -1984,8 +1987,7 @@
       if (fine && !pbDrag.fine) Object.assign(pbDrag, { fine: true, fx: e.clientX, ft: S.cursor });
       if (!fine) pbDrag.fine = false;
       const t = pbDrag.fine ? pbDrag.ft + ((e.clientX - pbDrag.fx) / (r.width - 2 * PAD)) * HOR() * 0.2 : pbX2t(e.clientX);
-      const ev = !pbDrag.fine && pbNear(e.clientX, 5);
-      const tt = ev ? ev.t : Math.round(t);
+      const tt = Math.round(t); // a drag passes every second; only a tap snaps to a tick
       pbSet(tt, pbLabel(tt) + (pbDrag.fine ? " · fine" : ""));
     });
     const pbUp = () => (pbDrag = null);
@@ -2119,19 +2121,23 @@
       const g = slideGest;
       if (!g || g.mode) return;
       const dx = e.clientX - g.x, dy = e.clientY - g.y;
-      if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
+      if (Math.abs(dx) > 12 && Math.abs(dx) >= 2 * Math.abs(dy)) {
         g.mode = "slide";
         slideCommit = true;
         g.input.dispatchEvent(new Event("input", { bubbles: true }));
         slideCommit = false;
-      } else if (Math.abs(dy) > 6) g.mode = "scroll";
+      } else if (Math.abs(dy) > 8) g.mode = "scroll";
     }, true);
     const slideEnd = (e) => {
       const g = slideGest;
       slideGest = null;
       if (!g) return;
-      if (e.type === "pointerup" && !g.mode && Math.hypot(e.clientX - g.x, e.clientY - g.y) < 8 && g.input.value !== g.v0) {
-        slideCommit = true; // a tap on the track: a deliberate jump
+      // a sideways drag commits; anything else puts the slider back: a scroll (the browser cancels the pointer, even
+      // after a sideways start) and a tap on the track (it may only be stopping a scroll; the value's stepper is
+      // the way to set a number exactly)
+      if (e.type === "pointercancel" && g.mode === "slide") {
+        g.input.value = g.v0;
+        slideCommit = true;
         g.input.dispatchEvent(new Event("input", { bubbles: true }));
         slideCommit = false;
       } else if (g.mode !== "slide") g.input.value = g.v0;
@@ -2152,6 +2158,7 @@
       fsExit();
     });
     window.addEventListener("popstate", () => {
+      ovBackPending = false;
       if (isFull() && !(history.state && history.state.labFs)) return fsExit(true);
       // Back with a card, the menu or a stepper open closes it first (a phone convention)
       if (isFull() && !(history.state && history.state.labOv) && (openCard || !mMenu.hidden || !stepEl.hidden)) {
@@ -2163,7 +2170,7 @@
       }
     });
     // one history entry while any overlay is open on a phone; closing the last one takes it off again
-    let ovFromPop = false, ovQueued = false;
+    let ovFromPop = false, ovQueued = false, ovBackPending = false;
     function syncOverlayHistory() {
       if (ovQueued) return;
       ovQueued = true;
@@ -2171,8 +2178,12 @@
         ovQueued = false;
         if (!phoneUI()) return;
         const open = !!openCard || !mMenu.hidden || !stepEl.hidden, onOv = !!(history.state && history.state.labOv);
+        if (ovBackPending) return;
         if (open && !onOv) history.pushState({ ...(history.state || {}), labOv: true }, "");
-        else if (!open && onOv && !ovFromPop) history.back();
+        else if (!open && onOv && !ovFromPop) {
+          ovBackPending = true;
+          history.back();
+        }
       });
     }
     // on a phone a tap outside an open card closes it, and does nothing else
@@ -2180,6 +2191,8 @@
     root.addEventListener("pointerdown", (e) => {
       if (!phoneUI() || !openCard) return;
       if (e.target.closest(".lab-card, .fs-menu, .fs-more, .lab-step")) return;
+      if (e.target.closest(".fs-close")) return; // ✕ leaves in one tap (the exit closes the card)
+      if (e.target.closest(".fs-top, .fs-pb")) return showCard(null); // the bars act at once
       e.stopPropagation();
       e.preventDefault();
       swallowClick = true;
@@ -2279,7 +2292,7 @@
         b.classList.toggle("on", b.dataset.tab === cur.id);
         b.setAttribute("aria-selected", String(b.dataset.tab === cur.id));
         if (b.dataset.tab === cur.id) {
-          const l = b.offsetLeft - fsTabs.offsetLeft, r = l + b.offsetWidth, pad = 12;
+          const l = b.offsetLeft - fsTabs.offsetLeft, r = l + b.offsetWidth, pad = 44; // clear of the edge fade
           if (l - pad < fsTabs.scrollLeft) fsTabs.scrollLeft = l - pad;
           else if (r + pad > fsTabs.scrollLeft + fsTabs.clientWidth) fsTabs.scrollLeft = r + pad - fsTabs.clientWidth;
         }
@@ -2335,7 +2348,7 @@
       S.running = false;
       playBtn.textContent = "Play";
       runBtn.textContent = "Run";
-      if (!fromPop && fsPushed && history.state && history.state.labFs) return history.state.labOv ? history.go(-2) : history.back();
+      if (!fromPop && fsPushed && history.state && history.state.labFs) return history.go(history.state.labOv && !ovBackPending ? -2 : -1);
       fsPushed = false;
       fsTab = null;
       toggleMenu(false);
@@ -2666,6 +2679,7 @@
       if (key === hudKey) return;
       hudKey = key;
       hudAlarm.innerHTML = alarms.map(([k, t]) => `<span class="${k}">${t}</span>`).join("");
+      if (phoneUI()) requestAnimationFrame(() => (torusOpts.topPad = Math.max(4, hud.offsetHeight - 26)));
       hudTags.innerHTML = tags.map((t) => `<span>⚙ ${t}</span>`).join("") + (tags.length ? `<button type="button" class="lab-hud-reset">reset</button>` : "");
       hudChip.textContent = st.text;
       hudChip.style.background = chipFill(st.color);
@@ -3452,6 +3466,8 @@
       const ph = numPop.offsetHeight || 230, top = cr.top + ph > pbTop - 8 ? Math.min(cr.bottom, pbTop - 8) - ph : cr.top - 10;
       numPop.style.top = Math.max(4, top - pr.top) + "px";
       drawPop();
+      const ph2 = numPop.offsetHeight, top2 = cr.top + ph2 > pbTop - 8 ? Math.min(cr.bottom, pbTop - 8) - ph2 : cr.top - 10;
+      numPop.style.top = Math.max(4, top2 - pr.top) + "px";
     }
     function hidePop() {
       popQ = null;
@@ -4332,7 +4348,8 @@
       if (!visible && !isFull()) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "Escape") {
-        if (!mMenu.hidden) toggleMenu(false);
+        if (!stepEl.hidden) closeStepper();
+        else if (!mMenu.hidden) toggleMenu(false);
         else if (popQ) hidePop();
         else if (openCard) showCard(null);
         else if (isFull()) fsExit();
@@ -4397,7 +4414,7 @@
       sv.tbox = { x: x0, w: x1 - x0 };
       const recs = S.recs, cur = Math.min(S.cursor, recs.length - 1);
       const sx = (t) => x0 + ((x1 - x0) * t) / 151;
-      const good = "#1baf7a", bad = col.bad;
+      const dark = isDark(), good = dark ? "#4fd1a0" : "#0f7a54", bad = dark ? "#ff7b7b" : "#c72f2e";
       SPARK.forEach((r, i) => {
         const y0 = 2 + i * rh, sy = (v) => y0 + rh - 4 - ((rh - 8) * (clamp(v, r.yr[0], r.yr[1]) - r.yr[0])) / (r.yr[1] - r.yr[0]);
         ctx.save();
@@ -4424,7 +4441,7 @@
           ctx.fill();
           ctx.font = '600 12px Inter, sans-serif';
           ctx.textAlign = "right";
-          ctx.fillText(r.f(d[r.k]), w - 2, y0 + rh / 2);
+          ctx.fillText((ok ? "" : "✗ ") + r.f(d[r.k]), w - 2, y0 + rh / 2);
         }
         ctx.restore();
       });

@@ -162,7 +162,7 @@ body:has(.rt-lab) .md-grid { max-width: 92rem; }
 .lab-audit li.ok { color: #1a8f63; } .lab-audit li.bad { color: #d23d3c; } .lab-audit li.info { color: var(--md-default-fg-color--light); }
 [data-md-color-scheme="slate"] .lab-audit li.ok { color: #4fd1a0; } [data-md-color-scheme="slate"] .lab-audit li.bad { color: #ff7b7b; }
 /* Lab: who turns the knobs (open loop, feedback, you) */
-.rt-lab { --lab-open: #b07d1a; --lab-fb: #0e95ad; --lab-you: var(--md-accent-fg-color); }
+.rt-lab { --lab-open: #8f6512; --lab-fb: #0a7a8e; --lab-you: var(--rt-accent-fill, #c42f82); } /* ≥ 4.5:1 as text and under white text */
 [data-md-color-scheme="slate"] .rt-lab { --lab-open: #e0a93a; --lab-fb: #3cc0d6; }
 .lab-presets { display: flex; flex-wrap: wrap; gap: 0.45rem 1.1rem; margin-bottom: 0.45rem; }
 .lab-group { border-left: 3px solid var(--lab-fb); padding: 0.05rem 0 0.1rem 0.55rem; }
@@ -613,7 +613,7 @@ html.lab-fs-lock, html.lab-fs-lock body { overflow: hidden; }
 .lab-step output { min-width: 64px; text-align: center; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .fs-phone .rt-ctl-val { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; min-height: 32px; display: inline-flex; align-items: center; justify-content: flex-end; }
 /* the toast */
-.lab-toast { position: absolute; left: 50%; bottom: 72px; transform: translateX(-50%); z-index: 80; display: flex; align-items: center; gap: 12px; max-width: calc(100% - 24px); padding: 10px 14px; border-radius: 10px; font-size: 14px; color: var(--md-default-bg-color); background: var(--md-default-fg-color); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); }
+.lab-toast { position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content; bottom: 72px; z-index: 80; display: flex; align-items: center; gap: 12px; max-width: calc(100% - 24px); padding: 10px 14px; border-radius: 10px; font-size: 14px; color: var(--md-default-bg-color); background: var(--md-default-fg-color); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); }
 .lab-toast[hidden] { display: none; }
 .lab-toast { pointer-events: none; } /* never blocks the content under it */
 .lab-toast-act { pointer-events: auto; }
@@ -653,3 +653,4 @@ html.lab-fs-lock, html.lab-fs-lock body { overflow: hidden; }
 .lab-launch-cap { position: absolute; left: 12px; bottom: 8px; font-size: 12px; color: var(--md-default-fg-color--light); }
 /* F24: the menu fits a phone on its side */
 .fs-land .fs-mi { min-height: 44px; font-size: 14px; }
+.fs-phone .lab-live { font-size: 11px; }
