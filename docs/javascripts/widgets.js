@@ -158,7 +158,7 @@
     ctx.fillStyle = col.muted;
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
-    for (const v of o.yticks || ticks(yr, o.logy, Math.max(2, Math.round(box.h / 38)))) {
+    for (const v of o.yticks || ticks(yr, o.logy, Math.max(3, Math.round(box.h / 38)))) {
       const y = sy(v);
       ctx.beginPath();
       ctx.moveTo(box.x, y);
@@ -168,7 +168,7 @@
     }
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    for (const v of o.xticks || ticks(xr, o.logx, Math.max(2, Math.round(box.w / 70)))) {
+    for (const v of o.xticks || ticks(xr, o.logx, Math.max(3, Math.round(box.w / 70)))) {
       const x = sx(v);
       ctx.beginPath();
       ctx.moveTo(x, box.y);
@@ -190,13 +190,21 @@
       ctx.font = FONT;
       ctx.textAlign = "left";
       ctx.textBaseline = "bottom";
-      ctx.fillText(o.title, box.x, box.y - 6);
+      const room = o.titleW || box.w; // o.titleW: more room when the plot has free space to its right
+      const t = ctx.measureText(o.title).width <= room || !o.short ? o.title : o.short;
+      fitText(ctx, t, box.x, box.y - 6, room);
     }
     ctx.restore();
     return { sx, sy, inside: (x, y) => x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h };
   }
-  function line(ctx, pts, color, width, dash) {
+  // box (optional): clip the series to the plot area, and mark with a small triangle where it leaves the top
+  function line(ctx, pts, color, width, dash, box) {
     ctx.save();
+    if (box) {
+      ctx.beginPath();
+      ctx.rect(box.x - 1, box.y - 1, box.w + 2, box.h + 2);
+      ctx.clip();
+    }
     ctx.strokeStyle = color;
     ctx.lineWidth = width || 2;
     ctx.lineJoin = "round";
@@ -212,7 +220,87 @@
       started = true;
     }
     ctx.stroke();
+    if (box) {
+      // a series above the box: one small marker at each place it leaves the top, in its colour
+      ctx.setLineDash([]);
+      ctx.fillStyle = color;
+      let was = false;
+      for (const [x, y] of pts) {
+        const out = isFinite(y) && y < box.y;
+        if (out && !was && isFinite(x)) {
+          ctx.beginPath();
+          ctx.moveTo(x, box.y + 1);
+          ctx.lineTo(x - 4, box.y + 7);
+          ctx.lineTo(x + 4, box.y + 7);
+          ctx.closePath();
+          ctx.fill();
+        }
+        was = out;
+      }
+    }
     ctx.restore();
+  }
+  // text cut with an ellipsis to fit maxW
+  function fitText(ctx, t, x, y, maxW) {
+    if (ctx.measureText(t).width <= maxW) return ctx.fillText(t, x, y);
+    while (t.length > 3 && ctx.measureText(t + "…").width > maxW) t = t.slice(0, -1);
+    ctx.fillText(t + "…", x, y);
+  }
+  // a legend that wraps: items [{label, color, dash, kind: "line" | "box"}], drawn from (x, y) within maxW;
+  // returns the height it used (o.measure: only measure), so callers can keep room for it
+  function legend(ctx, col, items, x, y, maxW, o) {
+    o = o || {};
+    if (!items.length) return 0;
+    ctx.save();
+    ctx.font = FONT_SMALL;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    const lh = 14, sw = o.sw || 16;
+    let cx = x, cy = y + lh / 2, lines = 1;
+    for (const it of items) {
+      const w = sw + 5 + ctx.measureText(it.label).width + 12;
+      if (cx > x && cx + w > x + maxW) {
+        cx = x;
+        cy += lh;
+        lines++;
+      }
+      if (o.measure) {
+        cx += w;
+        continue;
+      }
+      ctx.strokeStyle = ctx.fillStyle = it.color;
+      if (it.kind === "box") ctx.fillRect(cx, cy - 4, 10, 8);
+      else {
+        ctx.lineWidth = it.width || 2;
+        ctx.setLineDash(it.dash || []);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + sw, cy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.fillStyle = it.text || col.muted;
+      ctx.fillText(it.label, cx + (it.kind === "box" ? 14 : sw + 5), cy);
+      cx += w;
+    }
+    ctx.restore();
+    return lines * lh;
+  }
+  // n plots side by side (canvas at least 560 px wide) or stacked one per row (narrower, e.g. a phone), so
+  // their titles never overprint. Sets the canvas height for the layout (call before clearing it) and returns the
+  // boxes. o: {pad, gap, top (room above a box for its title), bottom (room below for the x label), h0 (canvas
+  // height side by side), hStack (box height when stacked)}
+  function grid(cv, n, o) {
+    o = o || {};
+    const pad = o.pad === undefined ? 46 : o.pad, gap = o.gap === undefined ? 50 : o.gap, top = o.top || 26, bottom = o.bottom || 44;
+    const stacked = cv.w < 560, need = stacked ? n * (top + (o.hStack || 190) + bottom) : o.h0 || cv.h;
+    if (cv.h !== need) {
+      cv.h = need;
+      cv.fit();
+    }
+    if (stacked) return Array.from({ length: n }, (_, i) => ({ x: pad, y: i * (top + (o.hStack || 190) + bottom) + top, w: cv.w - pad - 16, h: o.hStack || 190 }));
+    const pw = (cv.w - 2 * pad - gap * (n - 1)) / n;
+    return Array.from({ length: n }, (_, i) => ({ x: pad + i * (pw + gap), y: top, w: pw, h: cv.h - top - bottom }));
   }
   function hline(ctx, box, y, color, label, left) {
     ctx.save();
@@ -457,19 +545,18 @@
     const info = note(root, "");
     function draw() {
       const col = colors();
+      const [b1, b2] = grid(cv, 2, { gap: 56, h0: 300, hStack: 170 });
       const { ctx, w, h } = cv;
       ctx.clearRect(0, 0, w, h);
-      const pad = 46, gap = 56, pw = (w - 2 * pad - gap) / 2;
       const j = jOf(I), j0 = jOf(I0), q = qOf(I), q0 = qOf(I0);
       const jmax = Math.max(1, ...j.slice(1, N), ...j0) * 1.15;
-      const b1 = { x: pad, y: 26, w: pw, h: h - 70 }, b2 = { x: pad + pw + gap, y: 26, w: pw, h: h - 70 };
-      const f1 = frame(ctx, col, b1, [0, 1], [0, jmax], { title: "current density j  [MA/m²]", xlabel: "r / a" });
-      line(ctx, r.map((rr, i) => [f1.sx(rr / a), f1.sy(j0[i])]), col.muted, 1.2, [3, 3]);
-      line(ctx, r.map((rr, i) => [f1.sx(rr / a), f1.sy(j[i])]), col.series[0], 2.4);
-      const f2 = frame(ctx, col, b2, [0, 1], [0, 6], { title: "safety factor q", xlabel: "r / a" });
+      const f1 = frame(ctx, col, b1, [0, 1], [0, jmax], { title: "current density j [MA/m²]; dashed: t = 0", short: "j [MA/m²]", xlabel: "r / a" });
+      line(ctx, r.map((rr, i) => [f1.sx(rr / a), f1.sy(j0[i])]), col.muted, 1.2, [3, 3], b1);
+      line(ctx, r.map((rr, i) => [f1.sx(rr / a), f1.sy(j[i])]), col.series[0], 2.4, null, b1);
+      const f2 = frame(ctx, col, b2, [0, 1], [0, 6], { title: "safety factor q; dashed: t = 0", short: "safety factor q", xlabel: "r / a" });
       hline(ctx, b2, f2.sy(1), col.bad, "q = 1");
-      line(ctx, r.map((rr, i) => [f2.sx(rr / a), f2.sy(Math.min(6.2, q0[i]))]), col.muted, 1.2, [3, 3]);
-      line(ctx, r.map((rr, i) => [f2.sx(rr / a), f2.sy(Math.min(6.2, q[i]))]), col.series[1], 2.4);
+      line(ctx, r.map((rr, i) => [f2.sx(rr / a), f2.sy(q0[i])]), col.muted, 1.2, [3, 3], b2);
+      line(ctx, r.map((rr, i) => [f2.sx(rr / a), f2.sy(q[i])]), col.series[1], 2.4, null, b2);
       const qm = Math.min(...q);
       if (qm < 1 && qmin1 === null) qmin1 = t;
       const tauR = (MU0 * a * a) / eta(T0);
@@ -512,9 +599,9 @@
       let hoverRho = null;
       function draw() {
         const col = colors();
+        const boxes = grid(cv, 3, { pad: 42, gap: 44, h0: 300, hStack: 160 });
         const { ctx, w, h } = cv;
         ctx.clearRect(0, 0, w, h);
-        const pad = 42, gap = 44, pw = (w - 2 * pad - 2 * gap) / 3;
         const panels = [
           ["T_e", "electron temperature  [keV]", [0, 30]],
           ["j_total", "current density  [MA/m²]", [0, 3.5]],
@@ -522,7 +609,7 @@
         ];
         const scales = [];
         panels.forEach(([f, title, yr], pi) => {
-          const box = { x: pad + pi * (pw + gap), y: 26, w: pw, h: h - 70 };
+          const box = boxes[pi];
           const fr = frame(ctx, col, box, [0, 1], yr, { title, xlabel: "ρ̂" });
           scales.push([box, fr, f]);
           if (f === "q") hline(ctx, box, fr.sy(1), col.bad, "q = 1");
@@ -531,7 +618,7 @@
             if (!on[k]) return;
             const prof = P[k][f][Math.min(ti, P[k][f].length - 1)];
             const m = prof.length;
-            line(ctx, prof.map((v, ii) => [fr.sx(ii / (m - 1)), fr.sy(Math.min(v, yr[1] * 1.05))]), col.series[i], 2.2);
+            line(ctx, prof.map((v, ii) => [fr.sx(ii / (m - 1)), fr.sy(v)]), col.series[i], 2.2, null, box);
           });
           if (hoverRho !== null) {
             ctx.save();
@@ -639,7 +726,9 @@
       const va = terms(Math.min(Q, 10), s.H98, s.qmin, s.q95, hot && s.ratio >= 1);
       const tot0 = v0.reduce((a, b) => a + b, 0), tota = va.reduce((a, b) => a + b, 0);
       const xmax = Math.max(0.1, tot0 * 1.15);
-      const box = { x: 130, y: 30, w: w - 230, h: 110 };
+      const lx0 = Math.min(130, w * 0.3);
+      const legH = legend(ctx, col, names.map((nm, k) => ({ label: nm, color: col.series[k], kind: "box" })), lx0, 4, w - lx0 - 6);
+      const box = { x: lx0, y: 12 + legH, w: w - lx0 - Math.min(100, w * 0.27), h: 110 };
       const fr = frame(ctx, col, box, [0, xmax], [0, 2], { xlabel: "reward for this one second", yticks: [] });
       [["IterHybrid-v0", v0, tot0, hot], ["audited", va, tota, hot && s.ratio >= 1]].forEach(([lab, v, tot, hm], row) => {
         const y = box.y + 14 + row * 52;
@@ -656,18 +745,12 @@
         ctx.textBaseline = "middle";
         ctx.fillText(lab, box.x - 10, y + 15);
         ctx.textAlign = "left";
-        ctx.fillText(`${tot.toFixed(4)}  (${hm ? "H-mode" : "not H-mode"})`, fr.sx(x0) + 6, y + 15);
-      });
-      ctx.font = FONT_SMALL;
-      let lx = box.x;
-      names.forEach((nm, k) => {
-        ctx.fillStyle = col.series[k];
-        ctx.fillRect(lx, 8, 10, 10);
+        const narrow = w < 480;
+        ctx.fillText(tot.toFixed(4), fr.sx(x0) + 6, y + (narrow ? 8 : 15));
+        ctx.font = FONT_SMALL;
         ctx.fillStyle = col.muted;
-        ctx.textAlign = "left";
-        ctx.textBaseline = "middle";
-        ctx.fillText(nm, lx + 14, 13);
-        lx += ctx.measureText(nm).width + 34;
+        if (narrow) ctx.fillText(hm ? "H-mode" : "not H-mode", fr.sx(x0) + 6, y + 23);
+        else ctx.fillText(`(${hm ? "H-mode" : "not H-mode"})`, fr.sx(x0) + 6 + ctx.measureText(tot.toFixed(4)).width + 16, y + 15);
       });
       const per = (x) => (x * 45).toFixed(2);
       info.innerHTML =
@@ -722,10 +805,10 @@
         return arr.map((v) => (s += v));
       };
       const panels = [
-        ["Ip", "plasma current I_p  [MA]", [0, 16], false],
-        ["Paux", "auxiliary heating P_NBI + P_ECRH  [MW]", [0, 55], false],
-        ["Q", "fusion gain Q = P_fus / P_aux (log)", [0.01, 1000], true],
-        ["cum", "cumulative return: benchmark (solid), audited (dashed)", [0, 50], false],
+        ["Ip", "plasma current I_p [MA]", [0, 16], false, "I_p [MA]"],
+        ["Paux", "auxiliary heating P_NBI + P_ECRH [MW]", [0, 55], false, "heating [MW]"],
+        ["Q", "fusion gain Q = P_fus / P_aux (log)", [0.01, 1000], true, "Q (log)"],
+        ["cum", "cumulative return: benchmark (solid), audited (dashed)", [0, 50], false, "return: benchmark solid, audited dashed"],
       ];
       function draw() {
         const col = colors();
@@ -734,10 +817,10 @@
         const pad = 50, gapV = 34, ph = (h - 60 - 3 * gapV) / 4;
         const maxCum = Math.max(4.5, ...sel.map((k) => E[k].benchmark)) * 1.08;
         cv.boxes = [];
-        panels.forEach(([f, title, yr, logy], pi) => {
+        panels.forEach(([f, title, yr, logy, short], pi) => {
           const box = { x: pad, y: 22 + pi * (ph + gapV), w: w - pad - 16, h: ph };
           const yrr = f === "cum" ? [0, maxCum] : yr;
-          const fr = frame(ctx, col, box, [0, n], yrr, { title, logy, xlabel: pi === 3 ? "time [s]" : "", noXLabels: pi !== 3 });
+          const fr = frame(ctx, col, box, [0, n], yrr, { title, short, logy, xlabel: pi === 3 ? "time [s]" : "", noXLabels: pi !== 3 });
           cv.boxes.push([box, fr]);
           ctx.save();
           ctx.fillStyle = col.grid;
@@ -808,34 +891,33 @@
   // ================================================================== 6. Greenwald limit and IPB98(y,2)
   function wScalings(root) {
     const ctl = controls(root);
-    const s = { Ip: 15, n: 9, P: 80 };
+    const s = { Ip: 15, n: 0.9, P: 80 }; // n in 10^20 m^-3, as in the rest of the site
     const R = 6.2, a = 2.0, B = 5.3, kappa = 1.7, M = 2.5, eps = a / R;
     slider(ctl, "plasma current I_p", 3, 15, 0.1, s.Ip, (v) => v.toFixed(1) + " MA", (v) => ((s.Ip = v), draw()));
-    slider(ctl, "line-average density n̄_e", 1, 14, 0.1, s.n, (v) => v.toFixed(1) + "×10¹⁹ m⁻³", (v) => ((s.n = v), draw()));
+    slider(ctl, "line-average density n̄_e", 0.1, 1.4, 0.01, s.n, (v) => v.toFixed(2) + "×10²⁰ m⁻³", (v) => ((s.n = v), draw()));
     slider(ctl, "loss power P", 10, 200, 1, s.P, (v) => v.toFixed(0) + " MW", (v) => ((s.P = v), draw()));
     const cv = canvas(root, 250);
     const info = note(root, "");
-    const tau = (Ip, n, P) => 0.0562 * Math.pow(Ip, 0.93) * Math.pow(B, 0.15) * Math.pow(n, 0.41) * Math.pow(P, -0.69) * Math.pow(R, 1.97) * Math.pow(kappa, 0.78) * Math.pow(eps, 0.58) * Math.pow(M, 0.19);
+    const tau = (Ip, n20, P) => 0.0562 * Math.pow(Ip, 0.93) * Math.pow(B, 0.15) * Math.pow(10 * n20, 0.41) * Math.pow(P, -0.69) * Math.pow(R, 1.97) * Math.pow(kappa, 0.78) * Math.pow(eps, 0.58) * Math.pow(M, 0.19);
     function draw() {
       const col = colors();
+      const [b1, b2] = grid(cv, 2, { pad: 50, gap: 60, h0: 250, hStack: 160 });
       const { ctx, w, h } = cv;
       ctx.clearRect(0, 0, w, h);
-      const nG = (s.Ip / (Math.PI * a * a)) * 10; // in 1e19 m^-3
+      const nG = s.Ip / (Math.PI * a * a); // in 1e20 m^-3
       const fgw = s.n / nG;
-      const pad = 50, gap = 60, pw = (w - 2 * pad - gap) / 2;
-      const b1 = { x: pad, y: 26, w: pw, h: h - 70 }, b2 = { x: pad + pw + gap, y: 26, w: pw, h: h - 70 };
-      const f1 = frame(ctx, col, b1, [3, 15], [0, 14], { title: "Greenwald density n_G = I_p / (π a²)  [10¹⁹ m⁻³]", xlabel: "I_p [MA]" });
+      const f1 = frame(ctx, col, b1, [3, 15], [0, 1.4], { title: "Greenwald density n_G = I_p / (π a²) [10²⁰ m⁻³]", short: "n_G = I_p/πa² [10²⁰ m⁻³]", xlabel: "I_p [MA]" });
       ctx.save();
       ctx.fillStyle = col.bad;
       ctx.globalAlpha = 0.08;
       ctx.beginPath();
-      ctx.moveTo(f1.sx(3), f1.sy((3 / (Math.PI * a * a)) * 10));
-      for (let x = 3; x <= 15.001; x += 0.25) ctx.lineTo(f1.sx(x), f1.sy((x / (Math.PI * a * a)) * 10));
+      ctx.moveTo(f1.sx(3), f1.sy(3 / (Math.PI * a * a)));
+      for (let x = 3; x <= 15.001; x += 0.25) ctx.lineTo(f1.sx(x), f1.sy(x / (Math.PI * a * a)));
       ctx.lineTo(f1.sx(15), b1.y);
       ctx.lineTo(f1.sx(3), b1.y);
       ctx.fill();
       ctx.restore();
-      line(ctx, [[f1.sx(3), f1.sy((3 / (Math.PI * a * a)) * 10)], [f1.sx(15), f1.sy((15 / (Math.PI * a * a)) * 10)]], col.bad, 2);
+      line(ctx, [[f1.sx(3), f1.sy(3 / (Math.PI * a * a))], [f1.sx(15), f1.sy(15 / (Math.PI * a * a))]], col.bad, 2);
       ctx.fillStyle = col.accent;
       ctx.beginPath();
       ctx.arc(f1.sx(s.Ip), f1.sy(s.n), 6, 0, 2 * Math.PI);
@@ -844,7 +926,7 @@
       ctx.font = FONT_SMALL;
       ctx.textAlign = "left";
       ctx.fillText("above the line: f_GW > 1", f1.sx(3.3), b1.y + 12);
-      const f2 = frame(ctx, col, b2, [3, 15], [0, 6], { title: "IPB98(y,2) confinement time τ_E  [s]", xlabel: "I_p [MA]" });
+      const f2 = frame(ctx, col, b2, [3, 15], [0, 6], { title: "IPB98(y,2) confinement time τ_E [s]", short: "τ_E, IPB98(y,2) [s]", xlabel: "I_p [MA]" });
       const pts = [];
       for (let x = 3; x <= 15.001; x += 0.25) pts.push([f2.sx(x), f2.sy(tau(x, s.n, s.P))]);
       line(ctx, pts, col.series[0], 2.2);
@@ -854,7 +936,7 @@
       ctx.fill();
       const t = tau(s.Ip, s.n, s.P);
       info.innerHTML =
-        `n_G = <b>${(nG / 10).toFixed(2)}×10²⁰ m⁻³</b>, Greenwald fraction f_GW = <b>${fgw.toFixed(2)}</b>${fgw > 1 ? " (above the limit)" : ""}. ` +
+        `n_G = <b>${nG.toFixed(2)}×10²⁰ m⁻³</b>, Greenwald fraction f_GW = <b>${fgw.toFixed(2)}</b>${fgw > 1 ? " (above the limit)" : ""}. ` +
         `τ_E(IPB98) = <b>${t.toFixed(2)} s</b>, so the scaling predicts W_th = τ_E·P ≈ <b>${(t * s.P).toFixed(0)} MJ</b>; ` +
         `H98 = (measured τ_E) / this value. Note I_p<sup>0.93</sup>: more current, better confinement, which is why policies push I_p up. ` +
         `<span class="rt-dim">ITER-like constants: R = 6.2 m, a = 2.0 m, B = 5.3 T, D-T mass 2.5; elongation κ = 1.7 is an assumption here.</span>`;
@@ -984,7 +1066,7 @@
       WIDGETS[name] = fn;
       if (document.readyState !== "loading") mountAll();
     },
-    mountAll, colors, el, controls, slider, button, chip, note, canvas, frame, line, hline, player, getJSON, fmtNum,
+    mountAll, colors, el, controls, slider, button, chip, note, canvas, frame, line, hline, player, getJSON, fmtNum, fitText, legend, grid,
     FONT, FONT_SMALL, isDark,
   };
   if (window.document$ && window.document$.subscribe) window.document$.subscribe(mountAll);

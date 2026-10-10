@@ -11,7 +11,7 @@
   "use strict";
   const RT = window.RT, M = window.RTModel;
   if (!RT || !M) return;
-  const { colors, el, controls, slider, button, chip, note, canvas, frame, line, hline, player, getJSON, FONT, FONT_SMALL, isDark } = RT;
+  const { colors, el, controls, slider, button, chip, note, canvas, frame, line, hline, player, getJSON, FONT, FONT_SMALL, isDark, legend } = RT;
   const RC = window.RTControl;
   const SCRIPT_URL = document.currentScript ? document.currentScript.src : location.href;
   const SITE_ROOT = new URL("../", SCRIPT_URL);
@@ -1543,8 +1543,30 @@
     pT.cvs.push(tv, hsv);
     // ---- numbers at the cursor
     const pN = panel("lab-ctl", "Numbers at the cursor", ["reward", "flux"]);
+    // two views of the same quantities: numbers (the value, three trailing averages, TORAX) or plots (each one
+    // through the whole episode); hovering a number shows its history up to the cursor
+    const numSeg = el("span", "lab-seg lab-viewseg");
+    numSeg.setAttribute("role", "tablist");
+    pN.tools.prepend(numSeg);
+    const numBtns = {
+      numbers: button(numSeg, "Numbers", () => setNumView("numbers"), "rt-chip"),
+      plots: button(numSeg, "Plots", () => setNumView("plots"), "rt-chip"),
+    };
+    numBtns.numbers.title = "The value at the cursor, its trailing averages and TORAX's value";
+    numBtns.plots.title = "Every quantity through the whole episode, one small plot each";
+    const numKey = el("div", "lab-numkey");
+    pN.body.appendChild(numKey);
     const readout = el("div", "lab-readout");
     pN.body.appendChild(readout);
+    const nvBox = el("div", "lab-numplots");
+    pN.body.appendChild(nvBox);
+    const nv = canvas(nvBox, 480);
+    const numPop = el("div", "lab-histpop");
+    numPop.hidden = true;
+    root.appendChild(numPop);
+    const npCv = el("canvas", "");
+    const npKey = el("div", "lab-histpop-key");
+    numPop.append(el("div", "lab-histpop-title"), npCv, npKey);
 
     // ---- the knobs: who turns them, and what they read
     const pK = panel("lab-knobs", "The knobs: who turns them, and what they read");
@@ -1557,6 +1579,7 @@
     const kv = canvas(kLeft, 318);
     const ks = canvas(kRight, 318);
     pK.cvs.push(kv, ks);
+    pN.cvs.push(nv);
 
     // ---- traces
     const pX = panel("lab-traces", "Traces: the episode so far (solid: Lab, dashed: TORAX)", ["fusion", "ipb98", "plh"]);
@@ -1937,6 +1960,7 @@
       `<li>The <b>chip</b> on the view: the phase of the shot and the confinement state as the reward sees it.</li>` +
       `<li><b>Callouts</b> pin events to the part where they happen; a <b>red pulsing edge</b> means a limit is violated, and the view flashes red when one is crossed during playback.</li>` +
       `<li>The <b>narration</b> under the view says what is happening and who is turning the knobs.</li></ul>` +
+      `<h4>Numbers at the cursor</h4><p>Big: the value at the cursor. Small print: the averages over the last 5, 20 and 60 s (muted while a window has not filled yet; for Q, the gain over the window), and TORAX's value at the same time. Hover or tap a number for its history with TORAX and your pins; <b>Numbers | Plots</b> switches to one small plot per quantity.</p>` +
       `<h4>Keys</h4><p><kbd>Space</kbd> play or pause · <kbd>←</kbd> <kbd>→</kbd> step 1 s (with <kbd>Shift</kbd> 10 s) · <kbd>F</kbd> full screen · <kbd>L</kbd> part names · <kbd>S</kbd> scoreboard · <kbd>?</kbd> this card · <kbd>Esc</kbd> close</p>` +
       `<p class="lab-card-more"><a href="#model-card">Model card</a>: what the reduced model is, how it was calibrated against TORAX and where it is wrong.</p>`;
 
@@ -2575,22 +2599,366 @@
         callouts: calloutsAt(S.cursor),
       });
     }
-    function drawReadout() {
-      const d = S.recs[S.cursor] || S.recs[0];
-      const g = (k) => ghostAt(k, d.t);
-      const cell = (lab, v, gv, unit, eq) =>
-        `<div class="lab-ro"><span>${eq ? `<a href="${eqLink(eq)}">${lab}</a>` : lab}</span><b>${v}</b>${unit ? `<em>${unit}</em>` : ""}${gv !== null && gv !== undefined ? `<i>TORAX ${gv}</i>` : ""}</div>`;
-      const f = (v, n) => (v === null || v === undefined ? null : Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(n));
-      readout.innerHTML =
-        cell("t", d.t, null, "s") + cell("I_p", f(d.Ip, 2), f(g("Ip"), 2), "MA") + cell("P_NBI + P_ECRH", f(d.Pnbi + d.Pecrh, 1), null, "MW") +
-        cell("T_e(0)", f(d.Te0, 1), f(g("Te0"), 1), "keV", "heat") + cell("T_i(0)", f(d.Ti0, 1), f(g("Ti0"), 1), "keV", "heat") +
-        cell("j(0)", f(d.j0, 2), f(g("j0"), 2), "MA/m²", "diffusion") + cell("q_min", f(d.qmin, 2), f(g("qmin"), 2), "", "q") +
-        cell("q95", f(d.q95, 2), f(g("q95"), 2), "", "q") + cell("Q", f(d.Q, 2), f(g("Q"), 2), "", "fusion") + cell("H98", f(d.H98, 2), f(g("H98"), 2), "", "ipb98") +
-        cell("f_GW", f(d.fgw, 2), f(g("fgw"), 2), "", "greenwald") + cell(PHYS() ? "P_heat / P_LH" : "P_SOL / P_LH", f(d.psolPlh, 2), f(g("psolPlh"), 2), "", "plh") +
-        (PHYS() ? cell("l_i(3)", f(d.li, 2), f(g("li"), 2), "", null) + cell("true threshold ÷ scaling", f(d.plhMul, 2), null, "", "plh") : "") +
-        cell("β_N", f(d.betaN, 2), f(g("betaN"), 2), "", "betaN") + cell("P_fus", f(d.Pfus, 0), null, "MW", "fusion") + cell("I_bootstrap", f(d.Ibs, 2), null, "MA", "bootstrap") +
-        cell("V_loop", f(d.Vloop, 2), null, "V", "flux") + cell("resistive flux", f(d.flux, 0), null, "Wb", "flux") + cell("pedestal T", f(d.Tped, 2), null, "keV", "pedestal");
+    // ---- the quantities of the numbers panel: label, unit, how to read them from a record and from TORAX
+    //   g: TORAX trace (lab.json) or a function of the traces and the index; ref: reference lines in plots
+    const QTY = () => [
+      { k: "t", lab: "t", unit: "s", n: 0, noma: true, noplot: true },
+      { k: "Ip", lab: "I_p", unit: "MA", n: 2, g: "Ip" },
+      { k: "Paux", lab: "P_NBI + P_ECRH", short: "heating", unit: "MW", n: 1, get: (d) => d.Pnbi + d.Pecrh, g: (T, i) => (T.Pnbi[i] || 0) + (T.Pecrh[i] || 0) },
+      { k: "Te0", lab: "T_e(0)", unit: "keV", n: 1, g: "Te0", eq: "heat" },
+      { k: "Ti0", lab: "T_i(0)", unit: "keV", n: 1, g: "Ti0", eq: "heat" },
+      { k: "j0", lab: "j(0)", unit: "MA/m²", n: 2, g: "j0", eq: "diffusion" },
+      { k: "qmin", lab: "q_min", n: 2, g: "qmin", eq: "q", ref: [[1, "1"]] },
+      { k: "q95", lab: "q95", n: 2, g: "q95", eq: "q", ref: [[3, "3"]] },
+      { k: "Q", lab: "Q", n: 2, g: "Q", eq: "fusion", log: true, ratio: (d) => [d.Pfus, d.Paux + d.Pohm] },
+      { k: "H98", lab: "H98", n: 2, g: "H98", eq: "ipb98", ref: [[1, "1"]] },
+      { k: "fgw", lab: "f_GW", n: 2, g: "fgw", eq: "greenwald", ref: [[1, "limit"]] },
+      { k: "psolPlh", lab: PHYS() ? "P_heat / P_LH" : "P_SOL / P_LH", short: PHYS() ? "P_heat/P_LH" : "P_SOL/P_LH", n: 2, g: "psolPlh", eq: "plh", ref: PHYS() ? [[1.2 * (S.as.plhMul || 1), "paid"]] : [[1, "1"]] },
+      ...(PHYS() ? [{ k: "li", lab: "l_i(3)", n: 2, g: "li", ref: [[0.65, "0.65"], [1.2, "1.2"]] }, { k: "plhMul", lab: "true threshold ÷ scaling", n: 2, noma: true, noplot: true, eq: "plh" }] : []),
+      { k: "betaN", lab: "β_N", n: 2, g: "betaN", eq: "betaN" },
+      { k: "Pfus", lab: "P_fus", unit: "MW", n: 0, eq: "fusion" },
+      { k: "Ibs", lab: "I_bootstrap", short: "I_bs", unit: "MA", n: 2, eq: "bootstrap" },
+      { k: "Vloop", lab: "V_loop", unit: "V", n: 2, eq: "flux" },
+      { k: "flux", lab: "resistive flux", short: "flux", unit: "Wb", n: 0, eq: "flux", noma: true },
+      { k: "Tped", lab: "pedestal T", unit: "keV", n: 2, eq: "pedestal" },
+    ];
+    const MA_WIN = [5, 20, 60]; // trailing averages [s]
+    const qGet = (q, d) => (q.get ? q.get(d) : d[q.k]);
+    const qTorax = (q, t) => {
+      if (!S.torax || !q.g || t < 1) return null;
+      const T = S.torax.torax, i = t - 1;
+      const v = typeof q.g === "function" ? q.g(T, i) : T[q.g] && T[q.g][i];
+      return v === undefined || v === null || !isFinite(v) ? null : v;
+    };
+    const qFmt = (q, v, less) => {
+      if (v === null || v === undefined || !isFinite(v)) return "–";
+      const n = Math.abs(v) >= 100 ? 0 : Math.max(0, q.n - (less && Math.abs(v) >= 1 ? 1 : 0));
+      return (+v.toFixed(n) === 0 ? 0 : v).toFixed(n); // no "-0.00"
+    };
+    // running sums of every quantity over the run, for the trailing averages
+    let MAC = { key: "", sums: {} };
+    function maAt(q, i, win) {
+      const key = `${S.recsVersion}|${S.recs.length}|${S.scen}`;
+      if (MAC.key !== key) MAC = { key, sums: {} };
+      let c = MAC.sums[q.k];
+      if (!c) {
+        // running sums (of the numerator and denominator for a ratio such as Q)
+        c = [[], []];
+        let a = 0, b = 0;
+        S.recs.forEach((d, j) => {
+          const [x, y] = q.ratio ? q.ratio(d) : [qGet(q, d), 1];
+          c[0][j] = a += x;
+          c[1][j] = b += y;
+        });
+        MAC.sums[q.k] = c;
+      }
+      const j0 = Math.max(0, i - win + 1), at = (k) => c[k][i] - (j0 > 0 ? c[k][j0 - 1] : 0);
+      return at(0) / at(1);
     }
+    // ---- numbers view: built once per scenario, updated in place (so hover and focus survive playback)
+    let roKey = "", roCells = {};
+    function buildReadout() {
+      roCells = {};
+      readout.innerHTML = "";
+      for (const q of QTY()) {
+        const c = el("div", "lab-ro");
+        c.dataset.k = q.k;
+        c.tabIndex = 0;
+        const lab = el("span", "ro-l", q.eq ? `<a href="${eqLink(q.eq)}">${q.lab}</a>` : q.lab);
+        const val = el("span", "ro-v");
+        const v = el("b", ""), u = el("em", "", q.unit || ""), tr = el("span", "ro-tr");
+        val.append(v, u, tr);
+        const ma = el("span", "ro-ma");
+        const mas = MA_WIN.map((w) => {
+          const x = el("span", "");
+          ma.append(el("i", "", `${w}s`), x);
+          return x;
+        });
+        const tor = el("span", "ro-tor");
+        c.append(lab, val);
+        if (!q.noma) c.append(ma);
+        c.append(tor);
+        readout.appendChild(c);
+        roCells[q.k] = { q, v, tr, mas, tor };
+      }
+    }
+    function drawReadout() {
+      const key = `${S.scen}|${QTY().length}`;
+      if (key !== roKey) {
+        roKey = key;
+        buildReadout();
+      }
+      const i = Math.min(S.cursor, S.recs.length - 1), d = S.recs[i] || S.recs[0];
+      for (const { q, v, tr, mas, tor } of Object.values(roCells)) {
+        const x = qGet(q, d);
+        v.textContent = qFmt(q, x);
+        if (!q.noma) {
+          const m = MA_WIN.map((w) => maAt(q, i, w));
+          m.forEach((y, j) => {
+            mas[j].textContent = qFmt(q, y, true); // one digit less in the small print
+            const part = i + 1 < MA_WIN[j]; // the window has not filled yet: an average over the first i + 1 s
+            mas[j].classList.toggle("part", part);
+            mas[j].title = part ? `average over the first ${i + 1} s (the ${MA_WIN[j]} s window has not filled yet)` : `average over the last ${MA_WIN[j]} s`;
+          });
+          // the trend over the last few seconds, against the 5 s average
+          const dv = x - m[0], tol = 0.015 * Math.max(Math.abs(m[0]), 1e-6);
+          tr.textContent = i < 2 || Math.abs(dv) <= tol ? "" : dv > 0 ? "▲" : "▼";
+        }
+        const g = qTorax(q, d.t);
+        tor.textContent = g === null ? "" : `TORAX ${qFmt(q, g)}`;
+      }
+      numKey.innerHTML = numView === "plots"
+        ? `<span><i class="k-run"></i>this run</span>${S.torax ? `<span><i class="k-tor"></i>TORAX</span>` : ""}${S.pins.map((p, j) => `<span title="${p.label}"><i style="background:${p.color}"></i>pin ${j + 1}</span>`).join("")}<span><i class="k-ref"></i>limit or reference</span><span class="k-hint">${TOUCH ? "tap or drag to move the time" : "click or drag to move the time; hover for values"}</span>`
+        : `<span><b>big</b>: the value at t = ${d.t} s</span><span><b>5s 20s 60s</b>: trailing averages</span>${S.torax ? `<span><b>TORAX</b>: its value at the same time</span>` : ""}<span class="k-hint">${TOUCH ? "tap" : "hover"} a number for its history</span>`;
+      if (numView === "plots") drawNumPlots();
+    }
+
+    // ---- one quantity through the episode: this run (solid, dimmed after the cursor), TORAX (dashed), the pins
+    function histSeries(q) {
+      const run = S.recs.map((d) => [d.t, qGet(q, d)]);
+      const out = [];
+      S.pins.forEach((p, j) => out.push({ pts: p.recs.map((d) => [d.t, qGet(q, d)]), color: p.color, width: 1.4, label: `pin ${j + 1}` }));
+      if (S.torax && q.g) {
+        const tor = [];
+        for (let t = 1; t <= S.torax.torax.Ip.length; t++) tor.push([t, qTorax(q, t)]);
+        out.push({ pts: tor, color: colors().muted, width: 1.3, dash: [4, 3], label: "TORAX" });
+      }
+      out.push({ pts: run, color: colors().accent, width: 2, run: true, label: "this run" });
+      return out;
+    }
+    function plotHist(ctx, col, box, q, o) {
+      const series = histSeries(q), cur = S.cursor, T = HOR();
+      let lo = Infinity, hi = -Infinity;
+      for (const sr of series) for (const [, v] of sr.pts) if (v !== null && isFinite(v) && (!q.log || v > 0)) (lo = Math.min(lo, v)), (hi = Math.max(hi, v));
+      for (const [v] of q.ref || []) if (!q.log || v > 0) (lo = Math.min(lo, v)), (hi = Math.max(hi, v));
+      if (!isFinite(lo)) (lo = 0), (hi = 1);
+      if (q.log) {
+        hi = Math.max(hi, 0.1);
+        lo = Math.max(Math.min(lo, hi / 10), hi / 1e4, 1e-3);
+      } else {
+        const pad = (hi - lo) * 0.08 || Math.max(Math.abs(hi) * 0.1, 0.05);
+        lo -= pad;
+        hi += pad;
+        if (lo < 0 && Math.min(...series.flatMap((sr) => sr.pts.map(([, v]) => (v === null ? Infinity : v)))) >= 0) lo = 0;
+      }
+      // two or three ticks: small plots stay legible
+      let yt;
+      if (q.log) {
+        const e0 = Math.ceil(Math.log10(lo)), e1 = Math.floor(Math.log10(hi)), n = e1 - e0;
+        yt = (n <= 2 ? Array.from({ length: n + 1 }, (_, j) => e0 + j) : [e0, Math.round((e0 + e1) / 2), e1]).map((e) => Math.pow(10, e));
+      } else yt = [lo + (hi - lo) * 0.08, hi - (hi - lo) * 0.08].map((v) => +v.toPrecision(2));
+      const fr = frame(ctx, col, box, [0, T], [lo, hi], { logy: q.log, yticks: o.yticks === false ? [] : yt, xticks: [0, 50, 100, 150].filter((v) => v <= T), noXLabels: !o.xlabels, xlabel: o.xlabels && o.xtitle ? "t [s]" : "" });
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(box.x, box.y - 2, box.w, box.h + 4);
+      ctx.clip();
+      for (const [v, lab] of q.ref || []) {
+        const y = fr.sy(v);
+        ctx.strokeStyle = col.bad;
+        ctx.globalAlpha = 0.55;
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        ctx.moveTo(box.x, y);
+        ctx.lineTo(box.x + box.w, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        if (o.reflabels) {
+          ctx.fillStyle = col.bad;
+          ctx.font = FONT_SMALL;
+          ctx.textAlign = "right";
+          ctx.textBaseline = "bottom";
+          ctx.fillText(lab, box.x + box.w - 2, y - 1);
+        }
+        ctx.globalAlpha = 1;
+      }
+      const P = (pts) => pts.map(([t, v]) => [fr.sx(t), v === null || (q.log && v <= 0) ? NaN : fr.sy(v)]);
+      for (const sr of series) {
+        const before = sr.pts.filter(([t]) => t <= cur), after = sr.pts.filter(([t]) => t >= cur);
+        ctx.globalAlpha = 1;
+        line(ctx, P(before), sr.color, sr.width, sr.dash);
+        ctx.globalAlpha = sr.run ? 0.28 : 0.22;
+        line(ctx, P(after), sr.color, sr.width, sr.dash);
+        ctx.globalAlpha = 1;
+      }
+      // the cursor, and a hovered time
+      const xc = fr.sx(cur);
+      ctx.strokeStyle = col.accent;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(xc, box.y);
+      ctx.lineTo(xc, box.y + box.h);
+      ctx.stroke();
+      const dv = S.recs[Math.min(cur, S.recs.length - 1)];
+      if (dv) {
+        const yv = qGet(q, dv);
+        if (isFinite(yv) && (!q.log || yv > 0)) {
+          ctx.fillStyle = col.accent;
+          ctx.beginPath();
+          ctx.arc(xc, fr.sy(yv), 2.8, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+      if (o.hoverT !== null && o.hoverT !== undefined) {
+        ctx.strokeStyle = col.fg;
+        ctx.globalAlpha = 0.5;
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath();
+        ctx.moveTo(fr.sx(o.hoverT), box.y);
+        ctx.lineTo(fr.sx(o.hoverT), box.y + box.h);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+      return { fr, series };
+    }
+
+    // ---- plots view: small multiples, one per quantity, a shared time axis along the bottom row
+    let numView = store.get("numview", "numbers"), nvHover = null, nvLayout = null;
+    function setNumView(v) {
+      numView = v;
+      store.set("numview", v);
+      for (const k in numBtns) {
+        numBtns[k].classList.toggle("on", k === v);
+        numBtns[k].setAttribute("aria-selected", String(k === v));
+      }
+      readout.hidden = v !== "numbers";
+      nvBox.hidden = v !== "plots";
+      hidePop();
+      if (v === "plots") nv.fit();
+      S.dirty = true;
+    }
+    function drawNumPlots() {
+      const qs = QTY().filter((q) => !q.noplot);
+      const W = nvBox.clientWidth || nv.w;
+      const cols = W >= 700 ? 4 : W >= 420 ? 3 : 2, rows = Math.ceil(qs.length / cols), cellH = 88, axisH = 30;
+      const hNeed = rows * cellH + axisH;
+      if (nv.h !== hNeed) {
+        nv.h = hNeed;
+        nv.fit();
+      }
+      const col = colors(), { ctx, w } = nv;
+      ctx.clearRect(0, 0, w, nv.h);
+      const cw = w / cols;
+      nvLayout = { cols, cw, cellH, rows, qs, boxes: [] };
+      qs.forEach((q, k) => {
+        const r = Math.floor(k / cols), c = k % cols;
+        const last = r === rows - 1 || k + cols >= qs.length;
+        const box = { x: c * cw + 30, y: r * cellH + 20, w: cw - 38, h: cellH - 30 };
+        nvLayout.boxes.push(box);
+        plotHist(ctx, col, box, q, { xlabels: last, hoverT: nvHover, reflabels: false });
+        // title with unit on the left, the value at the cursor (or at the hovered time) on the right
+        const t = nvHover !== null ? nvHover : S.cursor, d = S.recs[Math.min(t, S.recs.length - 1)];
+        const vs = d ? qFmt(q, qGet(q, d)) : "–";
+        ctx.font = "600 " + FONT_SMALL;
+        ctx.textBaseline = "alphabetic";
+        ctx.textAlign = "right";
+        ctx.fillStyle = col.accent;
+        ctx.fillText(vs, (c + 1) * cw - 8, r * cellH + 13);
+        const room = cw - 18 - ctx.measureText(vs).width;
+        ctx.fillStyle = col.fg;
+        ctx.textAlign = "left";
+        let title = (ctx.measureText(q.lab).width + 40 > room && q.short ? q.short : q.lab) + (q.unit ? ` [${q.unit}]` : "");
+        while (title.length > 4 && ctx.measureText(title).width > room) title = title.slice(0, -2) + "…";
+        ctx.fillText(title, c * cw + 4, r * cellH + 13);
+      });
+      ctx.font = FONT_SMALL;
+      ctx.fillStyle = col.muted;
+      ctx.textAlign = "right";
+      ctx.fillText(nvHover !== null ? `values at t = ${nvHover} s (hover)` : `values at the cursor, t = ${S.cursor} s`, w - 6, nv.h - 3);
+      ctx.textAlign = "left";
+      ctx.fillText("t [s]", 4, nv.h - 3);
+    }
+    function nvTime(e) {
+      if (!nvLayout) return null;
+      const r = nv.c.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+      const k = Math.min(nvLayout.cols - 1, Math.floor(x / nvLayout.cw)) + nvLayout.cols * Math.min(nvLayout.rows - 1, Math.floor(y / nvLayout.cellH));
+      const b = nvLayout.boxes[Math.min(k, nvLayout.boxes.length - 1)];
+      return clamp(Math.round(((x - b.x) / b.w) * HOR()), 0, S.recs.length - 1);
+    }
+    let nvDrag = false;
+    nv.c.style.cursor = "crosshair";
+    nv.c.addEventListener("pointerdown", (e) => {
+      nvDrag = true;
+      const t = nvTime(e);
+      if (t !== null) (S.cursor = t), (S.playing = false), (playBtn.textContent = "Play"), (S.dirty = true);
+    });
+    nv.c.addEventListener("pointermove", (e) => {
+      const t = nvTime(e);
+      if (nvDrag && t !== null) (S.cursor = t), (S.playing = false), (playBtn.textContent = "Play");
+      nvHover = nvDrag ? null : t;
+      S.dirty = true;
+    });
+    nv.c.addEventListener("pointerleave", () => ((nvHover = null), (S.dirty = true)));
+    window.addEventListener("pointerup", () => (nvDrag = false));
+
+    // ---- hover a number: its history up to the cursor, with TORAX and the pins
+    // the history popup is shared: number tiles, the side pane's sparklines (anything with a quantity of QTY)
+    let popQ = null, popEl = null, popRect = null;
+    function showPop(cell) {
+      const c = roCells[cell.dataset.k];
+      if (!c || c.q.noplot) return hidePop();
+      showPopAt(c.q, cell, cell.getBoundingClientRect());
+    }
+    function showPopAt(q, anchor, cr) {
+      popQ = q;
+      popEl = anchor;
+      popRect = cr;
+      numPop.hidden = false;
+      const pr = root.getBoundingClientRect();
+      const pw = Math.min(330, pr.width - 16);
+      numPop.style.width = pw + "px";
+      let left = cr.right - pr.left + 8;
+      if (left + pw > pr.width - 4) left = cr.left - pr.left - pw - 8;
+      if (left < 4) left = clamp(cr.left - pr.left, 4, pr.width - pw - 4);
+      numPop.style.left = left + "px";
+      // below the anchor's top if it fits on the screen, otherwise above its bottom
+      const ph = numPop.offsetHeight || 230, top = cr.top + ph > innerHeight - 8 ? cr.bottom - ph : cr.top - 10;
+      numPop.style.top = Math.max(4, top - pr.top) + "px";
+      drawPop();
+    }
+    function hidePop() {
+      popQ = null;
+      popEl = null;
+      numPop.hidden = true;
+    }
+    function drawPop() {
+      if (!popQ || !popEl || !popEl.isConnected || popEl.offsetParent === null) return hidePop();
+      const q = popQ, col = colors(), dpr = window.devicePixelRatio || 1;
+      const w = Math.max(220, numPop.clientWidth - 16), h = 150;
+      if (npCv.width !== Math.round(w * dpr) || npCv.height !== Math.round(h * dpr)) {
+        npCv.width = Math.round(w * dpr);
+        npCv.height = Math.round(h * dpr);
+        npCv.style.width = w + "px";
+        npCv.style.height = h + "px";
+      }
+      const ctx = npCv.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      const { series } = plotHist(ctx, col, { x: 40, y: 8, w: w - 50, h: h - 40 }, q, { xlabels: true, xtitle: true, reflabels: true });
+      const d = S.recs[Math.min(S.cursor, S.recs.length - 1)];
+      numPop.firstChild.innerHTML = `<b>${q.lab}</b>${q.unit ? ` [${q.unit}]` : " <span>(dimensionless)</span>"} <span>through t = ${d.t} s: ${qFmt(q, qGet(q, d))}${q.unit ? " " + q.unit : ""}${q.note ? `, ${q.note}` : ""}</span>`;
+      npKey.innerHTML = series.slice().reverse().map((sr) => {
+        const at = sr.pts.find(([t]) => t === d.t), v = at ? at[1] : null;
+        return `<span><i style="background:${sr.color}${sr.dash ? ";opacity:.7" : ""}" class="${sr.dash ? "dash" : ""}"></i>${sr.label} <b>${qFmt(q, v)}</b></span>`;
+      }).join("");
+    }
+    const TOUCH = !!(window.matchMedia && window.matchMedia("(hover: none)").matches);
+    readout.addEventListener("click", (e) => {
+      const a = e.target.closest("a"), cell = e.target.closest(".lab-ro");
+      if (TOUCH && a && cell && popEl !== cell) {
+        e.preventDefault();
+        showPop(cell);
+      }
+    });
+    readout.addEventListener("pointerover", (e) => {
+      const cell = e.target.closest(".lab-ro");
+      if (cell && cell !== popEl) showPop(cell);
+    });
+    readout.addEventListener("pointerleave", (e) => e.pointerType !== "touch" && hidePop());
+    document.addEventListener("pointerdown", (e) => popQ && !readout.contains(e.target) && e.target !== sv.c && hidePop()); // a tap elsewhere closes it
+    readout.addEventListener("focusin", (e) => e.target.closest(".lab-ro") && showPop(e.target.closest(".lab-ro")));
+    readout.addEventListener("focusout", hidePop);
     const cum = (per) => {
       let s = 0;
       return per.map((p) => (s += p.total));
@@ -2601,15 +2969,18 @@
       ctx.clearRect(0, 0, w, h);
       const rows = [
         { t: "plasma current I_p [MA]", yr: [0, 16], s: [["Ip", col.series[0]]], g: ["Ip"] },
-        { t: "heating [MW]: NBI, ECRH", yr: [0, 56], heat: true },
-        { t: "core T_e(0) (orange), T_i(0) (blue) [keV]", yr: [0, 32], s: [["Te0", col.series[1]], ["Ti0", col.series[0]]], g: ["Te0", "Ti0"], hl: [[10, col.bad]] },
-        { t: "q_min (green), q95 (blue)", yr: [0, 7], s: [["qmin", col.series[2]], ["q95", col.series[0]]], g: ["qmin", "q95"], hl: [[1, col.bad], [3, col.muted]] },
-        { t: "fusion gain Q (log)", yr: [0.01, 1000], log: true, s: [["Q", col.accent]], g: ["Q"] },
-        PHYS() ? { t: "f_GW (orange), P_heat/P_LH (green), l_i (amber)", yr: [0, 2.6], s: [["fgw", col.series[1]], ["psolPlh", col.series[2]], ["li", col.series[3]]], g: ["fgw", "psolPlh", "li"], hl: [[1, col.bad], [1.2, col.muted]] }
-          : { t: "f_GW (orange), P_SOL/P_LH (green)", yr: [0, 2.6], s: [["fgw", col.series[1]], ["psolPlh", col.series[2]]], g: ["fgw", "psolPlh"], hl: [[1, col.bad]] },
-        { t: "return: " + SLOTS().map((x) => x[1]).join(", "), cum: true },
+        { t: "heating [MW]: NBI (orange), ECRH (cyan); dashed: TORAX total", short: "heating [MW]: NBI orange, ECRH cyan", yr: [0, 56], heat: true },
+        { t: "core T_e(0) (orange), T_i(0) (blue) [keV]; dashed: TORAX", short: "T_e(0) orange, T_i(0) blue [keV]", yr: [0, 32], s: [["Te0", col.series[1]], ["Ti0", col.series[0]]], g: ["Te0", "Ti0"], hl: [[10, col.bad]] },
+        { t: "q_min (green), q95 (blue); red: q = 1, grey: q95 = 3", short: "q_min green, q95 blue", yr: [0, 7], s: [["qmin", col.series[2]], ["q95", col.series[0]]], g: ["qmin", "q95"], hl: [[1, col.bad], [3, col.muted]] },
+        { t: "fusion gain Q (log scale); dashed: TORAX", short: "fusion gain Q (log)", yr: [0.01, 1000], log: true, s: [["Q", col.accent]], g: ["Q"] },
+        PHYS() ? { t: "f_GW (orange), P_heat/P_LH (green), l_i (amber); red: 1, grey: 1.2", short: "f_GW orange, P_heat/P_LH green, l_i amber", yr: [0, 2.6], s: [["fgw", col.series[1]], ["psolPlh", col.series[2]], ["li", col.series[3]]], g: ["fgw", "psolPlh", "li"], hl: [[1, col.bad], [1.2, col.muted]] }
+          : { t: "f_GW (orange), P_SOL/P_LH (green); red: 1", short: "f_GW orange, P_SOL/P_LH green", yr: [0, 2.6], s: [["fgw", col.series[1]], ["psolPlh", col.series[2]]], g: ["fgw", "psolPlh"], hl: [[1, col.bad]] },
+        { t: "return: " + SLOTS().map((x, j) => `${x[1]} (${["blue", "green", "pink"][j]})`).join(", ") + (S.torax ? "; dashed: TORAX" : ""), short: "return: " + SLOTS().map((x) => x[1]).join(", "), cum: true },
       ];
-      const pad = 44, gap = 22, n = rows.length, rh = (h - 40 - gap * (n - 1)) / n;
+      // room at the bottom for the time label and the pins' legend (which wraps)
+      const pinItems = S.pins.map((pn) => ({ label: "pinned: " + pn.label, color: pn.color }));
+      const legH = legend(ctx, col, pinItems, 44, 0, w - 56, { measure: true });
+      const pad = 44, gap = 22, n = rows.length, rh = (h - 20 - 30 - (legH ? legH + 4 : 0) - gap * (n - 1)) / n;
       const T = 151;
       const recs = S.recs;
       const upto = S.cursor;
@@ -2619,16 +2990,17 @@
       const minCum = Math.min(0, ...cC, ...cB);
       xv.rows = [];
       rows.forEach((r, i) => {
-        const box = { x: pad, y: 16 + i * (rh + gap), w: w - pad - 12, h: rh };
+        const box = { x: pad, y: 20 + i * (rh + gap), w: w - pad - 12, h: rh };
         const yr = r.cum ? [Math.max(minCum, -5), maxCum] : r.yr;
-        const fr = frame(ctx, col, box, [0, T], yr, { title: r.t, logy: r.log, noXLabels: i !== n - 1, xlabel: i === n - 1 ? "time [s]" : "", yticks: r.log ? [0.01, 1, 100] : undefined });
+        const fr = frame(ctx, col, box, [0, T], yr, { title: r.t, short: r.short, logy: r.log, noXLabels: i !== n - 1, xlabel: i === n - 1 ? "time [s]" : "", yticks: r.log ? [0.01, 1, 100] : undefined });
         xv.rows.push([box, fr]);
+        if (i === 0) xv.tbox = { x: box.x, w: box.w };
         ctx.save();
         ctx.fillStyle = col.grid;
         ctx.fillRect(fr.sx(S.as.pedMode === "scheduled" ? S.as.pedOn : 0), box.y, S.as.pedMode === "scheduled" ? fr.sx(S.as.pedOn + 4) - fr.sx(S.as.pedOn) : 0, box.h);
         ctx.restore();
         (r.hl || []).forEach(([v, c]) => hline(ctx, box, fr.sy(v), c));
-        const cl = (v) => (r.log ? clamp(v, yr[0], yr[1]) : clamp(v, yr[0] - 0.02 * (yr[1] - yr[0]), yr[1] * 1.02));
+        const cl = (v) => (r.log ? Math.max(v, yr[0]) : v);
         // pinned runs
         S.pins.forEach((pn) => {
           if (r.heat) return;
@@ -2637,7 +3009,7 @@
             line(ctx, c.map((v, k) => [fr.sx(k + 1), fr.sy(clamp(v, yr[0], yr[1]))]), pn.color, 1.4);
             return;
           }
-          r.s.forEach(([k]) => line(ctx, pn.recs.map((d) => [fr.sx(d.t), fr.sy(cl(d[k]))]), pn.color, 1.3));
+          r.s.forEach(([k]) => line(ctx, pn.recs.map((d) => [fr.sx(d.t), fr.sy(cl(d[k]))]), pn.color, 1.3, null, box));
         });
         if (r.heat) {
           const top = (k, f) => recs.slice(0, upto + 1).map((d) => [fr.sx(d.t), fr.sy(f(d))]);
@@ -2666,8 +3038,8 @@
             line(ctx, c.slice(0, upto).map((v, k) => [fr.sx(k + 1), fr.sy(clamp(v, yr[0], yr[1]))]), colr, 2));
         } else {
           r.s.forEach(([k, c], si) => {
-            if (S.torax && r.g && r.g[si] && S.torax.torax[r.g[si]]) line(ctx, S.torax.torax[r.g[si]].map((v, j) => [fr.sx(j + 1), fr.sy(cl(v))]), c, 1.2, [4, 3]);
-            line(ctx, recs.slice(0, upto + 1).map((d) => [fr.sx(d.t), fr.sy(cl(d[k]))]), c, 2);
+            if (S.torax && r.g && r.g[si] && S.torax.torax[r.g[si]]) line(ctx, S.torax.torax[r.g[si]].map((v, j) => [fr.sx(j + 1), fr.sy(cl(v))]), c, 1.2, [4, 3], box);
+            line(ctx, recs.slice(0, upto + 1).map((d) => [fr.sx(d.t), fr.sy(cl(d[k]))]), c, 2, null, box);
           });
         }
         const xc = fr.sx(S.cursor);
@@ -2680,36 +3052,28 @@
         ctx.stroke();
         ctx.restore();
       });
-      if (S.pins.length) {
-        ctx.font = FONT_SMALL;
-        let x = pad;
-        S.pins.forEach((pn) => {
-          ctx.fillStyle = pn.color;
-          ctx.fillRect(x, h - 10, 10, 3);
-          ctx.fillStyle = col.muted;
-          const lab = "pinned: " + pn.label;
-          ctx.fillText(lab, x + 14, h - 5);
-          x += ctx.measureText(lab).width + 30;
-        });
-      }
+      legend(ctx, col, pinItems, pad, h - legH - 2, w - pad - 12);
     }
-    function scrubFrom(ev, cv) {
-      const rect = cv.c.getBoundingClientRect();
-      const x = ev.clientX - rect.left;
-      const hit = (cv.rows || [])[0];
-      if (!hit) return;
-      const [box] = hit;
-      const t = Math.round(((x - box.x) / box.w) * 151);
-      S.cursor = clamp(t, 0, S.recs.length - 1);
+    // every plot with a time axis moves the time: each draw function stores its time box as cv.tbox
+    // ({x, w} for the axis from t = 0 to 151 s, and optionally y, h to limit the clickable band)
+    function scrubFrom(ev, cv, start) {
+      const b = cv.tbox;
+      if (!b) return false;
+      const rect = cv.c.getBoundingClientRect(), x = ev.clientX - rect.left, y = ev.clientY - rect.top;
+      if (start && (x < b.x - 6 || x > b.x + b.w + 6 || (b.h && (y < b.y - 8 || y > b.y + b.h + 8)))) return false;
+      S.cursor = clamp(Math.round(((x - b.x) / b.w) * 151), 0, S.recs.length - 1);
       S.playing = false;
       playBtn.textContent = "Play";
       S.dirty = true;
+      return true;
     }
     let scrubbing = false;
-    for (const cv of [xv, ks]) {
+    for (const cv of [xv, ks, mv, ra, bv, sv]) {
       cv.c.addEventListener("pointerdown", (e) => {
-        scrubbing = cv;
-        scrubFrom(e, cv);
+        if (scrubFrom(e, cv, true)) {
+          scrubbing = cv;
+          if (cv === sv) hidePop();
+        }
       });
       cv.c.addEventListener("pointermove", (e) => {
         if (scrubbing === cv) scrubFrom(e, cv);
@@ -2717,6 +3081,9 @@
     }
     window.addEventListener("pointerup", () => (scrubbing = false));
 
+    // radial profiles at the cursor: this run, TORAX (dashed), t = 0 (dotted), the pins (their colours);
+    // every line is named in the title or the hover readout, and lines are clipped to the plot
+    let profHover = null, profLast = null;
     function drawProfiles() {
       const col = colors();
       const { ctx, w, h } = pv;
@@ -2727,21 +3094,24 @@
       const gp = S.toraxProf && d.t >= 1 ? S.toraxProf : null;
       const gIdx = d.t - 1;
       const gl = (arr) => {
-        if (!gp || !arr || !arr[gIdx]) return;
+        if (!gp || !arr || !arr[gIdx]) return null;
         const row = arr[gIdx], m = row.length;
         return row.map((v, i) => [i / (m - 1), v]);
       };
-      const tab = S.tab;
-      let fr;
+      const at = (arr) => arr.map((v, i) => [rho[i], v]);
+      const pinsAt = (k) => S.pins.map((pn, j) => {
+        const pd = pn.recs[Math.min(d.t, pn.recs.length - 1)];
+        return pd && pd.prof && pd.prof[k] ? { lab: `pin ${j + 1}`, color: pn.color, width: 1.3, pts: at(pd.prof[k]) } : null;
+      }).filter(Boolean);
+      const tab = S.tab, unitOf = { T: "keV", j: "MA/m²", q: "", n: "10²⁰ m⁻³" }[tab];
+      let fr, curves = [];
       if (tab === "T") {
         const ymax = Math.max(6, d.Te0 * 1.15, (ghostAt("Te0", d.t) || 0) * 1.1);
-        fr = frame(ctx, col, box, [0, 1], [0, ymax], { title: "T_e (orange), T_i (blue) [keV]; dashed: TORAX T_e", xlabel: "ρ̂" });
+        fr = frame(ctx, col, box, [0, 1], [0, ymax], { title: "T_e (orange), T_i (blue) [keV]; dashed: TORAX T_e; dotted: t = 0", short: "T_e orange, T_i blue [keV]", xlabel: "ρ̂" });
         hline(ctx, box, fr.sy(10), col.muted, "10 keV");
-        line(ctx, d0.prof.Te.map((v, i) => [fr.sx(rho[i]), fr.sy(v)]), col.grid, 1.2, [2, 3]);
         const g = gl(gp && gp.T_e);
-        if (g) line(ctx, g.map(([x, v]) => [fr.sx(x), fr.sy(v)]), col.series[1], 1.3, [5, 4]);
-        line(ctx, d.prof.Ti.map((v, i) => [fr.sx(rho[i]), fr.sy(v)]), col.series[0], 2.2);
-        line(ctx, d.prof.Te.map((v, i) => [fr.sx(rho[i]), fr.sy(v)]), col.series[1], 2.4);
+        curves = [{ lab: "T_e, t = 0", color: col.muted, width: 1.2, dash: [2, 3], pts: at(d0.prof.Te) }, ...(g ? [{ lab: "TORAX T_e", color: col.series[1], width: 1.3, dash: [5, 4], pts: g }] : []),
+          ...pinsAt("Te").map((c) => ({ ...c, lab: c.lab + " T_e" })), { lab: "T_i", color: col.series[0], width: 2.2, pts: at(d.prof.Ti) }, { lab: "T_e", color: col.series[1], width: 2.4, pts: at(d.prof.Te) }];
         ctx.save();
         ctx.strokeStyle = col.muted;
         ctx.setLineDash([2, 3]);
@@ -2756,7 +3126,7 @@
         ctx.restore();
       } else if (tab === "j") {
         const ymax = Math.max(1, ...d.prof.j.slice(0, -1)) * 1.2;
-        fr = frame(ctx, col, box, [0, 1], [0, ymax], { title: "j total (blue); shaded: bootstrap (green) + driven (orange) [MA/m²]", xlabel: "ρ̂" });
+        fr = frame(ctx, col, box, [0, 1], [0, ymax], { title: "j total (blue); shaded: bootstrap (green) + driven (orange) [MA/m²]; dotted: t = 0", short: "j total (blue) [MA/m²]", xlabel: "ρ̂" });
         const jbs = d.prof.jbs, jdr = d.prof.jni.map((v, i) => Math.max(0, v - jbs[i]));
         const fillBetween = (lo, hi, c) => {
           ctx.save();
@@ -2772,43 +3142,91 @@
         const zeros = jbs.map(() => 0), stack = jbs.map((v, i) => v + jdr[i]);
         fillBetween(zeros, jbs, col.series[2]);
         fillBetween(jbs, stack, col.series[1]);
-        line(ctx, d0.prof.j.map((v, i) => [fr.sx(rho[i]), fr.sy(v)]), col.muted, 1.2, [2, 3]);
         const g = gl(gp && gp.j_total);
-        if (g) line(ctx, g.map(([x, v]) => [fr.sx(x), fr.sy(v)]), col.series[0], 1.3, [5, 4]);
-        line(ctx, d.prof.j.map((v, i) => [fr.sx(rho[i]), fr.sy(v)]), col.series[0], 2.4);
+        curves = [{ lab: "j, t = 0", color: col.muted, width: 1.2, dash: [2, 3], pts: at(d0.prof.j) }, ...(g ? [{ lab: "TORAX j", color: col.series[0], width: 1.3, dash: [5, 4], pts: g }] : []),
+          ...pinsAt("j"), { lab: "bootstrap", color: col.series[2], width: 0, pts: at(jbs) }, { lab: "driven", color: col.series[1], width: 0, pts: at(jdr) }, { lab: "j", color: col.series[0], width: 2.4, pts: at(d.prof.j) }];
       } else if (tab === "q") {
-        fr = frame(ctx, col, box, [0, 1], [0, 6], { title: "safety factor q; dashed: TORAX; red: q = 1", xlabel: "ρ̂" });
+        fr = frame(ctx, col, box, [0, 1], [0, 6], { title: "safety factor q; dashed: TORAX; dotted: t = 0; red: q = 1", short: "safety factor q", xlabel: "ρ̂" });
         hline(ctx, box, fr.sy(1), col.bad, "q = 1 (sawteeth)");
-        hline(ctx, box, fr.sy(1.5), col.grid, "3/2");
-        hline(ctx, box, fr.sy(2), col.grid, "2");
-        line(ctx, d0.prof.q.map((v, i) => [fr.sx(rho[i]), fr.sy(Math.min(v, 6.3))]), col.muted, 1.2, [2, 3]);
+        hline(ctx, box, fr.sy(1.5), col.muted, "3/2");
+        hline(ctx, box, fr.sy(2), col.muted, "2");
         const g = gl(gp && gp.q);
-        if (g) line(ctx, g.map(([x, v]) => [fr.sx(x), fr.sy(Math.min(v, 6.3))]), col.series[1], 1.3, [5, 4]);
-        line(ctx, d.prof.q.map((v, i) => [fr.sx(rho[i]), fr.sy(Math.min(v, 6.3))]), col.series[1], 2.4);
-        ctx.fillStyle = col.accent;
-        ctx.beginPath();
-        ctx.arc(fr.sx(d.rhoQmin), fr.sy(Math.min(6, d.qmin)), 5, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(fr.sx(0.95), fr.sy(Math.min(6, d.q95)), 4, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.font = FONT_SMALL;
-        ctx.fillText("q95", fr.sx(0.95) - 24, fr.sy(Math.min(6, d.q95)) - 6);
+        curves = [{ lab: "q, t = 0", color: col.muted, width: 1.2, dash: [2, 3], pts: at(d0.prof.q) }, ...(g ? [{ lab: "TORAX q", color: col.series[1], width: 1.3, dash: [5, 4], pts: g }] : []),
+          ...pinsAt("q"), { lab: "q", color: col.series[1], width: 2.4, pts: at(d.prof.q) }];
       } else {
         const nG = M.greenwald(d.Ip, 2);
         const ymax = Math.max(1.6, nG * 1.2, ...d.prof.n) * 1.05;
-        fr = frame(ctx, col, box, [0, 1], [0, ymax], { title: "electron density n_e [10²⁰ m⁻³]; red: Greenwald density n_G", xlabel: "ρ̂" });
+        fr = frame(ctx, col, box, [0, 1], [0, ymax], { title: "electron density n_e [10²⁰ m⁻³]; red: Greenwald density n_G", short: "n_e [10²⁰ m⁻³]", xlabel: "ρ̂" });
         hline(ctx, box, fr.sy(nG), col.bad, `n_G = I_p/πa² = ${nG.toFixed(2)}`);
-        line(ctx, d.prof.n.map((v, i) => [fr.sx(rho[i]), fr.sy(v)]), col.series[1], 2.4);
+        curves = [...pinsAt("n"), { lab: "n_e", color: col.series[1], width: 2.4, pts: at(d.prof.n) }];
         hline(ctx, box, fr.sy(d.nbar), col.series[1], `line average ${d.nbar.toFixed(2)} (f_GW ${d.fgw.toFixed(2)})`, true);
       }
+      for (const c of curves) if (c.width) line(ctx, c.pts.map(([x, v]) => [fr.sx(x), fr.sy(v)]), c.color, c.width, c.dash, box);
+      if (tab === "q") {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(box.x, box.y - 6, box.w, box.h + 6);
+        ctx.clip();
+        ctx.fillStyle = col.accent;
+        ctx.beginPath();
+        ctx.arc(fr.sx(d.rhoQmin), fr.sy(d.qmin), 5, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(fr.sx(0.95), fr.sy(d.q95), 4, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.font = FONT_SMALL;
+        if (d.q95 < 6) ctx.fillText("q95", fr.sx(0.95) - 24, fr.sy(d.q95) - 6);
+        ctx.restore();
+      }
+      if (S.pins.length) {
+        ctx.font = FONT_SMALL;
+        ctx.fillStyle = col.muted;
+        ctx.textAlign = "right";
+        ctx.fillText(`pins: ${S.pins.map((_, j) => `pin ${j + 1}`).join(", ")} at t = ${d.t} s`, box.x + box.w, box.y + box.h + 30);
+        ctx.textAlign = "left";
+      }
+      // hover: a hairline and the value of every curve at that radius
+      if (profHover !== null) {
+        const x = fr.sx(profHover);
+        ctx.save();
+        ctx.strokeStyle = col.fg;
+        ctx.globalAlpha = 0.4;
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath();
+        ctx.moveTo(x, box.y);
+        ctx.lineTo(x, box.y + box.h);
+        ctx.stroke();
+        ctx.restore();
+      }
+      profLast = { box, curves, unit: unitOf, t: d.t };
     }
+    function profValue(pts, x) {
+      for (let i = 1; i < pts.length; i++) if (pts[i][0] >= x) {
+        const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+        return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0 || 1);
+      }
+      return pts[pts.length - 1][1];
+    }
+    pv.c.addEventListener("pointermove", (e) => {
+      if (!profLast) return;
+      const r = pv.c.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, b = profLast.box;
+      if (x < b.x || x > b.x + b.w) return (profHover = null), pv.hideTip(), (S.dirty = true);
+      profHover = clamp((x - b.x) / b.w, 0, 1);
+      const f = (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(2));
+      const rows = profLast.curves.slice().reverse().map((c) => `<span style="color:${c.color}">●</span> ${c.lab} <b>${f(profValue(c.pts, profHover))}</b>`);
+      pv.showTip(x, y, `<b>ρ̂ = ${profHover.toFixed(2)}</b>, t = ${profLast.t} s${profLast.unit ? ` [${profLast.unit}]` : ""}<br>${rows.join("<br>")}`);
+      S.dirty = true;
+    });
+    pv.c.addEventListener("pointerleave", () => ((profHover = null), pv.hideTip(), (S.dirty = true)));
     function drawOps() {
       const col = colors();
       const { ctx, w, h } = ov;
       ctx.clearRect(0, 0, w, h);
-      const box = { x: 46, y: 24, w: w - 62, h: h - 64 };
-      const fr = frame(ctx, col, box, [0, 1.5], [0, 0.6], { title: "1/q95 against Greenwald fraction (a Hugill-style map)", xlabel: "Greenwald fraction f_GW = n̄ / n_G" });
+      // a legend line for the line styles, then the map
+      const leg = [{ label: "this run", color: col.series[0] }, ...(S.torax ? [{ label: "TORAX", color: col.muted, dash: [5, 4] }] : []), ...S.pins.map((pn, j) => ({ label: `pin ${j + 1}`, color: pn.color }))];
+      const legH = legend(ctx, col, leg, 46, h - 16, w - 62, { measure: true });
+      const box = { x: 46, y: 24, w: w - 62, h: h - 64 - legH };
+      const fr = frame(ctx, col, box, [0, 1.5], [0, 0.6], { title: "1/q95 against Greenwald fraction (a Hugill-style map)", short: "1/q95 vs f_GW", xlabel: "Greenwald fraction f_GW = n̄ / n_G" });
       ctx.save();
       ctx.fillStyle = col.bad;
       ctx.globalAlpha = 0.1;
@@ -2842,7 +3260,10 @@
       ctx.fill();
       ctx.fillStyle = col.muted;
       ctx.font = FONT_SMALL;
-      ctx.fillText(`β_N = ${d.betaN.toFixed(2)}`, box.x + 6, box.y + 14);
+      ctx.textAlign = "right";
+      ctx.fillText(`t = ${d.t} s: f_GW ${d.fgw.toFixed(2)}, q95 ${d.q95.toFixed(2)}, β_N ${d.betaN.toFixed(2)}`, box.x + box.w, box.y - 6 - 14);
+      ctx.textAlign = "left";
+      legend(ctx, col, leg, box.x, box.y + box.h + 34, box.w);
     }
     function drawReward(sc) {
       const col = colors();
@@ -2853,9 +3274,11 @@
       const vals = rows.map(([, s]) => (k >= 0 && s.per[k] ? s.per[k] : { fusion: 0, h98: 0, qmin: 0, q95: 0, penalty: 0, total: 0 }));
       const xmax = Math.max(0.05, ...vals.map((v) => v.fusion + v.h98 + v.qmin + v.q95)) * 1.15;
       const xmin = Math.min(0, ...vals.map((v) => v.penalty));
-      const box = { x: 86, y: 26, w: w - 190, h: h - 56 };
-      const fr = frame(ctx, col, box, [xmin, xmax], [0, 3], { xlabel: `reward in the second ending at t = ${Math.max(0, S.cursor)} s`, yticks: [] });
       const names = [["fusion", col.series[0], "fusion gain"], ["h98", col.series[1], "H98"], ["qmin", col.series[2], "q_min"], ["q95", col.series[3], "q95"]];
+      // the legend wraps on a narrow screen and pushes the bars down
+      const legH = legend(ctx, col, names.map(([, c, nm]) => ({ label: nm, color: c, kind: "box" })).concat([{ label: "penalty", color: col.bad, kind: "box" }]), Math.min(86, w * 0.22), 4, w - Math.min(86, w * 0.22) - 8);
+      const box = { x: Math.min(86, w * 0.22), y: 10 + legH, w: w - Math.min(86, w * 0.22) - Math.min(104, w * 0.24), h: h - 40 - legH };
+      const fr = frame(ctx, col, box, [xmin, xmax], [0, 3], { xlabel: `reward in the second ending at t = ${Math.max(0, S.cursor)} s`, yticks: [] });
       vals.forEach((v, i) => {
         const y = box.y + 6 + i * (box.h / 3);
         const bh = box.h / 3 - 10;
@@ -2878,15 +3301,6 @@
         ctx.textAlign = "left";
         ctx.fillText(v.total.toFixed(4), fr.sx(Math.max(x0, 0)) + 6, y + bh / 2);
         ctx.textBaseline = "alphabetic";
-      });
-      ctx.font = FONT_SMALL;
-      let lx = box.x;
-      names.forEach(([, c, nm]) => {
-        ctx.fillStyle = c;
-        ctx.fillRect(lx, 6, 10, 10);
-        ctx.fillStyle = col.muted;
-        ctx.fillText(nm, lx + 14, 15);
-        lx += ctx.measureText(nm).width + 30;
       });
     }
     function drawScores(sc) {
@@ -3198,13 +3612,20 @@
         { t: "P_NBI [MW]", yr: [0, 34], f: (d) => d.Pnbi, g: (G, i) => G.Pnbi[i] || 0, p: (b) => ((b[1] + 1) / 2) * 33 },
         { t: "P_ECRH [MW]", yr: [0, 21], f: (d) => d.Pecrh, g: (G, i) => G.Pecrh[i] || 0, p: (b) => ((b[2] + 1) / 2) * 20 },
       ];
-      const pad = 40, gap = 26, rh = (h - 58 - gap * 2) / 3;
+      // the legend wraps and keeps its own rows under "time [s]"
+      const leg = [{ color: c, label: `this run (${(CTRL[S.ctrl] || CTRL.feedback).tag})` }];
+      if (S.knobs.some((i) => i && i.base)) leg.push({ color: col.accent, label: "PI's proposal; shaded: correction", dash: [2, 2] });
+      if (showRecordedKnobs()) leg.push({ color: col.muted, label: "on TORAX", dash: [5, 4] });
+      S.pins.forEach((pn) => leg.push({ color: pn.color, label: "pinned: " + pn.label }));
+      const legH = legend(ctx, col, leg, 40, 0, w - 50, { measure: true });
+      const pad = 40, gap = 26, rh = (h - 18 - 32 - legH - gap * 2) / 3;
       ks.rows = [];
       const upto = S.cursor;
       rows.forEach((r, i) => {
         const bx = { x: pad, y: 18 + i * (rh + gap), w: w - pad - 10, h: rh };
         const fr = frame(ctx, col, bx, [0, 151], r.yr, { title: r.t, noXLabels: i !== 2, xlabel: i === 2 ? "time [s]" : "" });
         ks.rows.push([bx, fr]);
+        ks.tbox = { x: bx.x, w: bx.w };
         const P = (pts) => pts.map(([t, v]) => [fr.sx(t), fr.sy(clamp(v, r.yr[0], r.yr[1]))]);
         const series = (recs) => recs.slice(1).map((d, j) => [d.t, r.f(d, recs[j])]);
         S.pins.forEach((pn) => line(ctx, P(series(pn.recs)), pn.color, 1.3));
@@ -3238,29 +3659,7 @@
         ctx.stroke();
         ctx.restore();
       });
-      ctx.save();
-      ctx.font = FONT_SMALL;
-      let x = pad;
-      const leg = [[c, `this run (${(CTRL[S.ctrl] || CTRL.feedback).tag})`, null]];
-      if (S.knobs.some((i) => i && i.base)) leg.push([col.accent, "PI's proposal; shaded: correction", [2, 2]]);
-      if (showRecordedKnobs()) leg.push([col.muted, "on TORAX", [5, 4]]);
-      S.pins.forEach((pn) => leg.push([pn.color, pn.label, null]));
-      for (const [lc, lab, dash] of leg) {
-        ctx.strokeStyle = lc;
-        ctx.lineWidth = 2;
-        ctx.setLineDash(dash || []);
-        ctx.beginPath();
-        ctx.moveTo(x, h - 9);
-        ctx.lineTo(x + 14, h - 9);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = col.muted;
-        const lw = Math.min(ctx.measureText(lab).width, 200);
-        fitText(ctx, lab, x + 18, h - 5, 200);
-        x += lw + 32;
-        if (x > w - 60) break;
-      }
-      ctx.restore();
+      legend(ctx, col, leg, pad, h - legH - 2, w - pad - 10);
     }
     function updateKnobBanner() {
       const p = presetOf(S.key) || {}, c = CTRL[S.ctrl] || CTRL.feedback;
@@ -3368,7 +3767,8 @@
       if (!visible && !isFull()) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "Escape") {
-        if (openCard) showCard(null);
+        if (popQ) hidePop();
+        else if (openCard) showCard(null);
         else if (isFull()) fsExit();
         return;
       }
@@ -3408,12 +3808,25 @@
       ? { k: "psolPlh", lab: "P_heat/P_LH", yr: [0, 3], thr: 1.2, ok: (v, d) => v >= 1.2 * (d.plhMul || 1), f: (v) => v.toFixed(2) } : r))
       .concat([{ k: "li", lab: "l_i(3)", yr: [0.4, 1.4], thr: 0.65, ok: (v, d) => d.t > 100 || (v >= 0.65 && v <= 1.2), f: (v) => v.toFixed(2) }]);
     const sparkRows = () => (PHYS() ? SPARK_PHYS : SPARK_BENCH);
+    // hover a sparkline row: the same history popup as the numbers panel
+    sv.c.addEventListener("pointermove", (e) => {
+      if (scrubbing === sv) return;
+      const r = sv.c.getBoundingClientRect(), rows = sparkRows(), rh = (sv.h - 4) / rows.length;
+      const i = clamp(Math.floor((e.clientY - r.top - 2) / rh), 0, rows.length - 1);
+      const q = QTY().find((x) => x.k === rows[i].k);
+      if (!q) return hidePop();
+      if (popQ !== q || popEl !== sv.c) showPopAt(q, sv.c, { left: r.left, right: r.right, top: r.top + 2 + i * rh, bottom: r.top + 2 + (i + 1) * rh });
+    });
+    sv.c.addEventListener("pointerleave", (e) => e.pointerType !== "touch" && hidePop());
+    sv.c.style.cursor = "help";
+    sv.c.title = "";
     function drawSpark() {
       const col = colors();
       const { ctx, w, h } = sv;
       ctx.clearRect(0, 0, w, h);
       const SPARK = sparkRows();
       const rh = (h - 4) / SPARK.length, x0 = 72, x1 = w - 62;
+      sv.tbox = { x: x0, w: x1 - x0 };
       const recs = S.recs, cur = Math.min(S.cursor, recs.length - 1);
       const sx = (t) => x0 + ((x1 - x0) * t) / 151;
       const good = "#1baf7a", bad = col.bad;
@@ -3504,6 +3917,7 @@
       maps.forEach((mp, i) => {
         const box = { x: padL, y: top + i * (mh + gap), w: w - padL - padR, h: mh };
         const fr = frame(ctx, col, box, [0, 151], [0, 1], { title: mp.name, noXLabels: i < n - 1, xlabel: i === n - 1 ? "time [s]" : "", yticks: [0, 0.5, 1] });
+        mv.tbox = { x: box.x, w: box.w };
         if (mp.cols && mp.rows) {
           ctx.save();
           ctx.imageSmoothingEnabled = true;
@@ -3578,8 +3992,10 @@
     }
 
     // ------------------------------------------------ power and current balance
+    // a stacked bar; segments too narrow for their label are returned for the legend, every segment for hovering
     function stackBar(ctx, col, x0, y, hgt, scale, parts, label) {
       let x = x0;
+      const small = [], segs = [];
       ctx.save();
       ctx.font = FONT_SMALL;
       ctx.textBaseline = "middle";
@@ -3587,20 +4003,24 @@
       ctx.textAlign = "right";
       ctx.fillText(label, x0 - 8, y + hgt / 2);
       ctx.textAlign = "center";
-      for (const [v, c, name] of parts) {
+      for (const part of parts) {
+        const [v, c, name] = part;
         const wv = Math.max(0, v) * scale;
         if (wv <= 0) continue;
         ctx.fillStyle = c;
         ctx.fillRect(x, y, wv - 1, hgt);
-        if (wv > 44) {
+        const txt = `${name} ${v < 10 ? v.toFixed(1) : v.toFixed(0)}`;
+        if (wv > ctx.measureText(txt).width + 8) {
           ctx.fillStyle = "#fff";
-          ctx.fillText(`${name} ${v < 10 ? v.toFixed(1) : v.toFixed(0)}`, x + wv / 2, y + hgt / 2);
-        }
+          ctx.fillText(txt, x + wv / 2, y + hgt / 2);
+        } else small.push({ label: txt, color: c, kind: "box" });
+        segs.push({ x, y, w: Math.max(wv, 3), h: hgt, part });
         x += wv;
       }
       ctx.restore();
-      return x;
+      return { x, small, segs };
     }
+    let balSegs = [];
     function drawBalance() {
       const col = colors();
       const { ctx, w, h } = bv;
@@ -3608,19 +4028,24 @@
       const c = Math.min(S.cursor, S.recs.length - 1), d = S.recs[c], prev = S.recs[Math.max(0, c - 1)];
       const x0 = 70, x1 = w - 16;
       const ORANGE = "rgb(235,120,30)", CYAN = "rgb(40,170,210)", ALPHA = "#c98500", OHM = "#8f7fe0", RAD = "#9aa0a6";
-      // power at the cursor
+      // power at the cursor; each part: [value, colour, name, a quantity for its history (null: none)]
       const dW = c > 0 ? (d.W - prev.W) / 1e6 : 0;
-      const pin = [[d.Pohm, OHM, "ohmic"], [d.Pnbi, ORANGE, "NBI"], [d.Pecrh, CYAN, "ECRH"], [d.Palpha, ALPHA, "α"], [dW < 0 ? -dW : 0, col.grid, "stored"]];
-      const pout = [[d.Prad, RAD, "radiated"], [d.Psol, col.series[2], "P_SOL"], [dW > 0 ? dW : 0, col.muted, "into W"]];
+      const pq = (k, lab, get, g) => ({ k, lab, unit: "MW", n: 1, get, g });
+      const pin = [[d.Pohm, OHM, "ohmic", pq("bPohm", "ohmic heating", (r) => r.Pohm)], [d.Pnbi, ORANGE, "NBI", pq("bPnbi", "NBI heating", (r) => r.Pnbi, "Pnbi")],
+        [d.Pecrh, CYAN, "ECRH", pq("bPecrh", "ECRH heating", (r) => r.Pecrh, "Pecrh")], [d.Palpha, ALPHA, "α", pq("bPalpha", "α heating", (r) => r.Palpha)], [dW < 0 ? -dW : 0, col.grid, "stored", null]];
+      const pout = [[d.Prad, RAD, "radiated", pq("bPrad", "radiated power", (r) => r.Prad)], [d.Psol, col.series[2], "P_SOL", pq("bPsol", "P_SOL, across the edge", (r) => r.Psol)], [dW > 0 ? dW : 0, col.muted, "into W", null]];
       const tot = Math.max(10, pin.reduce((s, p) => s + Math.max(0, p[0]), 0), pout.reduce((s, p) => s + Math.max(0, p[0]), 0)) * 1.08;
       const sc = (x1 - x0) / tot;
-      ctx.save();
-      ctx.fillStyle = col.fg;
-      ctx.font = FONT;
-      ctx.fillText(`Power at t = ${d.t} s [MW]: what heats the plasma, and where it goes`, 0, 14);
-      ctx.restore();
-      stackBar(ctx, col, x0, 26, 22, sc, pin, "in");
-      stackBar(ctx, col, x0, 54, 22, sc, pout, "out");
+      const title = (t, short, y) => {
+        ctx.save();
+        ctx.fillStyle = col.fg;
+        ctx.font = FONT;
+        RT.fitText(ctx, ctx.measureText(t).width <= w - 4 ? t : short, 0, y, w - 4);
+        ctx.restore();
+      };
+      title(`Power at t = ${d.t} s [MW]: what heats the plasma, and where it goes`, `Power at t = ${d.t} s [MW]: in and out`, 14);
+      const bIn = stackBar(ctx, col, x0, 26, 22, sc, pin, "in");
+      const bOut = stackBar(ctx, col, x0, 54, 22, sc, pout, "out");
       // P_LH: the out bar must reach this mark for P_SOL >= P_LH
       const xl = x0 + (Math.max(0, d.Prad) + d.PLH) * sc;
       ctx.save();
@@ -3633,21 +4058,26 @@
       ctx.fillStyle = col.bad;
       ctx.font = FONT_SMALL;
       ctx.textAlign = "center";
-      ctx.fillText(`P_LH ${d.PLH.toFixed(0)} MW`, Math.min(x1 - 30, xl), 92);
+      ctx.fillText(`P_LH ${d.PLH.toFixed(0)} MW`, clamp(xl, x0 + 30, x1 - 30), 90);
       ctx.restore();
+      // segments too narrow to carry their name: a legend under the bars
+      let y = 98;
+      y += legend(ctx, col, bIn.small.concat(bOut.small), x0, y, x1 - x0) + 6;
       // current at the cursor
       const ni = Math.max(0, d.Ibs) + Math.max(0, d.Inb) + Math.max(0, d.Iec);
       const ind = d.Ip - ni;
       const isc = (x1 - x0) / Math.max(15, d.Ip, ni) / 1.04;
-      ctx.save();
-      ctx.fillStyle = col.fg;
-      ctx.font = FONT;
-      ctx.fillText(`Plasma current I_p = ${d.Ip.toFixed(2)} MA: driven by the solenoid (inductive) or not`, 0, 118);
-      ctx.restore();
-      stackBar(ctx, col, x0, 128, 22, isc, [[ind, col.series[0], "inductive"], [d.Ibs, col.series[2], "bootstrap"], [d.Inb, ORANGE, "NBCD"], [d.Iec, CYAN, "ECCD"]], "I_p");
+      const cq = (k, lab, get) => ({ k, lab, unit: "MA", n: 2, get });
+      title(`Plasma current I_p = ${d.Ip.toFixed(2)} MA: driven by the solenoid (inductive) or not`, `I_p = ${d.Ip.toFixed(2)} MA: inductive or not`, y + 12);
+      const bI = stackBar(ctx, col, x0, y + 22, 22, isc, [[ind, col.series[0], "inductive", cq("bInd", "inductive current", (r) => r.Ip - Math.max(0, r.Ibs) - Math.max(0, r.Inb) - Math.max(0, r.Iec))],
+        [d.Ibs, col.series[2], "bootstrap", cq("bIbs", "bootstrap current", (r) => r.Ibs)], [d.Inb, ORANGE, "NBCD", cq("bInb", "NBI-driven current", (r) => r.Inb)], [d.Iec, CYAN, "ECCD", cq("bIec", "EC-driven current", (r) => r.Iec)]], "I_p");
+      y += 22 + 22 + 6;
+      y += legend(ctx, col, bI.small, x0, y, x1 - x0) + 4;
+      balSegs = bIn.segs.concat(bOut.segs, bI.segs);
       // fractions through the episode
-      const box = { x: x0, y: 186, w: x1 - x0, h: h - 186 - 26 };
-      const fr = frame(ctx, col, box, [0, 151], [0, 1], { title: "fractions: bootstrap (green), non-inductive (blue), α heating (amber), radiated (grey)", xlabel: "time [s]", yticks: [0, 0.5, 1] });
+      const box = { x: x0, y: y + 22, w: x1 - x0, h: h - y - 22 - 30 };
+      const fr = frame(ctx, col, box, [0, 151], [0, 1], { title: "fractions: bootstrap (green), non-inductive (blue), α heating (amber), radiated (grey)" + (S.pins.length ? "; pins: non-inductive" : ""), short: "fractions: bootstrap, non-inductive, α, radiated", xlabel: "time [s]", yticks: [0, 0.5, 1] });
+      bv.tbox = { x: box.x, w: box.w, y: box.y, h: box.h };
       const rs = S.recs.slice(1, c + 1);
       const ser = [
         [(r) => r.Ibs / Math.max(r.Ip, 0.1), col.series[2]],
@@ -3655,11 +4085,44 @@
         [(r) => r.Palpha / Math.max(r.Pohm + r.Paux + r.Palpha, 0.1), ALPHA],
         [(r) => r.Prad / Math.max(r.Pohm + r.Paux + r.Palpha, 0.1), RAD],
       ];
-      S.pins.forEach((pn) => line(ctx, pn.recs.slice(1).map((r) => [fr.sx(r.t), fr.sy(clamp(ser[1][0](r), 0, 1))]), pn.color, 1));
-      ser.forEach(([f, cc]) => line(ctx, rs.map((r) => [fr.sx(r.t), fr.sy(clamp(f(r), 0, 1))]), cc, 2));
+      S.pins.forEach((pn) => line(ctx, pn.recs.slice(1).map((r) => [fr.sx(r.t), fr.sy(ser[1][0](r))]), pn.color, 1.2, [3, 2], box));
+      ser.forEach(([f, cc]) => line(ctx, rs.map((r) => [fr.sx(r.t), fr.sy(f(r))]), cc, 2, null, box));
+      ctx.save();
+      ctx.strokeStyle = col.accent;
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(fr.sx(d.t), box.y);
+      ctx.lineTo(fr.sx(d.t), box.y + box.h);
+      ctx.stroke();
+      ctx.restore();
     }
+    // hover a bar segment: its history in the shared popup (with its share of the bar in the title)
+    bv.c.addEventListener("pointermove", (e) => {
+      if (scrubbing === bv) return;
+      const r = bv.c.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+      const seg = balSegs.find((g) => x >= g.x && x <= g.x + g.w && y >= g.y && y <= g.y + g.h);
+      if (!seg) return popEl === bv.c && hidePop();
+      const [v, , , q] = seg.part;
+      if (!q) return popEl === bv.c && hidePop();
+      const total = balSegs.filter((g) => g.y === seg.y).reduce((a, g) => a + Math.max(0, g.part[0]), 0);
+      const qq = { ...q, note: `${((100 * v) / Math.max(total, 1e-9)).toFixed(0)} % of the bar` };
+      if (popEl !== bv.c || !popQ || popQ.k !== q.k) showPopAt(qq, bv.c, { left: r.left + seg.x, right: r.left + seg.x + seg.w, top: r.top + seg.y, bottom: r.top + seg.y + seg.h });
+    });
+    bv.c.addEventListener("pointerleave", (e) => e.pointerType !== "touch" && popEl === bv.c && hidePop());
 
     // ------------------------------------------------ reward through the episode (stacked terms)
+    // hover the reward area: each term in the hovered second
+    let raLast = null;
+    ra.c.addEventListener("pointermove", (e) => {
+      if (!raLast || scrubbing === ra) return;
+      const r = ra.c.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, b = raLast.box;
+      if (x < b.x || x > b.x + b.w || y < b.y || y > b.y + b.h) return ra.hideTip();
+      const t = clamp(Math.round(((x - b.x) / b.w) * 151), 1, raLast.per.length), p = raLast.per[t - 1];
+      if (!p) return ra.hideTip();
+      const f = (v) => v.toFixed(4);
+      ra.showTip(x, y, `<b>${raLast.label}, the second ending at t = ${t} s</b><br>fusion gain ${f(p.fusion)} · H98 ${f(p.h98)} · q_min ${f(p.qmin)} · q95 ${f(p.q95)}${p.penalty ? ` · penalty ${f(p.penalty)}` : ""}<br>total <b>${f(p.total)}</b>`);
+    });
+    ra.c.addEventListener("pointerleave", () => ra.hideTip());
     function drawRewardArea(sc) {
       const col = colors();
       const { ctx, w, h } = ra;
@@ -3670,7 +4133,10 @@
       const ymin = Math.min(0, ...per.map((p) => (p.penalty > -1 ? p.penalty : 0)));
       const box = { x: 46, y: 22, w: w - 62, h: h - 52 };
       const label = slot[1];
-      const fr = frame(ctx, col, box, [0, 151], [ymin, ymax], { title: `${label} reward per second, by term; return so far ${cum(per.slice(0, c)).pop()?.toFixed(2) ?? "0.00"} of ${s.ret.toFixed(2)}`, xlabel: "time [s]" });
+      const sofar = `return so far ${cum(per.slice(0, c)).pop()?.toFixed(2) ?? "0.00"} of ${s.ret.toFixed(2)}`;
+      const fr = frame(ctx, col, box, [0, 151], [ymin, ymax], { title: `${sofar} · ${label} reward per second, by term`, short: `${label}: ${sofar}`, xlabel: "time [s]" });
+      ra.tbox = { x: box.x, w: box.w };
+      raLast = { fr, box, per, label };
       let base = per.map(() => 0);
       names.forEach(([k, cc]) => {
         const topv = per.map((p, i) => base[i] + Math.max(0, p[k]));
@@ -3716,6 +4182,7 @@
         drawKnobStrips();
       }
       drawSpark();
+      if (popQ) drawPop();
       drawTimeline();
       if (pM.open) drawMaps();
       if (pB.open) drawBalance();
@@ -3746,7 +4213,7 @@
     }
 
     function fitAll() {
-      [tv, hsv, kv, ks, sv, tl, mv, bv, ra, xv, pv, ov, rv].forEach((c) => c.fit());
+      [tv, hsv, kv, ks, sv, tl, mv, bv, ra, xv, pv, ov, rv, nv].forEach((c) => c.fit());
       S.dirty = true;
     }
 
@@ -3818,6 +4285,7 @@
       if (tm) setParam("transportMul", clamp(tm, 0.5, 2), true);
       if (params.get("play") === "1") togglePlay();
       FOLDS.forEach((P) => store.get("fold-" + P.id, true) === false && P.set(false));
+      setNumView(numView);
       if (params.get("full") === "1") fsEnter();
       S.dirty = true;
       requestAnimationFrame(frameLoop);
@@ -3940,10 +4408,11 @@
     }
     function draw() {
       const col = colors();
+      // side by side, or stacked on a narrow screen; the curve labels sit in a legend above the left plot
+      const narrow = cv.w < 560;
+      const [b1, b2] = RT.grid(cv, 2, { pad: 50, gap: 60, h0: 300, hStack: 180, top: narrow ? 76 : 28 });
       const { ctx, w, h } = cv;
       ctx.clearRect(0, 0, w, h);
-      const pad = 50, gap = 60, pw = (w - 2 * pad - gap) / 2;
-      const b1 = { x: pad, y: 28, w: pw, h: h - 74 }, b2 = { x: pad + pw + gap, y: 28, w: pw, h: h - 74 };
       const op = balance(s.Paux, s.Tprev || 0.5);
       if (op) s.Tprev = op.T;
       else s.Tprev = 0.5;
@@ -3958,16 +4427,16 @@
       }
       ymax = Math.max(100, Math.min(600, Math.max(...heat) * 1.1));
       const f1 = frame(ctx, col, b1, [0, 50], [0, ymax], { title: "power [MW] vs central temperature", xlabel: "T(0) [keV]" });
-      line(ctx, Ts.map((T, i) => [f1.sx(T), f1.sy(Math.min(loss[i], ymax))]), col.series[0], 2.2);
-      line(ctx, Ts.map((T, i) => [f1.sx(T), f1.sy(Math.min(heat[i], ymax))]), col.series[1], 2.2);
-      line(ctx, Ts.map((T, i) => [f1.sx(T), f1.sy(Math.min(alpha[i], ymax * 1.05))]), col.series[1], 1.2, [4, 4]);
+      // clipped to the plot (a small triangle where a curve leaves the top), not flattened along it
+      line(ctx, Ts.map((T, i) => [f1.sx(T), f1.sy(loss[i])]), col.series[0], 2.2, null, b1);
+      line(ctx, Ts.map((T, i) => [f1.sx(T), f1.sy(heat[i])]), col.series[1], 2.2, null, b1);
+      line(ctx, Ts.map((T, i) => [f1.sx(T), f1.sy(alpha[i])]), col.series[1], 1.2, [4, 4], b1);
+      const legItems = [{ label: "losses W/τ_E (IPB98 × H)", color: col.series[0] }, { label: "heating P_aux + P_α + P_ohm − P_rad", color: col.series[1] }, { label: "P_α", color: col.series[1], dash: [4, 4] }];
+      if (narrow) legend(ctx, col, legItems, b1.x, 6, b1.w);
+      else legend(ctx, col, legItems, b1.x + 6, b1.y + 2, b1.w - 12);
       ctx.font = FONT_SMALL;
-      ctx.fillStyle = col.series[0];
-      ctx.fillText("losses W/τ_E (IPB98 × H)", b1.x + 6, b1.y + 12);
-      ctx.fillStyle = col.series[1];
-      ctx.fillText("heating P_aux + P_α + P_ohm − P_rad (dashed: P_α)", b1.x + 6, b1.y + 26);
       ctx.fillStyle = col.muted;
-      ctx.fillText("right panel: the hot branch, approached from above", b2.x + 6, b2.y + 12);
+      if (!narrow) ctx.fillText("the hot branch, approached from above", b2.x + 6, b2.y + 12);
       if (op) {
         ctx.fillStyle = col.accent;
         ctx.beginPath();
@@ -3979,11 +4448,11 @@
       for (let P = 0; P <= 120; P += 2) {
         const o = balance(P, 40);
         PA.push(P);
-        QQ.push(o ? (5.03 * o.Pa) / (P + o.Pohm) : 0.001);
+        QQ.push(o ? (5.03 * o.Pa) / (P + o.Pohm) : NaN); // no hot equilibrium: a gap in the curve
       }
-      const f2 = frame(ctx, col, b2, [0, 120], [0.01, 1000], { title: "fusion gain Q = P_fus/(P_aux + P_ohm), log", xlabel: "P_aux [MW]", logy: true, yticks: [0.01, 0.1, 1, 10, 100, 1000] });
-      line(ctx, PA.map((P, i) => [f2.sx(P), f2.sy(clamp(QQ[i], 0.01, 1000))]), col.accent, 2.2);
-      hline(ctx, b2, f2.sy(10), col.muted, "ITER goal Q = 10");
+      const f2 = frame(ctx, col, b2, [0, 120], [0.01, 1000], { title: "fusion gain Q = P_fus/(P_aux + P_ohm), log", short: "fusion gain Q (log)", xlabel: "P_aux [MW]", logy: true, yticks: [0.01, 0.1, 1, 10, 100, 1000] });
+      line(ctx, PA.map((P, i) => [f2.sx(P), isFinite(QQ[i]) ? f2.sy(clamp(QQ[i], 0.01, 1000)) : NaN]), col.accent, 2.2, null, b2);
+      hline(ctx, b2, f2.sy(10), col.muted, "ITER goal Q = 10", true);
       if (op) {
         const Q = (5.03 * op.Pa) / (s.Paux + op.Pohm);
         ctx.fillStyle = col.accent;
@@ -4014,8 +4483,9 @@
     getJSON("episodes").then((E) => {
       const keys = Object.keys(E);
       const on = { pi: true, open_loop: true, ppo_s1: true };
-      const PAL = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#8f5fd6", "#d6368f", "#00a3a3", "#7a6a3a", "#e34948"];
-      const colorOf = (k) => PAL[keys.indexOf(k) % PAL.length];
+      // the theme's series colours first; red is kept for the limits
+      const PAL = () => colors().series.concat(isDark() ? ["#a58af0", "#ff5fb8", "#3cc0d6", "#c7b27a", "#9aa0a6"] : ["#8f5fd6", "#d6368f", "#00a3a3", "#7a6a3a", "#6b7280"]);
+      const colorOf = (k) => PAL()[keys.indexOf(k) % PAL().length];
       let ti = 150;
       keys.forEach((k) => chip(chips, E[k].label, colorOf(k), !!on[k], (v) => ((on[k] = v), draw())));
       const ts = slider(ctl, "time", 1, 151, 1, 151, (v) => v + " s", (v) => ((ti = v - 1), draw()));
@@ -4023,18 +4493,49 @@
         ti = Math.min(150, ti + Math.max(1, Math.round(dt / 50)));
         ts.set(ti + 1);
         draw();
-        if (ti >= 150) return false;
+        if (ti >= 150) {
+          playBtn.textContent = "Replay";
+          return false;
+        }
       });
-      button(ctl, "Play", () => {
+      const playBtn = button(ctl, "Play", () => {
+        if (pl.running) {
+          pl.pause();
+          playBtn.textContent = "Play";
+          return;
+        }
         if (ti >= 150) ti = 0;
         pl.play();
+        playBtn.textContent = "Pause";
       }, "rt-primary");
+      // hover a trajectory: the nearest point's episode, time and coordinates
+      let opHover = null;
+      cv.c.addEventListener("pointermove", (e) => {
+        if (!cv.fr) return;
+        const r = cv.c.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+        let best = null;
+        keys.forEach((k) => {
+          if (!on[k]) return;
+          const ep = E[k], upto = Math.min(ti + 1, ep.t.length);
+          for (let i = 0; i < upto; i++) {
+            const d = Math.hypot(cv.fr.sx(clamp(ep.fgw[i], 0, 1.5)) - x, cv.fr.sy(clamp(1 / ep.q95[i], 0, 0.6)) - y);
+            if (d < 12 && (!best || d < best.d)) best = { d, k, i };
+          }
+        });
+        opHover = best;
+        if (!best) return cv.hideTip(), draw();
+        const ep = E[best.k];
+        cv.showTip(x, y, `<span class="rt-swatch" style="background:${colorOf(best.k)}"></span><b>${ep.label}</b>, t = ${ep.t[best.i]} s<br>f_GW <b>${ep.fgw[best.i].toFixed(2)}</b> · q95 <b>${ep.q95[best.i].toFixed(2)}</b> (1/q95 ${(1 / ep.q95[best.i]).toFixed(2)})`);
+        draw();
+      });
+      cv.c.addEventListener("pointerleave", () => ((opHover = null), cv.hideTip(), draw()));
       function draw() {
         const col = colors();
         const { ctx, w, h } = cv;
         ctx.clearRect(0, 0, w, h);
         const box = { x: 50, y: 26, w: w - 66, h: h - 68 };
-        const fr = frame(ctx, col, box, [0, 1.5], [0, 0.6], { title: "1/q95 against Greenwald fraction, TORAX episodes", xlabel: "Greenwald fraction f_GW" });
+        const fr = frame(ctx, col, box, [0, 1.5], [0, 0.6], { title: "1/q95 against Greenwald fraction, TORAX episodes", short: "1/q95 vs f_GW, TORAX", xlabel: "Greenwald fraction f_GW" });
+        cv.fr = fr;
         ctx.save();
         ctx.fillStyle = col.bad;
         ctx.globalAlpha = 0.1;
@@ -4051,7 +4552,14 @@
           const e = E[k];
           const upto = Math.min(ti + 1, e.t.length);
           const pts = e.fgw.slice(0, upto).map((v, i) => [fr.sx(clamp(v, 0, 1.5)), fr.sy(clamp(1 / e.q95[i], 0, 0.6))]);
-          line(ctx, pts, colorOf(k), 2);
+          line(ctx, pts, colorOf(k), opHover && opHover.k === k ? 3.2 : 2);
+          if (opHover && opHover.k === k && pts[opHover.i]) {
+            ctx.strokeStyle = colorOf(k);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(pts[opHover.i][0], pts[opHover.i][1], 6, 0, 2 * Math.PI);
+            ctx.stroke();
+          }
           const last = pts[pts.length - 1];
           if (last) {
             ctx.fillStyle = colorOf(k);
