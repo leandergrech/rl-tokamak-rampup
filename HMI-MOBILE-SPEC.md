@@ -188,11 +188,11 @@ advisory elsewhere, since a busy or shared machine measures itself rather than t
 |---|---|---|
 | 1, first build | 55 checks per phone profile, scrolling with `scrollTop`, tapping by selector | 45 of 52 on the first profile. It found: the page jumping by the Lab's height on leaving (scroll anchoring while the browser's full screen ended), selected tabs scrolled out of view, playback not paused until Back landed, a phone on its side given the desktop layout, the plasma 11 px over its budget, the menu taller than a phone on its side, the speed label lagging a frame |
 | 2, after the expert evaluation | real touch gestures through the DevTools protocol added (the evaluation showed scripted scrolling hides touch defects), contrast computed, overlays, stepper, pins | 473 of 473 in CI |
-| 3, after the second evaluation | regression checks for its findings (reset and sliders, a slightly sideways swipe on a slider, drags past ticks, ✕ with a card open) | 74 checks per phone profile; see the latest CI run. It found two more defects: Esc left the Lab with the stepper open, and ✕ with a card open could step back past the page (two history steps racing), both fixed |
+| 3, after the second evaluation | regression checks for its findings (reset and sliders, a slightly sideways swipe on a slider, drags past ticks, ✕ with a card open) | **497 of 497 in CI** (74 per phone profile). It found two more defects: Esc left the Lab with the stepper open, and ✕ with a card open could step back past the page (two history steps racing), both fixed |
 
-**Timing (M13)**, on GitHub's runner (idle, four virtual CPUs): the full-screen layout opens in 47–76 ms on every phone
-profile; during playback with the CPU slowed four times the Lab's script time per frame has a median of 4.9 ms and a
-90th percentile of 18.2 ms (budget: median 33 ms). On the development machine, busy with unrelated jobs, the same checks
+**Timing (M13)**, on GitHub's runner (idle, four virtual CPUs), final run: the full-screen layout opens in 47–71 ms on
+every phone profile; during playback with the CPU slowed four times the Lab's script time per frame has a median of
+2.4 ms and a 90th percentile of 15.3 ms (budget: median 33 ms). On the development machine, busy with unrelated jobs, the same checks
 are reported as advisory.
 
 ### 7.2 Independent expert evaluation, round 1 (`hmi/mobile-evaluation-round1.md`)
