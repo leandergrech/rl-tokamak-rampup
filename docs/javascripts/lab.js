@@ -1563,7 +1563,7 @@
     const nv = canvas(nvBox, 480);
     const numPop = el("div", "lab-histpop");
     numPop.hidden = true;
-    pN.p.appendChild(numPop);
+    root.appendChild(numPop);
     const npCv = el("canvas", "");
     const npKey = el("div", "lab-histpop-key");
     numPop.append(el("div", "lab-histpop-title"), npCv, npKey);
@@ -2700,7 +2700,6 @@
         ? `<span><i class="k-run"></i>this run</span>${S.torax ? `<span><i class="k-tor"></i>TORAX</span>` : ""}${S.pins.map((p, j) => `<span title="${p.label}"><i style="background:${p.color}"></i>pin ${j + 1}</span>`).join("")}<span><i class="k-ref"></i>limit or reference</span><span class="k-hint">click or drag to move the time; hover for values</span>`
         : `<span><b>big</b>: the value at t = ${d.t} s</span><span><b>5s 20s 60s</b>: trailing averages</span>${S.torax ? `<span><b>TORAX</b>: its value at the same time</span>` : ""}<span class="k-hint">hover a number for its history</span>`;
       if (numView === "plots") drawNumPlots();
-      if (popQ) drawPop();
     }
 
     // ---- one quantity through the episode: this run (solid, dimmed after the cursor), TORAX (dashed), the pins
@@ -2883,21 +2882,28 @@
     window.addEventListener("pointerup", () => (nvDrag = false));
 
     // ---- hover a number: its history up to the cursor, with TORAX and the pins
-    let popQ = null, popEl = null;
+    // the history popup is shared: number tiles, the side pane's sparklines (anything with a quantity of QTY)
+    let popQ = null, popEl = null, popRect = null;
     function showPop(cell) {
       const c = roCells[cell.dataset.k];
       if (!c || c.q.noplot) return hidePop();
-      popQ = c.q;
-      popEl = cell;
+      showPopAt(c.q, cell, cell.getBoundingClientRect());
+    }
+    function showPopAt(q, anchor, cr) {
+      popQ = q;
+      popEl = anchor;
+      popRect = cr;
       numPop.hidden = false;
-      const pr = pN.p.getBoundingClientRect(), cr = cell.getBoundingClientRect();
+      const pr = root.getBoundingClientRect();
       const pw = Math.min(330, pr.width - 16);
       numPop.style.width = pw + "px";
-      let left = cr.right - pr.left + 6;
-      if (left + pw > pr.width - 4) left = cr.left - pr.left - pw - 6;
+      let left = cr.right - pr.left + 8;
+      if (left + pw > pr.width - 4) left = cr.left - pr.left - pw - 8;
       if (left < 4) left = clamp(cr.left - pr.left, 4, pr.width - pw - 4);
       numPop.style.left = left + "px";
-      numPop.style.top = Math.max(4, cr.top - pr.top - 10) + "px";
+      // below the anchor's top if it fits on the screen, otherwise above its bottom
+      const ph = numPop.offsetHeight || 230, top = cr.top + ph > innerHeight - 8 ? cr.bottom - ph : cr.top - 10;
+      numPop.style.top = Math.max(4, top - pr.top) + "px";
       drawPop();
     }
     function hidePop() {
@@ -2906,7 +2912,7 @@
       numPop.hidden = true;
     }
     function drawPop() {
-      if (!popQ || !popEl || !popEl.isConnected) return hidePop();
+      if (!popQ || !popEl || !popEl.isConnected || popEl.offsetParent === null) return hidePop();
       const q = popQ, col = colors(), dpr = window.devicePixelRatio || 1;
       const w = Math.max(220, numPop.clientWidth - 16), h = 150;
       if (npCv.width !== Math.round(w * dpr) || npCv.height !== Math.round(h * dpr)) {
@@ -2931,7 +2937,7 @@
       if (cell && cell !== popEl) showPop(cell);
     });
     readout.addEventListener("pointerleave", (e) => e.pointerType !== "touch" && hidePop());
-    document.addEventListener("pointerdown", (e) => popQ && !readout.contains(e.target) && hidePop()); // a tap elsewhere closes it
+    document.addEventListener("pointerdown", (e) => popQ && !readout.contains(e.target) && e.target !== sv.c && hidePop()); // a tap elsewhere closes it
     readout.addEventListener("focusin", (e) => e.target.closest(".lab-ro") && showPop(e.target.closest(".lab-ro")));
     readout.addEventListener("focusout", hidePop);
     const cum = (per) => {
@@ -3751,6 +3757,17 @@
       ? { k: "psolPlh", lab: "P_heat/P_LH", yr: [0, 3], thr: 1.2, ok: (v, d) => v >= 1.2 * (d.plhMul || 1), f: (v) => v.toFixed(2) } : r))
       .concat([{ k: "li", lab: "l_i(3)", yr: [0.4, 1.4], thr: 0.65, ok: (v, d) => d.t > 100 || (v >= 0.65 && v <= 1.2), f: (v) => v.toFixed(2) }]);
     const sparkRows = () => (PHYS() ? SPARK_PHYS : SPARK_BENCH);
+    // hover a sparkline row: the same history popup as the numbers panel
+    sv.c.addEventListener("pointermove", (e) => {
+      const r = sv.c.getBoundingClientRect(), rows = sparkRows(), rh = (sv.h - 4) / rows.length;
+      const i = clamp(Math.floor((e.clientY - r.top - 2) / rh), 0, rows.length - 1);
+      const q = QTY().find((x) => x.k === rows[i].k);
+      if (!q) return hidePop();
+      if (popQ !== q || popEl !== sv.c) showPopAt(q, sv.c, { left: r.left, right: r.right, top: r.top + 2 + i * rh, bottom: r.top + 2 + (i + 1) * rh });
+    });
+    sv.c.addEventListener("pointerleave", (e) => e.pointerType !== "touch" && hidePop());
+    sv.c.style.cursor = "help";
+    sv.c.title = "";
     function drawSpark() {
       const col = colors();
       const { ctx, w, h } = sv;
@@ -4059,6 +4076,7 @@
         drawKnobStrips();
       }
       drawSpark();
+      if (popQ) drawPop();
       drawTimeline();
       if (pM.open) drawMaps();
       if (pB.open) drawBalance();

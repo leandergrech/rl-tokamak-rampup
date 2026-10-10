@@ -140,7 +140,7 @@ body:has(.rt-lab) .md-grid { max-width: 92rem; }
 .lab-viewseg .rt-chip { padding-left: 0.5rem; padding-right: 0.5rem; }
 /* hover a number: its history, in a light card next to it */
 .lab-ctl { position: relative; }
-.lab-histpop { position: absolute; z-index: 25; pointer-events: none; padding: 0.35rem 0.5rem 0.4rem; border-radius: 8px; background: color-mix(in srgb, var(--md-default-bg-color) 94%, transparent); border: 1px solid var(--rt-rule); box-shadow: 0 8px 26px rgba(30, 10, 80, 0.22); backdrop-filter: blur(3px); }
+.lab-histpop { position: absolute; z-index: 40; pointer-events: none; padding: 0.35rem 0.5rem 0.4rem; border-radius: 8px; background: color-mix(in srgb, var(--md-default-bg-color) 94%, transparent); border: 1px solid var(--rt-rule); box-shadow: 0 8px 26px rgba(30, 10, 80, 0.22); backdrop-filter: blur(3px); }
 .lab-histpop-title { font-size: 0.6rem; margin-bottom: 0.15rem; color: var(--md-default-fg-color); }
 .lab-histpop-title span { color: var(--md-default-fg-color--light); font-variant-numeric: tabular-nums; }
 .lab-histpop canvas { display: block; }
