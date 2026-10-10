@@ -125,8 +125,9 @@ body:has(.rt-lab) .md-grid { max-width: 92rem; }
 .lab-ro { outline: none; cursor: default; transition: background 0.12s; }
 .lab-ro:hover, .lab-ro:focus-visible { background: color-mix(in srgb, var(--md-accent-fg-color) 12%, var(--rt-table-head)); }
 .lab-ro .ro-tr { display: inline-block; margin-left: 0.25rem; font-size: 0.5rem; color: var(--md-default-fg-color--light); vertical-align: 0.12rem; }
-.lab-ro .ro-ma { font-size: 0.48rem; line-height: 1.35; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; color: var(--md-default-fg-color); opacity: 0.8; }
-.lab-ro .ro-ma i { font-style: normal; color: var(--md-default-fg-color--light); opacity: 0.85; font-size: 0.4rem; margin: 0 0.08rem 0 0.22rem; }
+.lab-ro .ro-ma { font-size: 0.5rem; line-height: 1.35; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; color: var(--md-default-fg-color); opacity: 0.8; }
+.lab-ro .ro-ma i { font-style: normal; color: var(--md-default-fg-color--light); font-size: 0.46rem; margin: 0 0.08rem 0 0.2rem; }
+.lab-ro .ro-ma span.part { opacity: 0.5; font-style: italic; }
 .lab-ro .ro-ma i:first-child { margin-left: 0; }
 .lab-ro .ro-tor { font-size: 0.5rem; }
 .lab-ro .ro-tor:empty { display: none; }
