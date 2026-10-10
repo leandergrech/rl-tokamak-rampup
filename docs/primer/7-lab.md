@@ -17,7 +17,12 @@ icon: rt/lab
 
 ## How to use it
 
-The Lab has three layers: **who turns the knobs** above, **the workspace** in the middle, and **the simulation's set-up** below. The buttons in its top-right corner fold the story away (*Story*) and open one card at a time: *Labels* (what is drawn on the plasma), *A–Z* (every acronym), *About* (how to read the plasma view, and the keys) and the *Scoreboard*; the last button is full screen.
+The Lab has three layers: **who turns the knobs** above, **the workspace** in the middle, and **the simulation's set-up** below. The buttons in its top-right corner fold the story away (*Story*) and open one card at a time: *Labels* (what is drawn on the plasma), *A–Z* (every acronym), *About* (how to read the plasma view, and the keys) and the *Scoreboard*. The last button is **full screen**, with a layout of its own that fits the screen without scrolling:
+
+- **on a desktop**, a top bar with the scenario, the preset and the tools; the controls on the left; the plasma in the middle, as large as the screen allows, with the narration and the heating strip; one instrument at a time on the right (numbers, knobs, traces, profiles, operating space, maps, power, reward, set-up, reward design); playback along the bottom;
+- **on a phone**, the plasma on top, tabs under it (the controls and the heating strip are tabs too), playback at the bottom; held sideways, the plasma on the left and the tabs on the right. Tap the narration to read all of it. Where the browser has no full screen (iPhones), the Lab covers the page instead.
+
+The rest of the Lab, from the top:
 
 - **Above: choose the scenario, then a controller.** *Benchmark* or *Physics environment*: each has its own TORAX episodes, its own PI controller (the paper's gains, or the re-tuned ones), its own rewards and limits. Presets are grouped by who turns the knobs: **open loop** (amber), **feedback** (teal), **you** (pink); see [Open loop and feedback](#open-loop-and-feedback). The story under them explains the episode; click its time stamps to jump there.
 - **The side pane stays in view** while the visuals scroll past it, so you can move a control and watch everything respond together. From the top:
@@ -35,7 +40,7 @@ The Lab has three layers: **who turns the knobs** above, **the workspace** in th
 - **Every panel folds to its title**: click the title, and the folded panel shows a one-line summary instead (the Lab remembers what you folded). **∑ equations** on any panel opens the equations behind it, with links to the [equation sheet](equations.md) and the chapter.
 - **The scoreboard** runs every preset of the scenario on the Lab against the uncertain input, in your browser in a few seconds: the audited return at transport × 0.7, 1 and 1.5 on the benchmark, the physics-environment return at a true L-H threshold of 0.9–1.2 × the Martin scaling. Controllers run live, schedules replay; click a cell to open that run.
 - **Keys**: space plays or pauses, ← and → step one second (with shift, ten); after a click inside the Lab, <kbd>F</kbd> full screen, <kbd>L</kbd> part names, <kbd>S</kbd> scoreboard, <kbd>?</kbd> the About card, <kbd>Esc</kbd> closes it.
-- Links can open the Lab in a given state: `?preset=heating_cut&t=110&tab=T&color=q&pedestal=power&sawtooth=1`, with a controller live on a perturbed plasma: `?preset=pi&live=1&transport=1.5`, or in the physics environment with a higher threshold: `?preset=phys_pi&threshold=1.15`.
+- Links can open the Lab in a given state: `?preset=heating_cut&t=110&tab=T&color=q&pedestal=power&sawtooth=1`, with a controller live on a perturbed plasma: `?preset=pi&live=1&transport=1.5`, or in the physics environment with a higher threshold: `?preset=phys_pi&threshold=1.15`. Add `&full=1` to open it in the full-screen layout.
 
 ## Open loop and feedback {#open-loop-and-feedback}
 

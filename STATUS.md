@@ -3,7 +3,7 @@ repo: https://github.com/leandergrech/rl-tokamak-rampup
 pages: https://leandergrech.github.io/rl-tokamak-rampup/
 step: 7
 state: done
-updated: 2026-10-10T09:24:19Z
+updated: 2026-10-10T09:43:31Z
 blockers: none
 next: Leander reviews docs/04b-physics-env.md (physics environment and robustness) and docs/upstream drafts
 log:
@@ -33,6 +33,7 @@ log:
 - 2026-10-02T13:10:00Z data/ back under 20 MB (7.1 MB tracked): the 77 policy files (25.7 MB) moved to release checkpoints-v1 (approved by Leander); rl_tokamak.checkpoints downloads it on first use and checks SHA-256 per file against data/checkpoints.json; reproduce.sh fetches first; pytest 24 passed; mkdocs --strict ok
 - 2026-10-02T17:17:52Z STATUS.md restored: an edit on 2026-10-02 (commit 327ea8c) had split this file on a heading quoted in the line above and dropped this section's log and the physics heading; rebuilt from commit fc104b3 plus the physics section's later entries
 - 2026-10-10T09:24:19Z Ramp-up Lab usability pass (GUI strategies of a sibling project's lab, its dashboard look kept): status chip over the plasma (phase, confinement as the reward sees it, controller, numbers, amber tags for changed parameters), one line of narration, event callouts pinned to parts, red pulsing edge / flash on limits, hover tooltips on every part (cut face gives rho, T_e, j, q, n_e), ECRH drawn as a 170 GHz wave (400x longer, ~1e11x slower, amplitude ~ sqrt(P)), NBI as 1 MeV D atoms (not a wave) with Balmer-alpha glow, a 'heating at human scale' strip (frequency as colour and compressed wavelength, power as height), toolbar cards (Story, Labels, A-Z, About, Scoreboard: every preset vs transport or L-H threshold, live, 2.5 s in the browser), full screen, foldable panels with summaries, keys F/L/S/? after a click in the Lab. HMI fixes: Clear pins, PI target unit, time slider horizon, network input count 63/67 in physics, sandbox narration. Bug: check_lab_control ran physics episodes 151 steps (now 150); Lab page table corrected (-0.03 to -0.05). Tested in headless Chrome (desktop, 1920, phone, dark), mkdocs --strict ok
+- 2026-10-10T09:43:31Z Lab full screen: a layout of its own instead of the scrolling page. Desktop: top bar (scenario, preset select, tools), controls left, plasma centre sized to the screen (narration, heating strip), one instrument at a time right (10 tabs), playback bottom. Phone upright: plasma on top (34 % of the height), tabs under it incl. Controls and Heating, playback bottom, narration clamped (tap to expand); sideways: plasma left, tabs right. Elements move into the layout and back (folds, story, tab per layout restored/remembered); browser full screen where available, page overlay otherwise (iPhones); F / Esc; ?full=1. Tested headless at 1440x900, 390x844, 844x390, 1024x1366
 
 ## Physics environment task
 repo: https://github.com/leandergrech/rl-tokamak-rampup
