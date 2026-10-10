@@ -433,8 +433,10 @@
         anchors.q1 = P(surfPoint(rq1, -0.6, phiR));
         hits.push({ kind: "q1", pt: anchors.q1, r: 9, pri: 0, rho: rq1 });
       }
-      // --- plasma outer surface mesh (translucent), outside the cut
-      const NT = 72, NP = 26;
+      // --- plasma outer surface mesh (translucent), outside the cut; a lighter mesh on small canvases
+      const smallCv = w < 700, NT = smallCv ? 48 : 72, NP = smallCv ? 18 : 26;
+      const surfRgb = cmap(cm.map, cm.norm(interp(S.val, 0.96))).slice(4, -1), alphaStr = {};
+      const surfFill = (a) => alphaStr[(a = Math.round(a * 50) / 50)] || (alphaStr[a] = `rgba(${surfRgb},${a})`);
       for (let i = 0; i < NT; i++) {
         const p0 = (i / NT) * 2 * Math.PI, p1 = ((i + 1) / NT) * 2 * Math.PI;
         if (inCut((p0 + p1) / 2)) continue;
@@ -448,7 +450,7 @@
           const facing = -((nx * cy0 - ny * sy0) * 0 + (nx * sy0 + ny * cy0) * ce - nz * se);
           const light = 0.55 + 0.45 * clamp(nz * 0.6 + facing * 0.6, -1, 1);
           prims.push([depth, () => {
-            ctx.fillStyle = colAt(0.96, facing > 0 ? 0.2 * light + 0.06 : 0.08);
+            ctx.fillStyle = surfFill(facing > 0 ? 0.2 * light + 0.06 : 0.08);
             ctx.beginPath();
             ctx.moveTo(a[0], a[1]);
             ctx.lineTo(b[0], b[1]);
@@ -532,35 +534,44 @@
       // --- field lines on three flux surfaces
       if (S.lines !== false) {
         const surfaces = [[1.0, 3, 2.2], [0.62, 2, 1.6], [0.3, 2, 1.4]];
+        const n = w < 700 ? 300 : 520, CH = 6; // samples per toroidal turn; segments per drawn piece
         surfaces.forEach(([rho, nl, lw], si) => {
-          const q = qAt(rho);
+          const q = qAt(rho), color = si === 0 ? col.accent : si === 1 ? "#ffd166" : "#7fdfff";
           for (let l = 0; l < nl; l++) {
             const th0 = (l / nl) * 2 * Math.PI + si;
-            const n = 520;
-            let prev = null;
+            let prev = null, run = null;
+            const flush = () => {
+              if (!run) return;
+              const r = run;
+              prims.push([r.depth / (r.pts.length - 1) - 0.05, () => {
+                ctx.strokeStyle = color;
+                ctx.globalAlpha = si === 0 ? (r.front ? 0.95 : 0.25) : 0.55;
+                ctx.lineWidth = lw;
+                ctx.beginPath();
+                r.pts.forEach((p, k) => (k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+              }]);
+              run = null;
+            };
             for (let i = 0; i <= n; i++) {
               const phi = (i / n) * 2 * Math.PI;
               const th = th0 + (phi + view.phase) / q;
               const pt = P(surfPoint(rho * 0.995, th, phi));
               const hidden = inCut(phi);
               if (prev && !hidden && !prev.hidden) {
-                const a = prev.pt, b = pt;
-                const depth = (a[2] + b[2]) / 2 - 0.05;
                 const nx = Math.cos(th) * Math.cos(phi), ny = Math.cos(th) * Math.sin(phi), nz = Math.sin(th) / GEO.kappa;
                 const front = (nx * sy0 + ny * cy0) * ce - nz * se < 0;
-                prims.push([depth, () => {
-                  ctx.strokeStyle = si === 0 ? col.accent : si === 1 ? "#ffd166" : "#7fdfff";
-                  ctx.globalAlpha = si === 0 ? (front ? 0.95 : 0.25) : 0.55;
-                  ctx.lineWidth = lw;
-                  ctx.beginPath();
-                  ctx.moveTo(a[0], a[1]);
-                  ctx.lineTo(b[0], b[1]);
-                  ctx.stroke();
-                  ctx.globalAlpha = 1;
-                }]);
-              }
+                if (!run || run.front !== front || run.pts.length > CH) {
+                  flush();
+                  run = { pts: [prev.pt], front, depth: 0 };
+                }
+                run.pts.push(pt);
+                run.depth += (prev.pt[2] + pt[2]) / 2;
+              } else flush();
               prev = { pt, hidden };
             }
+            flush();
           }
         });
       }
@@ -1154,6 +1165,9 @@
     };
     const params = new URLSearchParams(location.search);
     let LAB = {}, PROF = {};
+    // small viewports (phones, upright or on their side): the Lab is used in full screen only; inline it is a
+    // launch card (HMI-MOBILE-SPEC.md, M1)
+    const SMALL = () => innerWidth < 760 || (!!window.matchMedia && matchMedia("(pointer: coarse)").matches && Math.min(innerWidth, innerHeight) < 500);
     // the two scenarios: the benchmark (Gym-TORAX 1.0, 151 steps) and the physics environment (TORAX 1.4, 150 steps)
     const PHYS = () => S.scen === "physics";
     const HOR = () => (PHYS() ? 150 : 151);
@@ -1190,6 +1204,18 @@
     // Above: who turns the knobs (the presets) and the story. Below that a workspace: a side pane that stays in
     // view (playback, the controller's hyper-controls, the salient plasma parameters, live outcomes) next to the
     // visual panels. The full simulation parameters and the reward designer sit below the visuals.
+    const launch = el("div", "lab-launch");
+    root.appendChild(launch);
+    const lPoster = el("div", "lab-launch-poster");
+    launch.appendChild(lPoster);
+    const lBody = el("div", "lab-launch-body");
+    launch.appendChild(lBody);
+    lBody.innerHTML = `<b class="lab-launch-title">The Ramp-up Lab</b>` +
+      `<p>Replay real TORAX ramp-ups on a reduced plasma model, run the controllers live on it, or drive the plasma yourself.</p>` +
+      `<p class="lab-launch-preset"></p>`;
+    const lGo = el("button", "lab-launch-go", "Open the Lab");
+    lGo.type = "button";
+    lBody.append(lGo, el("p", "lab-launch-hint", "Opens full screen · upright or sideways"));
     const top = el("div", "lab-top");
     root.appendChild(top);
     const scenRow = el("div", "lab-seg lab-seg-wide lab-scen");
@@ -1392,6 +1418,7 @@
     side.appendChild(sideHead);
     // playback
     const sPlay = section("Playback");
+    sPlay.classList.add("lab-sec-play"); // on a phone in full screen the playback line replaces it
     const tRow = controls(sPlay);
     const playBtn = button(tRow, "Play", () => togglePlay(), "rt-primary");
     const rewBtn = button(tRow, "⏮", () => {
@@ -1523,6 +1550,7 @@
     }, "rt-chip");
     const tv = canvas(pT.body, root.clientWidth < 560 ? 330 : 400);
     const torusOpts = { topPad: 24 }; // room for the status over the plasma
+    tv.maxDpr = 2; // the plasma redraws every frame: 2× is sharp enough and a third cheaper than 3× on phones
     const torus = makeTorus(tv, torusOpts);
     // the status of the shot, over the plasma: phase and confinement, who drives, the key numbers
     const hud = el("div", "lab-hud");
@@ -1541,6 +1569,13 @@
     note(hsBox, "Heating at human scale. Wavelengths are compressed (10× the frequency draws 1.8× shorter) and the light is slowed about 10¹¹×; ECRH's cyan is a false colour, the beam's red Balmer-α light is real. Taller and brighter: more power. The atoms fly at 3 % of light speed, drawn faster than that.");
     note(pT.body, "Drag to rotate; hover any part for its name and live values (tap on a phone). <b>About</b>, top right, explains the colours.");
     pT.cvs.push(tv, hsv);
+    const lCv = canvas(lPoster, 220);
+    lCv.maxDpr = 2;
+    const lTorus = makeTorus(lCv, { topPad: 8 });
+    const lChip = el("span", "lab-hud-chip lab-launch-chip");
+    lPoster.appendChild(lChip);
+    let lVisible = true;
+    if (window.IntersectionObserver) new IntersectionObserver((es) => (lVisible = es[0].isIntersecting)).observe(lPoster);
     // ---- numbers at the cursor
     const pN = panel("lab-ctl", "Numbers at the cursor", ["reward", "flux"]);
     // two views of the same quantities: numbers (the value, three trailing averages, TORAX) or plots (each one
@@ -1765,6 +1800,164 @@
     fsPreset.addEventListener("change", () => fsPreset.value && load(fsPreset.value));
     fsTop.append(el("b", "fs-title", "Ramp-up Lab"), fsScen, fsPreset);
     const cFsStory = card("fsstory", "What this preset shows");
+
+    // ---- phone: a one-row app bar (close, the preset picker for both scenarios, a menu) and a one-line playback bar
+    const PICON = {
+      close: "M6 6l12 12M18 6L6 18",
+      more: "M5 12h.01M12 12h.01M19 12h.01",
+      play: "M7 5l12 7-12 7z",
+      pause: "M7 5h3.5v14H7zM13.5 5H17v14h-3.5z",
+      replay: "M4 12a8 8 0 1 0 2.3-5.7M4 4v4.5h4.5",
+      start: "M5 5h3v14H5zM20 5L9 12l11 7z",
+      pin: "M9 4h6l-1 5 3 3H7l3-3zM12 12v8",
+      chev: "M7 10l5 5 5-5",
+    };
+    const picon = (d, fill) => `<svg class="lab-ic${fill ? " fill" : ""}" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
+    const mbtn = (cls, d, label, on, fill) => {
+      const b = el("button", "fs-ib " + cls, picon(d, fill));
+      b.type = "button";
+      b.title = label;
+      b.setAttribute("aria-label", label);
+      b.addEventListener("click", on);
+      return b;
+    };
+    const mClose = mbtn("fs-close", PICON.close, "Close the Lab", () => fsExit());
+    const mPick = el("label", "fs-pick");
+    const mPickName = el("span", "fs-pick-name"), mPickScen = el("span", "fs-pick-scen");
+    const mPickSel = document.createElement("select");
+    mPickSel.setAttribute("aria-label", "Preset");
+    mPick.append(el("span", "fs-pick-text"), el("span", "fs-pick-chev", picon(PICON.chev)), mPickSel);
+    mPick.firstChild.append(mPickName, mPickScen);
+    mPickSel.addEventListener("change", () => {
+      const [sc, key] = mPickSel.value.split("|");
+      if (sc !== S.scen) setScenario(sc, true);
+      load(key);
+    });
+    const mMore = mbtn("fs-more", PICON.more, "More: story, labels, acronyms, about, scoreboard", () => toggleMenu());
+    mMore.setAttribute("aria-haspopup", "menu");
+    mMore.setAttribute("aria-expanded", "false");
+    const mBar = el("div", "fs-mbar");
+    mBar.append(mClose, mPick, mMore);
+    const mMenu = el("div", "fs-menu");
+    mMenu.setAttribute("role", "menu");
+    mMenu.hidden = true;
+    function toggleMenu(force) {
+      const on = force === undefined ? mMenu.hidden : force;
+      mMenu.hidden = !on;
+      mMore.setAttribute("aria-expanded", String(on));
+      if (!on) return;
+      showCard(null);
+      const other = S.scen === "physics" ? "benchmark" : "physics";
+      const items = [
+        ["Story: what this preset shows", () => showCard("fsstory")],
+        ["Labels on the plasma", () => showCard("layers")],
+        ["Acronyms and symbols", () => showCard("acr")],
+        ["About the plasma view", () => showCard("about")],
+        ["Scoreboard: every preset", () => showCard("scores")],
+        [`Clear pins${S.pins.length ? ` (${S.pins.length})` : ""}`, () => ((S.pins = []), (S.dirty = true)), !S.pins.length],
+        [other === "physics" ? "Switch to the physics environment" : "Switch to the benchmark", () => setScenario(other)],
+      ];
+      mMenu.innerHTML = "";
+      items.forEach(([lab, fn, dis]) => {
+        const b = el("button", "fs-mi", lab);
+        b.type = "button";
+        b.setAttribute("role", "menuitem");
+        b.disabled = !!dis;
+        b.addEventListener("click", () => (toggleMenu(false), fn()));
+        mMenu.appendChild(b);
+      });
+      mMenu.firstChild.focus({ preventScroll: true });
+    }
+    document.addEventListener("pointerdown", (e) => !mMenu.hidden && !mMenu.contains(e.target) && !mMore.contains(e.target) && toggleMenu(false));
+    function mSync() {
+      const opt = (sc, k, lab) => `<option value="${sc}|${k}">${lab}</option>`;
+      const avail = (q) => q.kind !== "torax" || LAB[q.key];
+      mPickSel.innerHTML = ["benchmark", "physics"].map((sc) => ["open", "feedback", "human"].map((c) => {
+        const items = PRESETS.filter((q) => q.ctrl === c && (q.scen === sc || q.scen === "both") && avail(q)).map((q) => opt(sc, q.key, q.label));
+        if (c === "feedback") items.push(...Object.entries(EXTRA).filter(([k, v]) => v.scen === sc && LAB[k]).map(([k, v]) => opt(sc, k, v.label)));
+        return items.length ? `<optgroup label="${sc === "physics" ? "Physics env." : "Benchmark"} · ${CTRL[c].tag}">${items.join("")}</optgroup>` : "";
+      }).join("")).join("");
+      mPickSel.value = `${S.scen}|${S.key}`;
+      mPickName.textContent = S.label;
+      mPickScen.textContent = PHYS() ? "physics environment" : "benchmark";
+    }
+
+    // the playback line: play, back to the start, a scrubber with event ticks and the time, speed, pin
+    const pb = el("div", "fs-pb");
+    const pbPlay = mbtn("pb-play", PICON.play, "Play", () => togglePlay(), true);
+    const pbStart = mbtn("pb-start", PICON.start, "Back to the start", () => {
+      S.cursor = 0;
+      S.playing = false;
+      playBtn.textContent = "Play";
+      S.dirty = true;
+    }, true);
+    const pbScrub = el("div", "pb-scrub");
+    const pbRange = document.createElement("input");
+    Object.assign(pbRange, { type: "range", min: 0, max: 151, step: 1, value: 0 });
+    pbRange.className = "pb-range";
+    pbRange.setAttribute("aria-label", "Time in the episode");
+    const pbTicks = el("span", "pb-ticks");
+    pbTicks.setAttribute("aria-hidden", "true");
+    pbScrub.append(pbTicks, pbRange);
+    pbRange.addEventListener("input", () => {
+      S.cursor = Math.min(+pbRange.value, S.recs.length - 1);
+      S.playing = false;
+      playBtn.textContent = "Play";
+      S.dirty = true;
+    });
+    const pbTime = el("span", "pb-time");
+    const SPEEDS = [0.5, 1, 2, 4];
+    const pbSpeed = el("button", "fs-ib pb-speed", "1×");
+    pbSpeed.type = "button";
+    pbSpeed.addEventListener("click", () => {
+      S.speed = SPEEDS[(SPEEDS.indexOf(S.speed) + 1) % SPEEDS.length];
+      spd.value = String(S.speed);
+      pbSpeed.textContent = `${S.speed}×`; // at once, not on the next frame
+    });
+    const pbPin = mbtn("pb-pin", PICON.pin, "Pin this run (keep it as a line in every plot)", () => pinRun());
+    const pbBadge = el("span", "pb-badge");
+    pbPin.appendChild(pbBadge);
+    pb.append(pbPlay, pbStart, pbScrub, pbTime, pbSpeed, pbPin);
+    let pbKey = "", pbTickKey = "";
+    function pbSync() {
+      const drive = S.mode === "drive", on = drive ? S.running : S.playing, end = !drive && S.cursor >= S.recs.length - 1 && S.recs.length > 1;
+      const st = on ? "pause" : end ? "replay" : "play";
+      const key = `${st}|${S.cursor}|${S.speed}|${S.pins.length}|${HOR()}`;
+      if (key !== pbKey) {
+        pbKey = key;
+        pbPlay.innerHTML = picon(PICON[st], st !== "replay");
+        const lab = drive ? (on ? "Pause the run" : "Run: you drive") : on ? "Pause" : end ? "Play again from the start" : "Play";
+        pbPlay.title = lab;
+        pbPlay.setAttribute("aria-label", lab);
+        pbRange.max = HOR();
+        if (document.activeElement !== pbRange) pbRange.value = S.cursor;
+        pbRange.setAttribute("aria-valuetext", `t = ${S.cursor} s`);
+        pbTime.textContent = `${S.cursor} s`;
+        pbSpeed.textContent = `${S.speed}×`;
+        pbSpeed.title = `Playback speed ${S.speed}× (tap to change)`;
+        pbSpeed.setAttribute("aria-label", pbSpeed.title);
+        pbBadge.textContent = S.pins.length ? String(S.pins.length) : "";
+      }
+      // event ticks on the track: heating, transitions, q_min < 1, limits, the end
+      const tk = `${S.recsVersion}|${S.recs.length}|${S.scen}|${HOR()}`;
+      if (tk !== pbTickKey) {
+        pbTickKey = tk;
+        pbTicks.innerHTML = eventsOf().list.map((e) => `<i style="left:${((100 * e.t) / HOR()).toFixed(2)}%;background:${TONE_COLOR[e.tone]}" title="${e.title} at ${e.t} s"></i>`).join("");
+      }
+    }
+
+    // ---- history: entering pushes an entry, so the system Back gesture leaves the Lab, not the page (M2)
+    let fsPushed = false, fsScrollY = 0, fsThenHash = null, fsScrollMode = "auto";
+    root.addEventListener("click", (e) => {
+      const a = e.target.closest && e.target.closest('a[href^="#"]');
+      if (!a || !isFull()) return;
+      e.preventDefault();
+      fsThenHash = a.getAttribute("href");
+      fsExit();
+    });
+    window.addEventListener("popstate", () => {
+      if (isFull() && !(history.state && history.state.labFs)) fsExit(true);
+    });
     function fsSync() {
       for (const k in fsScenBtns) fsScenBtns[k].classList.toggle("on", k === S.scen);
       const opt = (k, lab) => `<option value="${k}">${lab}</option>`;
@@ -1796,7 +1989,8 @@
       parent.appendChild(node);
     }
     function goHome() {
-      [...home.entries()].reverse().forEach(([node, [parent, next]]) => parent.insertBefore(node, next));
+      // elements made for full screen only (the phone's app bar, menu and playback line) have no home: detach them
+      [...home.entries()].reverse().forEach(([node, [parent, next]]) => (parent ? parent.insertBefore(node, next) : node.remove()));
       home.clear();
     }
     let fsMode = null, fsSaved = null, tvH0 = tv.h;
@@ -1805,7 +1999,7 @@
     function fsLayout(force) {
       if (!isFull()) return;
       // desk: wide screens; land: a phone on its side (plasma left, tabs right); phone: upright
-      const mode = innerWidth >= 900 && innerWidth >= innerHeight * 0.9 ? "desk" : innerWidth > innerHeight ? "land" : "phone";
+      const mode = !SMALL() && innerWidth >= 900 && innerWidth >= innerHeight * 0.9 ? "desk" : innerWidth > innerHeight ? "land" : "phone";
       if (mode !== fsMode || force) {
         goHome();
         fsMode = mode;
@@ -1813,8 +2007,15 @@
         root.classList.toggle("fs-phone", mode !== "desk");
         root.classList.toggle("fs-land", mode === "land");
         torusOpts.topPad = mode === "desk" ? 24 : 4;
-        place(bar, fsTop);
-        place(sPlay, fsPlay);
+        if (mode === "desk") {
+          place(bar, fsTop);
+          place(sPlay, fsPlay);
+        } else {
+          place(mBar, fsTop);
+          place(mMenu, fsTop);
+          place(pb, fsPlay);
+          mSync();
+        }
         place(pT.p, fsStage);
         place(story, cFsStory.body);
         if (mode === "desk") place(side, fsSide);
@@ -1842,7 +2043,13 @@
       fsTabs.querySelectorAll("button").forEach((b) => {
         b.classList.toggle("on", b.dataset.tab === cur.id);
         b.setAttribute("aria-selected", String(b.dataset.tab === cur.id));
+        if (b.dataset.tab === cur.id) {
+          const l = b.offsetLeft - fsTabs.offsetLeft, r = l + b.offsetWidth, pad = 12;
+          if (l - pad < fsTabs.scrollLeft) fsTabs.scrollLeft = l - pad;
+          else if (r + pad > fsTabs.scrollLeft + fsTabs.clientWidth) fsTabs.scrollLeft = r + pad - fsTabs.clientWidth;
+        }
       });
+      fsBody.scrollTop = 0;
       store.set("fs-tab-" + fsMode, cur.id);
       if (cur.id === "heat") hsv.fit();
       if (cur.id === "controls") (sv.fit(), tl.fit());
@@ -1852,12 +2059,21 @@
     function fsFit() {
       if (!isFull()) return;
       const others = pT.p.offsetHeight - tv.c.offsetHeight;
-      tv.h = Math.round(fsMode === "phone" ? Math.max(200, Math.min(innerHeight * 0.34, innerWidth * 0.95)) : Math.max(fsMode === "land" ? 160 : 260, fsStage.clientHeight - others - 4));
+      tv.h = Math.round(fsMode === "phone" ? clamp(Math.min(innerHeight * 0.34, innerWidth * 0.95), 200, 300) : Math.max(fsMode === "land" ? 160 : 260, fsStage.clientHeight - others - 4));
       fitAll();
     }
+    const fsHolder = el("div", "lab-fs-holder");
+    fsHolder.setAttribute("aria-hidden", "true");
     function fsEnter() {
+      if (isFull()) return;
+      fsScrollY = window.scrollY;
+      const cs = getComputedStyle(root);
+      fsHolder.style.height = root.getBoundingClientRect().height + "px";
+      fsHolder.style.margin = cs.margin;
+      root.before(fsHolder);
       fsSaved = new Map(FOLDS.map((P) => [P, P.open]));
       tvH0 = tv.h;
+      root.classList.remove("lab-small");
       root.classList.add("lab-fs");
       fs.hidden = false;
       document.documentElement.classList.add("lab-fs-lock");
@@ -1866,11 +2082,30 @@
       fullBtn.innerHTML = `${svgIcon(ICON.exit)}<span></span>`;
       fullBtn.title = "Leave full screen (F or Esc)";
       fullBtn.setAttribute("aria-pressed", "true");
+      if (!(history.state && history.state.labFs)) {
+        fsScrollMode = history.scrollRestoration;
+        history.scrollRestoration = "manual";
+        history.pushState({ ...(history.state || {}), labFs: true }, "");
+        fsPushed = true;
+      }
       if (root.requestFullscreen && !document.fullscreenElement) root.requestFullscreen().catch(() => {});
+      S.dirty = true;
     }
-    function fsExit() {
+    // leaving: Close, Esc and the browser's own full-screen exit go back one history entry; the popstate does the rest
+    function fsExit(fromPop) {
       if (!isFull()) return;
+      S.playing = false;
+      S.running = false;
+      playBtn.textContent = "Play";
+      runBtn.textContent = "Run";
+      if (!fromPop && fsPushed && history.state && history.state.labFs) return history.back();
+      fsPushed = false;
+      toggleMenu(false);
       showCard(null);
+      // back into the page in one step: the placeholder goes as the Lab returns, before anything forces a layout
+      // (otherwise the page is briefly twice as tall and scroll anchoring moves it)
+      document.documentElement.style.overflowAnchor = "none";
+      fsHolder.remove();
       goHome();
       root.classList.remove("lab-fs", "fs-desk", "fs-phone", "fs-land");
       torusOpts.topPad = 24;
@@ -1885,9 +2120,37 @@
       fullBtn.innerHTML = `${svgIcon(ICON.full)}<span></span>`;
       fullBtn.title = "Full screen (F)";
       fullBtn.setAttribute("aria-pressed", "false");
-      if (document.fullscreenElement === root) document.exitFullscreen().catch(() => {});
-      requestAnimationFrame(() => (fitAll(), pT.p.scrollIntoView({ block: "nearest" })));
+      applyMode();
+      window.scrollTo(0, fsScrollY);
+      // the page is restored once the Lab is back in its flow: after the browser's full screen has ended (it
+      // ends asynchronously) and one frame; scroll anchoring stays off until then
+      const done = () => requestAnimationFrame(() => {
+        fitAll();
+        history.scrollRestoration = fsScrollMode;
+        if (fsThenHash) {
+          const target = document.getElementById(fsThenHash.slice(1));
+          fsThenHash = null;
+          if (target) target.scrollIntoView({ block: "start" });
+        } else window.scrollTo(0, fsScrollY);
+        document.documentElement.style.overflowAnchor = "";
+      });
+      if (document.fullscreenElement === root) document.exitFullscreen().then(done, done);
+      else done();
     }
+    // inline: the launch card on small viewports, the full Lab otherwise
+    function applyMode() {
+      const small = SMALL() && !isFull();
+      if (root.classList.contains("lab-small") !== small) {
+        root.classList.toggle("lab-small", small);
+        if (!small) requestAnimationFrame(fitAll);
+      }
+      if (small) {
+        lCv.fit();
+        const p = presetOf(S.key);
+        launch.querySelector(".lab-launch-preset").innerHTML = p ? `Opens with <b>${S.label}</b> · ${PHYS() ? "physics environment" : "benchmark"}${S.cursor ? ` · t = ${S.cursor} s` : ""}` : "";
+      }
+    }
+    lGo.addEventListener("click", () => fsEnter());
     function toggleFull(force) {
       const on = force === undefined ? !isFull() : force;
       on ? fsEnter() : fsExit();
@@ -1896,9 +2159,8 @@
     document.addEventListener("fullscreenchange", () => !document.fullscreenElement && isFull() && fsExit());
     let fsRaf = 0;
     window.addEventListener("resize", () => {
-      if (!isFull()) return;
       cancelAnimationFrame(fsRaf);
-      fsRaf = requestAnimationFrame(() => fsLayout(false));
+      fsRaf = requestAnimationFrame(() => (isFull() ? fsLayout(false) : applyMode()));
     });
 
     // ---- labels: the layers drawn on the plasma
@@ -2440,7 +2702,7 @@
       resetParams(true);
       applyScenarioUI();
       if (!noLoad) load(S.key === "sandbox" ? "sandbox" : sc === "physics" ? "phys_pi" : "pi");
-      else if (isFull()) fsSync();
+      else if (isFull()) (fsSync(), mSync());
     }
     function load(key) {
       const p = presetOf(key);
@@ -2488,8 +2750,9 @@
       driveBox.hidden = S.mode !== "drive";
       takeBtn.hidden = S.mode === "drive";
       renderStory(STORIES[key] || EXTRA_STORY(p.label));
-      if (isFull()) fsSync();
+      if (isFull()) (fsSync(), mSync());
       else if (story.hidden && tools.story) tools.story.classList.add("news");
+      if (root.classList.contains("lab-small")) applyMode();
       S.dirty = true;
     }
     function renderStory(st) {
@@ -2585,18 +2848,19 @@
       for (const [k, , cfg] of SLOTS()) o[k] = M.scoreEpisode(rs, cfg || S.custom);
       return o;
     }
-    function drawTorus() {
-      const d = S.recs[S.cursor] || S.recs[0];
+    function drawTorus(target, at, o) {
+      o = o || {};
+      const d = S.recs[at === undefined ? S.cursor : at] || S.recs[0];
       const val = S.colorBy === "Te" ? d.prof.Te : S.colorBy === "j" ? d.prof.j : d.prof.q;
       const crashRecent = d.crashes && S.cursor > 0 && S.recs[S.cursor - 1] && d.crashes > S.recs[S.cursor - 1].crashes;
       const gated = d.Te0 > 10 && d.Ti0 > 10;
       const end = PHYS() && physEnd();
       const alarm = (end && d.t >= end.t) || (!PHYS() && d.fgw > 1) ? 1 : !PHYS() && gated && d.psolPlh < 1 ? 0.6 : 0;
-      torus.draw({
+      (target || torus).draw({
         q: d.prof.q, val, colorBy: S.colorBy, nbi: d.Pnbi, ecrh: d.Pecrh, ecrhLoc: d.ecrhLoc, Ip: d.Ip, coils: S.coils, flux: d.flux,
-        prof: d.prof, ne20: d.nbar, labels: layers.labels, lines: layers.lines, beams: layers.beams,
-        flash: crashRecent ? 1 : 0, alarm, redFlash: clamp(1 - (performance.now() - flashT) / 900, 0, 1),
-        callouts: calloutsAt(S.cursor),
+        prof: d.prof, ne20: d.nbar, labels: o.labels === undefined ? layers.labels : o.labels, lines: layers.lines, beams: layers.beams,
+        flash: crashRecent ? 1 : 0, alarm, redFlash: o.preview ? 0 : clamp(1 - (performance.now() - flashT) / 900, 0, 1),
+        callouts: o.preview ? [] : calloutsAt(S.cursor),
       });
     }
     // ---- the quantities of the numbers panel: label, unit, how to read them from a record and from TORAX
@@ -3767,7 +4031,8 @@
       if (!visible && !isFull()) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "Escape") {
-        if (popQ) hidePop();
+        if (!mMenu.hidden) toggleMenu(false);
+        else if (popQ) hidePop();
         else if (openCard) showCard(null);
         else if (isFull()) fsExit();
         return;
@@ -4218,7 +4483,7 @@
     }
 
     // ------------------------------------------------ main loop (pauses when off-screen)
-    let visible = true, acc = 0, lastTs = 0;
+    let visible = true, acc = 0, lastTs = 0, frameNo = 0;
     if (window.IntersectionObserver) new IntersectionObserver((es) => (visible = es[0].isIntersecting)).observe(root);
     function frameLoop(ts) {
       const dt = lastTs ? Math.min(100, ts - lastTs) : 16;
@@ -4245,10 +4510,25 @@
           }
         } else acc = 0;
         if (S.cursor !== lastCur) noteCrossing();
+        frameNo++;
+        if (root.classList.contains("lab-small")) {
+          // inline on a phone: only the preview, a frame from the episode (the flat-top once played to it), at 15 fps
+          if (lVisible && frameNo % 4 === 0) {
+            const at = S.cursor > 0 ? S.cursor : Math.min(110, S.recs.length - 1);
+            drawTorus(lTorus, at, { preview: true, labels: false });
+            const st = statusAt(S.recs[at]);
+            if (lChip.textContent !== st.text) (lChip.textContent = st.text), (lChip.style.background = st.color);
+          }
+          requestAnimationFrame(frameLoop);
+          return;
+        }
+        // on a phone the plasma and the heating strip redraw at 30 fps, on alternate frames (M13)
+        const phone = isFull() && fsMode !== "desk";
+        if (phone) pbSync();
         if (pT.open) {
-          drawTorus();
+          if (!phone || frameNo % 2 === 0) drawTorus();
           drawHud();
-          drawHeatStrip();
+          if (!phone || frameNo % 2 === 1) drawHeatStrip();
         }
         if (pK.open) drawKnobs(dt);
         if (S.dirty) {
@@ -4259,36 +4539,58 @@
       requestAnimationFrame(frameLoop);
     }
 
+    // ------------------------------------------------ state from an address (?preset=…&t=…): at boot and from links
+    const LAB_PARAMS = ["preset", "scenario", "t", "live", "threshold", "transport", "tab", "color", "pedestal", "sawtooth", "play", "full"];
+    function applyParams(q) {
+      let pk = q.get("preset");
+      if (!(pk && presetOf(pk) && (presetOf(pk).kind !== "torax" || LAB[pk]))) pk = null;
+      // the scenario: ?scenario=physics, or the one the requested preset belongs to
+      const scen = q.get("scenario") === "physics" || (pk && presetOf(pk).scen === "physics") ? "physics" : "benchmark";
+      setScenario(scen, true); // also hides presets whose recorded episode is not in lab.json
+      if (q.get("live") === "1") S.livePref = true;
+      const th = +q.get("threshold");
+      if (th && scen === "physics") setParam("plhMul", clamp(th, 0.54, 1.85), true);
+      load(pk && (presetOf(pk).scen === scen || presetOf(pk).scen === "both") ? pk : scen === "physics" ? "phys_pi" : "pi");
+      const t0 = +q.get("t");
+      if (t0) S.cursor = clamp(t0, 0, S.recs.length - 1);
+      const cb = q.get("color");
+      cbBtns[cb && COLOR_BY[cb] ? cb : "Te"].click();
+      const tb = q.get("tab");
+      tabBtns[tb && TAB_EQ[tb] ? tb : "q"].click();
+      const ped = q.get("pedestal");
+      if (ped === "power") setPedMode("power");
+      if (q.get("sawtooth") === "1") setSaw(true);
+      const tm = +q.get("transport");
+      if (tm) setParam("transportMul", clamp(tm, 0.5, 2), true);
+      if (q.get("play") === "1" && !S.playing) togglePlay();
+      S.dirty = true;
+    }
+
     // ------------------------------------------------ boot
     Promise.all([getJSON("lab"), getJSON("profiles").catch(() => ({}))]).then(([L, P]) => {
       LAB = L;
       PROF = P;
-      let pk = params.get("preset");
-      if (!(pk && presetOf(pk) && (presetOf(pk).kind !== "torax" || LAB[pk]))) pk = null;
-      // the scenario: ?scenario=physics, or the one the requested preset belongs to
-      const scen = params.get("scenario") === "physics" || (pk && presetOf(pk).scen === "physics") ? "physics" : "benchmark";
-      setScenario(scen, true); // also hides presets whose recorded episode is not in lab.json
-      if (params.get("live") === "1") S.livePref = true;
-      const th = +params.get("threshold");
-      if (th && scen === "physics") setParam("plhMul", clamp(th, 0.54, 1.85), true);
-      load(pk && (presetOf(pk).scen === scen || presetOf(pk).scen === "both") ? pk : scen === "physics" ? "phys_pi" : "pi");
-      const t0 = +params.get("t");
-      if (t0) S.cursor = clamp(t0, 0, S.recs.length - 1);
-      const cb = params.get("color");
-      cbBtns[cb && COLOR_BY[cb] ? cb : "Te"].click();
-      const tb = params.get("tab");
-      tabBtns[tb && TAB_EQ[tb] ? tb : "q"].click();
-      const ped = params.get("pedestal");
-      if (ped === "power") setPedMode("power");
-      if (params.get("sawtooth") === "1") setSaw(true);
-      const tm = +params.get("transport");
-      if (tm) setParam("transportMul", clamp(tm, 0.5, 2), true);
-      if (params.get("play") === "1") togglePlay();
+      applyParams(params);
       FOLDS.forEach((P) => store.get("fold-" + P.id, true) === false && P.set(false));
       setNumView(numView);
-      if (params.get("full") === "1") fsEnter();
+      applyMode();
+      // ?full=1, or on a phone any Lab state in the address (a link from another page): open the Lab directly
+      if (params.get("full") === "1" || (SMALL() && LAB_PARAMS.some((k) => params.has(k)))) fsEnter();
       S.dirty = true;
       requestAnimationFrame(frameLoop);
+    });
+    // links in the page that open the Lab in a state (the guided experiments) apply it without reloading (M11)
+    document.addEventListener("click", (e) => {
+      const a = e.target.closest && e.target.closest("a[href]");
+      if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || root.contains(a)) return;
+      const u = new URL(a.href, location.href);
+      if (u.origin !== location.origin || u.pathname !== location.pathname || !LAB_PARAMS.some((k) => u.searchParams.has(k)) || !Object.keys(LAB).length) return;
+      e.preventDefault();
+      if (isFull()) fsExit(true);
+      applyParams(u.searchParams);
+      if (SMALL()) fsEnter();
+      else root.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (u.searchParams.get("full") === "1" && !isFull()) fsEnter();
     });
     return {
       redraw: () => (S.dirty = true),

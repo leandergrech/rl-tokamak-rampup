@@ -502,3 +502,93 @@ html.lab-fs-lock, html.lab-fs-lock body { overflow: hidden; }
 @media (max-width: 600px) {
   .lab-ctl .lab-readout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ======================================================================= the Lab on phones (HMI-MOBILE-SPEC.md) */
+/* M1: inline on a small viewport, only the launch card */
+.lab-launch { display: none; }
+.rt-lab.lab-small { padding: 0; overflow: hidden; }
+.rt-lab.lab-small::before { display: none; }
+.rt-lab.lab-small > :not(.lab-launch) { display: none !important; }
+.rt-lab.lab-small > .lab-launch { display: block; }
+.lab-launch-poster { position: relative; background: color-mix(in srgb, var(--md-primary-fg-color) 6%, var(--md-default-bg-color)); border-bottom: 1px solid var(--rt-rule); }
+.lab-launch-poster .rt-canvas { border-radius: 0; }
+.lab-launch-chip { position: absolute; left: 12px; top: 10px; }
+.lab-launch-body { padding: 14px 16px 16px; }
+.lab-launch-title { display: block; font-family: "Space Grotesk", sans-serif; font-size: 18px; line-height: 1.25; }
+.lab-launch-body p { margin: 6px 0 0; font-size: 14px; line-height: 1.45; color: var(--md-default-fg-color--light); }
+.lab-launch-body .lab-launch-preset { color: var(--md-default-fg-color); }
+.lab-launch-go { display: block; width: 100%; min-height: 48px; margin: 14px 0 0; border: 0; border-radius: 12px; font: inherit; font-size: 16px; font-weight: 700; color: #fff; background: var(--md-accent-fg-color); cursor: pointer; box-shadow: 0 4px 14px -6px var(--md-accent-fg-color); }
+.lab-launch-go:active { transform: translateY(1px); }
+.lab-launch-go:focus-visible { outline: 3px solid color-mix(in srgb, var(--md-accent-fg-color) 45%, transparent); outline-offset: 2px; }
+.lab-launch-body .lab-launch-hint { text-align: center; font-size: 12px; margin-top: 8px; }
+
+/* phone full screen: safe areas, an app bar, the plasma, tabs, the playback line */
+.rt-lab.lab-fs.fs-phone { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) 0 env(safe-area-inset-left, 0); }
+.fs-phone .fs-top { padding: 4px 6px 3px; gap: 4px; flex-wrap: nowrap; position: relative; }
+.fs-mbar { display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0; }
+.fs-ib { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 44px; height: 44px; padding: 0 6px; border: 0; border-radius: 10px; background: transparent; color: var(--md-default-fg-color); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; position: relative; -webkit-tap-highlight-color: transparent; }
+.fs-ib:hover, .fs-ib:focus-visible { background: color-mix(in srgb, var(--md-accent-fg-color) 12%, transparent); outline: none; }
+.fs-ib:active { background: color-mix(in srgb, var(--md-accent-fg-color) 22%, transparent); }
+.fs-ib .lab-ic { width: 22px; height: 22px; }
+.lab-ic.fill { fill: currentColor; stroke: none; }
+.fs-more .lab-ic { stroke-width: 3.2; }
+.fs-pick { flex: 1 1 auto; min-width: 0; position: relative; display: flex; align-items: center; height: 44px; padding: 0 8px 0 10px; border: 1px solid var(--rt-rule); border-radius: 10px; background: var(--md-default-bg-color); cursor: pointer; }
+.fs-pick:focus-within { border-color: var(--md-accent-fg-color); }
+.fs-pick-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
+.fs-pick-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fs-pick-scen { font-size: 12px; color: var(--md-default-fg-color--light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fs-pick-chev .lab-ic { width: 18px; height: 18px; }
+/* the native picker over the label: the system's own list on phones; 16 px so iPhones do not zoom on focus */
+.fs-pick select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; cursor: pointer; }
+.fs-menu { position: absolute; right: 6px; top: 50px; z-index: 60; min-width: 250px; max-width: calc(100vw - 12px); max-height: calc(100dvh - 58px); overflow-y: auto; overscroll-behavior: contain; padding: 6px; border-radius: 12px; background: var(--md-default-bg-color); border: 1px solid var(--rt-rule); box-shadow: 0 12px 36px rgba(30, 10, 80, 0.28); }
+.fs-menu[hidden] { display: none; }
+.fs-mi { display: block; width: 100%; min-height: 48px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--md-default-fg-color); font: inherit; font-size: 15px; text-align: left; cursor: pointer; }
+.fs-mi:hover, .fs-mi:focus-visible { background: color-mix(in srgb, var(--md-accent-fg-color) 12%, transparent); outline: none; }
+.fs-mi:disabled { color: var(--md-default-fg-color--light); opacity: 0.6; cursor: default; }
+.fs-mi:nth-last-child(2) { border-top: 1px solid var(--rt-rule); border-radius: 0 0 8px 8px; }
+/* the plasma: secondary chips at 32 px, the narration clamped to two lines (tap to read all of it) */
+.fs-phone .fs-stage .lab-head .rt-chip { min-height: 32px; min-width: 36px; padding: 0 10px; font-size: 13px; }
+.fs-phone .fs-stage .lab-seg { gap: 6px; }
+.fs-phone .lab-narr { display: flex; max-height: none; font-size: 13px; }
+.fs-phone .lab-narr > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fs-phone .lab-narr.open > span { -webkit-line-clamp: unset; }
+/* tabs: 44 px, the strip scrolls and snaps; only the tab content scrolls */
+.fs-phone .fs-tabs { gap: 6px; padding: 6px 8px; scrollbar-width: none; overscroll-behavior-x: contain; }
+.fs-phone .fs-tabs::-webkit-scrollbar { display: none; }
+.fs-phone .fs-tabs .rt-chip { min-height: 44px; padding: 0 16px; font-size: 14px; }
+.fs-phone .fs-body { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.fs-phone .lab-sec-play { display: none; }
+.fs-phone .fs-body .lab-side .rt-ctl-label, .fs-phone .fs-body .lab-side .rt-ctl-val { font-size: 13px; }
+.fs-phone .fs-body input[type="range"] { min-height: 32px; }
+/* the playback line: one row at the bottom, in the thumb zone */
+.fs-phone .fs-play { padding: 0 4px env(safe-area-inset-bottom, 0); }
+.fs-pb { display: flex; align-items: center; gap: 2px; height: 56px; }
+.fs-pb .pb-play { color: #fff; background: var(--md-accent-fg-color); border-radius: 50%; width: 44px; min-width: 44px; padding: 0; }
+.fs-pb .pb-play:hover, .fs-pb .pb-play:focus-visible { background: var(--md-accent-fg-color); box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-accent-fg-color) 35%, transparent); }
+.fs-pb .pb-play .lab-ic { width: 20px; height: 20px; }
+.fs-pb .pb-start .lab-ic { width: 18px; height: 18px; }
+.pb-scrub { flex: 1 1 auto; min-width: 60px; position: relative; height: 44px; display: flex; align-items: center; margin: 0 4px; }
+.pb-ticks { position: absolute; left: 11px; right: 11px; top: 50%; height: 14px; transform: translateY(-50%); pointer-events: none; }
+.pb-ticks i { position: absolute; top: 0; width: 3px; height: 14px; margin-left: -1.5px; border-radius: 2px; opacity: 0.9; }
+.pb-range { -webkit-appearance: none; appearance: none; width: 100%; height: 44px; margin: 0; background: transparent; cursor: pointer; touch-action: none; position: relative; }
+.pb-range::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--md-default-fg-color) 18%, transparent); }
+.pb-range::-moz-range-track { height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--md-default-fg-color) 18%, transparent); }
+.pb-range::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -8px; border-radius: 50%; background: var(--md-accent-fg-color); border: 3px solid var(--md-default-bg-color); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); }
+.pb-range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--md-accent-fg-color); border: 3px solid var(--md-default-bg-color); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); }
+.pb-range:focus-visible { outline: none; }
+.pb-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--md-accent-fg-color) 40%, transparent); }
+.pb-time { flex: none; min-width: 3.3em; font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; color: var(--md-default-fg-color); }
+.fs-pb .pb-speed { min-width: 44px; font-variant-numeric: tabular-nums; }
+.pb-badge { position: absolute; top: 4px; right: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; font-size: 11px; line-height: 16px; font-weight: 700; color: #fff; background: var(--md-accent-fg-color); }
+.pb-badge:empty { display: none; }
+/* cards and the menu stay inside the screen */
+.fs-phone .lab-cards { top: calc(56px + env(safe-area-inset-top, 0)); left: 8px; right: 8px; width: auto; }
+.fs-phone .lab-card { max-height: calc(100dvh - 140px); font-size: 14px; }
+.fs-phone .lab-card-x { min-width: 44px; min-height: 44px; }
+/* on its side: the playback line spans the width under the plasma and the tabs */
+.fs-land .fs-pb { height: 52px; }
+.fs-land .fs-stage .lab-narr > span { -webkit-line-clamp: 1; }
+@media (prefers-reduced-motion: reduce) { .lab-launch-go:active { transform: none; } }
+/* the desktop's full-screen top bar and toolbar are not used on a phone (the app bar replaces them) */
+.rt-lab.lab-fs.fs-phone > .lab-bar, .fs-phone .fs-top > .fs-title, .fs-phone .fs-top > .fs-scen, .fs-phone .fs-top > .fs-preset { display: none; }
+.rt-lab.lab-fs > .lab-launch { display: none; }

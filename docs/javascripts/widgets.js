@@ -93,7 +93,7 @@
     const st = { c, tip, w: 0, h: height, ctx: c.getContext("2d") };
     st.fit = () => {
       const w = Math.max(280, holder.clientWidth);
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, st.maxDpr || 3); // st.maxDpr: cap costly canvases
       c.width = Math.round(w * dpr);
       c.height = Math.round(st.h * dpr); // st.h may be changed after creation (the Lab's full-screen layout)
       c.style.width = w + "px";
