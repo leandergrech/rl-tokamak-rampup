@@ -230,16 +230,20 @@ async function phoneSuite(browser, base, w, h, scheme) {
   const tDrag = parseInt(await text(page, ".pb-time"), 10);
   check("M4", "dragging along the track scrubs", near(tDrag, 91, 12), `${tDrag} s after a drag from 20 % to 60 %`);
   // the time is a button: a stepper of ±1 s and ±10 s (F06)
-  await page.tap(".pb-time");
-  await wait(page, 150);
-  const t0s = parseInt(await text(page, ".pb-time"), 10);
-  await page.tap(".lab-step button:nth-of-type(3)");
-  await wait(page, 150);
-  check("M4", "the time's stepper moves by exactly 1 s", parseInt(await text(page, ".pb-time"), 10) === t0s + 1, `${t0s} → ${await text(page, ".pb-time")}`);
-  check("M7", "stepper buttons ≥ 44 × 44", await page.$$eval(".lab-step button", (b) => b.every((x) => x.getBoundingClientRect().height >= 43.5 && x.getBoundingClientRect().width >= 43.5)));
-  await page.evaluate(() => history.back()); // Back closes the stepper first (F12)
   await wait(page, 300);
-  check("M12", "Back closes the stepper and stays in the Lab", (await page.$eval(".lab-step", (e) => e.hidden)) && (await cls(page)).includes("lab-fs"));
+  await page.tap(".pb-time");
+  const stepOpen = await page.waitForSelector(".lab-step:not([hidden])", { timeout: 3000 }).then(() => true, () => false);
+  check("M4", "tapping the time opens its stepper", stepOpen, stepOpen ? undefined : await page.evaluate(() => `stepper hidden; active ${document.activeElement && document.activeElement.className}; state ${JSON.stringify(history.state)}`));
+  if (stepOpen) {
+    const t0s = parseInt(await text(page, ".pb-time"), 10);
+    await page.tap(".lab-step button:nth-of-type(3)");
+    await wait(page, 150);
+    check("M4", "the time's stepper moves by exactly 1 s", parseInt(await text(page, ".pb-time"), 10) === t0s + 1, `${t0s} → ${await text(page, ".pb-time")}`);
+    check("M7", "stepper buttons ≥ 44 × 44", await page.$$eval(".lab-step button", (b) => b.every((x) => x.getBoundingClientRect().height >= 43.5 && x.getBoundingClientRect().width >= 43.5)));
+    await page.evaluate(() => history.back()); // Back closes the stepper first (F12)
+    await wait(page, 300);
+    check("M12", "Back closes the stepper and stays in the Lab", (await page.$eval(".lab-step", (e) => e.hidden)) && (await cls(page)).includes("lab-fs"));
+  }
   const speeds = [];
   for (let i = 0; i < 4; i++) {
     await page.tap(".pb-speed");
@@ -477,10 +481,18 @@ const srv = await serve(SITE);
 const base = `http://127.0.0.1:${srv.address().port}`;
 const browser = await pw.chromium.launch({ executablePath: CHROME, args: ["--use-gl=swiftshader", "--enable-unsafe-swiftshader"] });
 const PHONES = [[360, 780], [375, 667], [390, 844], [412, 915], [844, 390], [667, 375]];
+// one profile's crash is recorded as a failure and does not stop the others
+const guarded = async (name, f) => {
+  try {
+    await f();
+  } catch (e) {
+    check("—", `the ${name} run completed`, false, e.message.split("\n")[0]);
+  }
+};
 try {
-  for (const [w, h] of PHONES) if (!ONLY || ONLY === `${w}x${h}`) await phoneSuite(browser, base, w, h, "light");
-  if (!ONLY || ONLY === "dark") await phoneSuite(browser, base, 390, 844, "dark");
-  if (!ONLY || ONLY === "desktop") await desktopSuite(browser, base);
+  for (const [w, h] of PHONES) if (!ONLY || ONLY === `${w}x${h}`) await guarded(`${w}x${h}`, () => phoneSuite(browser, base, w, h, "light"));
+  if (!ONLY || ONLY === "dark") await guarded("dark", () => phoneSuite(browser, base, 390, 844, "dark"));
+  if (!ONLY || ONLY === "desktop") await guarded("desktop", () => desktopSuite(browser, base));
 } finally {
   await browser.close();
   srv.close();
