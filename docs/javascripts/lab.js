@@ -1543,8 +1543,30 @@
     pT.cvs.push(tv, hsv);
     // ---- numbers at the cursor
     const pN = panel("lab-ctl", "Numbers at the cursor", ["reward", "flux"]);
+    // two views of the same quantities: numbers (the value, three trailing averages, TORAX) or plots (each one
+    // through the whole episode); hovering a number shows its history up to the cursor
+    const numSeg = el("span", "lab-seg lab-viewseg");
+    numSeg.setAttribute("role", "tablist");
+    pN.tools.prepend(numSeg);
+    const numBtns = {
+      numbers: button(numSeg, "Numbers", () => setNumView("numbers"), "rt-chip"),
+      plots: button(numSeg, "Plots", () => setNumView("plots"), "rt-chip"),
+    };
+    numBtns.numbers.title = "The value at the cursor, its trailing averages and TORAX's value";
+    numBtns.plots.title = "Every quantity through the whole episode, one small plot each";
+    const numKey = el("div", "lab-numkey");
+    pN.body.appendChild(numKey);
     const readout = el("div", "lab-readout");
     pN.body.appendChild(readout);
+    const nvBox = el("div", "lab-numplots");
+    pN.body.appendChild(nvBox);
+    const nv = canvas(nvBox, 480);
+    const numPop = el("div", "lab-histpop");
+    numPop.hidden = true;
+    pN.p.appendChild(numPop);
+    const npCv = el("canvas", "");
+    const npKey = el("div", "lab-histpop-key");
+    numPop.append(el("div", "lab-histpop-title"), npCv, npKey);
 
     // ---- the knobs: who turns them, and what they read
     const pK = panel("lab-knobs", "The knobs: who turns them, and what they read");
@@ -1557,6 +1579,7 @@
     const kv = canvas(kLeft, 318);
     const ks = canvas(kRight, 318);
     pK.cvs.push(kv, ks);
+    pN.cvs.push(nv);
 
     // ---- traces
     const pX = panel("lab-traces", "Traces: the episode so far (solid: Lab, dashed: TORAX)", ["fusion", "ipb98", "plh"]);
@@ -2575,22 +2598,342 @@
         callouts: calloutsAt(S.cursor),
       });
     }
-    function drawReadout() {
-      const d = S.recs[S.cursor] || S.recs[0];
-      const g = (k) => ghostAt(k, d.t);
-      const cell = (lab, v, gv, unit, eq) =>
-        `<div class="lab-ro"><span>${eq ? `<a href="${eqLink(eq)}">${lab}</a>` : lab}</span><b>${v}</b>${unit ? `<em>${unit}</em>` : ""}${gv !== null && gv !== undefined ? `<i>TORAX ${gv}</i>` : ""}</div>`;
-      const f = (v, n) => (v === null || v === undefined ? null : Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(n));
-      readout.innerHTML =
-        cell("t", d.t, null, "s") + cell("I_p", f(d.Ip, 2), f(g("Ip"), 2), "MA") + cell("P_NBI + P_ECRH", f(d.Pnbi + d.Pecrh, 1), null, "MW") +
-        cell("T_e(0)", f(d.Te0, 1), f(g("Te0"), 1), "keV", "heat") + cell("T_i(0)", f(d.Ti0, 1), f(g("Ti0"), 1), "keV", "heat") +
-        cell("j(0)", f(d.j0, 2), f(g("j0"), 2), "MA/m²", "diffusion") + cell("q_min", f(d.qmin, 2), f(g("qmin"), 2), "", "q") +
-        cell("q95", f(d.q95, 2), f(g("q95"), 2), "", "q") + cell("Q", f(d.Q, 2), f(g("Q"), 2), "", "fusion") + cell("H98", f(d.H98, 2), f(g("H98"), 2), "", "ipb98") +
-        cell("f_GW", f(d.fgw, 2), f(g("fgw"), 2), "", "greenwald") + cell(PHYS() ? "P_heat / P_LH" : "P_SOL / P_LH", f(d.psolPlh, 2), f(g("psolPlh"), 2), "", "plh") +
-        (PHYS() ? cell("l_i(3)", f(d.li, 2), f(g("li"), 2), "", null) + cell("true threshold ÷ scaling", f(d.plhMul, 2), null, "", "plh") : "") +
-        cell("β_N", f(d.betaN, 2), f(g("betaN"), 2), "", "betaN") + cell("P_fus", f(d.Pfus, 0), null, "MW", "fusion") + cell("I_bootstrap", f(d.Ibs, 2), null, "MA", "bootstrap") +
-        cell("V_loop", f(d.Vloop, 2), null, "V", "flux") + cell("resistive flux", f(d.flux, 0), null, "Wb", "flux") + cell("pedestal T", f(d.Tped, 2), null, "keV", "pedestal");
+    // ---- the quantities of the numbers panel: label, unit, how to read them from a record and from TORAX
+    //   g: TORAX trace (lab.json) or a function of the traces and the index; ref: reference lines in plots
+    const QTY = () => [
+      { k: "t", lab: "t", unit: "s", n: 0, noma: true, noplot: true },
+      { k: "Ip", lab: "I_p", unit: "MA", n: 2, g: "Ip" },
+      { k: "Paux", lab: "P_NBI + P_ECRH", short: "heating", unit: "MW", n: 1, get: (d) => d.Pnbi + d.Pecrh, g: (T, i) => (T.Pnbi[i] || 0) + (T.Pecrh[i] || 0) },
+      { k: "Te0", lab: "T_e(0)", unit: "keV", n: 1, g: "Te0", eq: "heat" },
+      { k: "Ti0", lab: "T_i(0)", unit: "keV", n: 1, g: "Ti0", eq: "heat" },
+      { k: "j0", lab: "j(0)", unit: "MA/m²", n: 2, g: "j0", eq: "diffusion" },
+      { k: "qmin", lab: "q_min", n: 2, g: "qmin", eq: "q", ref: [[1, "1"]] },
+      { k: "q95", lab: "q95", n: 2, g: "q95", eq: "q", ref: [[3, "3"]] },
+      { k: "Q", lab: "Q", n: 2, g: "Q", eq: "fusion", log: true },
+      { k: "H98", lab: "H98", n: 2, g: "H98", eq: "ipb98", ref: [[1, "1"]] },
+      { k: "fgw", lab: "f_GW", n: 2, g: "fgw", eq: "greenwald", ref: [[1, "limit"]] },
+      { k: "psolPlh", lab: PHYS() ? "P_heat / P_LH" : "P_SOL / P_LH", short: PHYS() ? "P_heat/P_LH" : "P_SOL/P_LH", n: 2, g: "psolPlh", eq: "plh", ref: PHYS() ? [[1.2 * (S.as.plhMul || 1), "paid"]] : [[1, "1"]] },
+      ...(PHYS() ? [{ k: "li", lab: "l_i(3)", n: 2, g: "li", ref: [[0.65, "0.65"], [1.2, "1.2"]] }, { k: "plhMul", lab: "true threshold ÷ scaling", n: 2, noma: true, noplot: true, eq: "plh" }] : []),
+      { k: "betaN", lab: "β_N", n: 2, g: "betaN", eq: "betaN" },
+      { k: "Pfus", lab: "P_fus", unit: "MW", n: 0, eq: "fusion" },
+      { k: "Ibs", lab: "I_bootstrap", short: "I_bs", unit: "MA", n: 2, eq: "bootstrap" },
+      { k: "Vloop", lab: "V_loop", unit: "V", n: 2, eq: "flux" },
+      { k: "flux", lab: "resistive flux", short: "flux", unit: "Wb", n: 0, eq: "flux" },
+      { k: "Tped", lab: "pedestal T", unit: "keV", n: 2, eq: "pedestal" },
+    ];
+    const MA_WIN = [5, 20, 60]; // trailing averages [s]
+    const qGet = (q, d) => (q.get ? q.get(d) : d[q.k]);
+    const qTorax = (q, t) => {
+      if (!S.torax || !q.g || t < 1) return null;
+      const T = S.torax.torax, i = t - 1;
+      const v = typeof q.g === "function" ? q.g(T, i) : T[q.g] && T[q.g][i];
+      return v === undefined || v === null || !isFinite(v) ? null : v;
+    };
+    const qFmt = (q, v, less) => {
+      if (v === null || v === undefined || !isFinite(v)) return "–";
+      const n = Math.abs(v) >= 100 ? 0 : Math.max(0, q.n - (less && Math.abs(v) >= 1 ? 1 : 0));
+      return (+v.toFixed(n) === 0 ? 0 : v).toFixed(n); // no "-0.00"
+    };
+    // running sums of every quantity over the run, for the trailing averages
+    let MAC = { key: "", sums: {} };
+    function maAt(q, i, win) {
+      const key = `${S.recsVersion}|${S.recs.length}|${S.scen}`;
+      if (MAC.key !== key) MAC = { key, sums: {} };
+      let c = MAC.sums[q.k];
+      if (!c) {
+        c = [];
+        let acc = 0;
+        S.recs.forEach((d, j) => (c[j] = acc += qGet(q, d)));
+        MAC.sums[q.k] = c;
+      }
+      const j0 = Math.max(0, i - win + 1);
+      return (c[i] - (j0 > 0 ? c[j0 - 1] : 0)) / (i - j0 + 1);
     }
+    // ---- numbers view: built once per scenario, updated in place (so hover and focus survive playback)
+    let roKey = "", roCells = {};
+    function buildReadout() {
+      roCells = {};
+      readout.innerHTML = "";
+      for (const q of QTY()) {
+        const c = el("div", "lab-ro");
+        c.dataset.k = q.k;
+        c.tabIndex = 0;
+        const lab = el("span", "ro-l", q.eq ? `<a href="${eqLink(q.eq)}">${q.lab}</a>` : q.lab);
+        const val = el("span", "ro-v");
+        const v = el("b", ""), u = el("em", "", q.unit || ""), tr = el("span", "ro-tr");
+        val.append(v, u, tr);
+        const ma = el("span", "ro-ma");
+        const mas = MA_WIN.map((w) => {
+          const x = el("span", "");
+          ma.append(el("i", "", `${w}s`), x);
+          return x;
+        });
+        const tor = el("span", "ro-tor");
+        c.append(lab, val);
+        if (!q.noma) c.append(ma);
+        c.append(tor);
+        readout.appendChild(c);
+        roCells[q.k] = { q, v, tr, mas, tor };
+      }
+    }
+    function drawReadout() {
+      const key = `${S.scen}|${QTY().length}`;
+      if (key !== roKey) {
+        roKey = key;
+        buildReadout();
+      }
+      const i = Math.min(S.cursor, S.recs.length - 1), d = S.recs[i] || S.recs[0];
+      for (const { q, v, tr, mas, tor } of Object.values(roCells)) {
+        const x = qGet(q, d);
+        v.textContent = qFmt(q, x);
+        if (!q.noma) {
+          const m = MA_WIN.map((w) => maAt(q, i, w));
+          m.forEach((y, j) => (mas[j].textContent = qFmt(q, y, true))); // one digit less in the small print
+          // the trend over the last few seconds, against the 5 s average
+          const dv = x - m[0], tol = 0.015 * Math.max(Math.abs(m[0]), 1e-6);
+          tr.textContent = i < 2 || Math.abs(dv) <= tol ? "" : dv > 0 ? "▲" : "▼";
+        }
+        const g = qTorax(q, d.t);
+        tor.textContent = g === null ? "" : `TORAX ${qFmt(q, g)}`;
+      }
+      numKey.innerHTML = numView === "plots"
+        ? `<span><i class="k-run"></i>this run</span>${S.torax ? `<span><i class="k-tor"></i>TORAX</span>` : ""}${S.pins.map((p, j) => `<span title="${p.label}"><i style="background:${p.color}"></i>pin ${j + 1}</span>`).join("")}<span><i class="k-ref"></i>limit or reference</span><span class="k-hint">click or drag to move the time; hover for values</span>`
+        : `<span><b>big</b>: the value at t = ${d.t} s</span><span><b>5s 20s 60s</b>: trailing averages</span>${S.torax ? `<span><b>TORAX</b>: its value at the same time</span>` : ""}<span class="k-hint">hover a number for its history</span>`;
+      if (numView === "plots") drawNumPlots();
+      if (popQ) drawPop();
+    }
+
+    // ---- one quantity through the episode: this run (solid, dimmed after the cursor), TORAX (dashed), the pins
+    function histSeries(q) {
+      const run = S.recs.map((d) => [d.t, qGet(q, d)]);
+      const out = [];
+      S.pins.forEach((p, j) => out.push({ pts: p.recs.map((d) => [d.t, qGet(q, d)]), color: p.color, width: 1.4, label: `pin ${j + 1}` }));
+      if (S.torax && q.g) {
+        const tor = [];
+        for (let t = 1; t <= S.torax.torax.Ip.length; t++) tor.push([t, qTorax(q, t)]);
+        out.push({ pts: tor, color: colors().muted, width: 1.3, dash: [4, 3], label: "TORAX" });
+      }
+      out.push({ pts: run, color: colors().accent, width: 2, run: true, label: "this run" });
+      return out;
+    }
+    function plotHist(ctx, col, box, q, o) {
+      const series = histSeries(q), cur = S.cursor, T = HOR();
+      let lo = Infinity, hi = -Infinity;
+      for (const sr of series) for (const [, v] of sr.pts) if (v !== null && isFinite(v) && (!q.log || v > 0)) (lo = Math.min(lo, v)), (hi = Math.max(hi, v));
+      for (const [v] of q.ref || []) if (!q.log || v > 0) (lo = Math.min(lo, v)), (hi = Math.max(hi, v));
+      if (!isFinite(lo)) (lo = 0), (hi = 1);
+      if (q.log) {
+        hi = Math.max(hi, 0.1);
+        lo = Math.max(Math.min(lo, hi / 10), hi / 1e4, 1e-3);
+      } else {
+        const pad = (hi - lo) * 0.08 || Math.max(Math.abs(hi) * 0.1, 0.05);
+        lo -= pad;
+        hi += pad;
+        if (lo < 0 && Math.min(...series.flatMap((sr) => sr.pts.map(([, v]) => (v === null ? Infinity : v)))) >= 0) lo = 0;
+      }
+      // two or three ticks: small plots stay legible
+      let yt;
+      if (q.log) {
+        const e0 = Math.ceil(Math.log10(lo)), e1 = Math.floor(Math.log10(hi)), n = e1 - e0;
+        yt = (n <= 2 ? Array.from({ length: n + 1 }, (_, j) => e0 + j) : [e0, Math.round((e0 + e1) / 2), e1]).map((e) => Math.pow(10, e));
+      } else yt = [lo + (hi - lo) * 0.08, hi - (hi - lo) * 0.08].map((v) => +v.toPrecision(2));
+      const fr = frame(ctx, col, box, [0, T], [lo, hi], { logy: q.log, yticks: o.yticks === false ? [] : yt, xticks: [0, 50, 100, 150].filter((v) => v <= T), noXLabels: !o.xlabels, xlabel: o.xlabels && o.xtitle ? "t [s]" : "" });
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(box.x, box.y - 2, box.w, box.h + 4);
+      ctx.clip();
+      for (const [v, lab] of q.ref || []) {
+        const y = fr.sy(v);
+        ctx.strokeStyle = col.bad;
+        ctx.globalAlpha = 0.55;
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        ctx.moveTo(box.x, y);
+        ctx.lineTo(box.x + box.w, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        if (o.reflabels) {
+          ctx.fillStyle = col.bad;
+          ctx.font = FONT_SMALL;
+          ctx.textAlign = "right";
+          ctx.textBaseline = "bottom";
+          ctx.fillText(lab, box.x + box.w - 2, y - 1);
+        }
+        ctx.globalAlpha = 1;
+      }
+      const P = (pts) => pts.map(([t, v]) => [fr.sx(t), v === null || (q.log && v <= 0) ? NaN : fr.sy(v)]);
+      for (const sr of series) {
+        const before = sr.pts.filter(([t]) => t <= cur), after = sr.pts.filter(([t]) => t >= cur);
+        ctx.globalAlpha = 1;
+        line(ctx, P(before), sr.color, sr.width, sr.dash);
+        ctx.globalAlpha = sr.run ? 0.28 : 0.22;
+        line(ctx, P(after), sr.color, sr.width, sr.dash);
+        ctx.globalAlpha = 1;
+      }
+      // the cursor, and a hovered time
+      const xc = fr.sx(cur);
+      ctx.strokeStyle = col.accent;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(xc, box.y);
+      ctx.lineTo(xc, box.y + box.h);
+      ctx.stroke();
+      const dv = S.recs[Math.min(cur, S.recs.length - 1)];
+      if (dv) {
+        const yv = qGet(q, dv);
+        if (isFinite(yv) && (!q.log || yv > 0)) {
+          ctx.fillStyle = col.accent;
+          ctx.beginPath();
+          ctx.arc(xc, fr.sy(yv), 2.8, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+      if (o.hoverT !== null && o.hoverT !== undefined) {
+        ctx.strokeStyle = col.fg;
+        ctx.globalAlpha = 0.5;
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath();
+        ctx.moveTo(fr.sx(o.hoverT), box.y);
+        ctx.lineTo(fr.sx(o.hoverT), box.y + box.h);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+      return { fr, series };
+    }
+
+    // ---- plots view: small multiples, one per quantity, a shared time axis along the bottom row
+    let numView = store.get("numview", "numbers"), nvHover = null, nvLayout = null;
+    function setNumView(v) {
+      numView = v;
+      store.set("numview", v);
+      for (const k in numBtns) {
+        numBtns[k].classList.toggle("on", k === v);
+        numBtns[k].setAttribute("aria-selected", String(k === v));
+      }
+      readout.hidden = v !== "numbers";
+      nvBox.hidden = v !== "plots";
+      hidePop();
+      if (v === "plots") nv.fit();
+      S.dirty = true;
+    }
+    function drawNumPlots() {
+      const qs = QTY().filter((q) => !q.noplot);
+      const W = nvBox.clientWidth || nv.w;
+      const cols = W >= 700 ? 4 : W >= 420 ? 3 : 2, rows = Math.ceil(qs.length / cols), cellH = 88, axisH = 30;
+      const hNeed = rows * cellH + axisH;
+      if (nv.h !== hNeed) {
+        nv.h = hNeed;
+        nv.fit();
+      }
+      const col = colors(), { ctx, w } = nv;
+      ctx.clearRect(0, 0, w, nv.h);
+      const cw = w / cols;
+      nvLayout = { cols, cw, cellH, rows, qs, boxes: [] };
+      qs.forEach((q, k) => {
+        const r = Math.floor(k / cols), c = k % cols;
+        const last = r === rows - 1 || k + cols >= qs.length;
+        const box = { x: c * cw + 30, y: r * cellH + 20, w: cw - 38, h: cellH - 30 };
+        nvLayout.boxes.push(box);
+        plotHist(ctx, col, box, q, { xlabels: last, hoverT: nvHover, reflabels: false });
+        // title with unit on the left, the value at the cursor (or at the hovered time) on the right
+        const t = nvHover !== null ? nvHover : S.cursor, d = S.recs[Math.min(t, S.recs.length - 1)];
+        const vs = d ? qFmt(q, qGet(q, d)) : "–";
+        ctx.font = "600 " + FONT_SMALL;
+        ctx.textBaseline = "alphabetic";
+        ctx.textAlign = "right";
+        ctx.fillStyle = col.accent;
+        ctx.fillText(vs, (c + 1) * cw - 8, r * cellH + 13);
+        const room = cw - 18 - ctx.measureText(vs).width;
+        ctx.fillStyle = col.fg;
+        ctx.textAlign = "left";
+        let title = (ctx.measureText(q.lab).width + 40 > room && q.short ? q.short : q.lab) + (q.unit ? ` [${q.unit}]` : "");
+        while (title.length > 4 && ctx.measureText(title).width > room) title = title.slice(0, -2) + "…";
+        ctx.fillText(title, c * cw + 4, r * cellH + 13);
+      });
+      ctx.font = FONT_SMALL;
+      ctx.fillStyle = col.muted;
+      ctx.textAlign = "right";
+      ctx.fillText(nvHover !== null ? `values at t = ${nvHover} s (hover)` : `values at the cursor, t = ${S.cursor} s`, w - 6, nv.h - 3);
+      ctx.textAlign = "left";
+      ctx.fillText("t [s]", 4, nv.h - 3);
+    }
+    function nvTime(e) {
+      if (!nvLayout) return null;
+      const r = nv.c.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+      const k = Math.min(nvLayout.cols - 1, Math.floor(x / nvLayout.cw)) + nvLayout.cols * Math.min(nvLayout.rows - 1, Math.floor(y / nvLayout.cellH));
+      const b = nvLayout.boxes[Math.min(k, nvLayout.boxes.length - 1)];
+      return clamp(Math.round(((x - b.x) / b.w) * HOR()), 0, S.recs.length - 1);
+    }
+    let nvDrag = false;
+    nv.c.style.cursor = "crosshair";
+    nv.c.addEventListener("pointerdown", (e) => {
+      nvDrag = true;
+      const t = nvTime(e);
+      if (t !== null) (S.cursor = t), (S.playing = false), (playBtn.textContent = "Play"), (S.dirty = true);
+    });
+    nv.c.addEventListener("pointermove", (e) => {
+      const t = nvTime(e);
+      if (nvDrag && t !== null) (S.cursor = t), (S.playing = false), (playBtn.textContent = "Play");
+      nvHover = nvDrag ? null : t;
+      S.dirty = true;
+    });
+    nv.c.addEventListener("pointerleave", () => ((nvHover = null), (S.dirty = true)));
+    window.addEventListener("pointerup", () => (nvDrag = false));
+
+    // ---- hover a number: its history up to the cursor, with TORAX and the pins
+    let popQ = null, popEl = null;
+    function showPop(cell) {
+      const c = roCells[cell.dataset.k];
+      if (!c || c.q.noplot) return hidePop();
+      popQ = c.q;
+      popEl = cell;
+      numPop.hidden = false;
+      const pr = pN.p.getBoundingClientRect(), cr = cell.getBoundingClientRect();
+      const pw = Math.min(330, pr.width - 16);
+      numPop.style.width = pw + "px";
+      let left = cr.right - pr.left + 6;
+      if (left + pw > pr.width - 4) left = cr.left - pr.left - pw - 6;
+      if (left < 4) left = clamp(cr.left - pr.left, 4, pr.width - pw - 4);
+      numPop.style.left = left + "px";
+      numPop.style.top = Math.max(4, cr.top - pr.top - 10) + "px";
+      drawPop();
+    }
+    function hidePop() {
+      popQ = null;
+      popEl = null;
+      numPop.hidden = true;
+    }
+    function drawPop() {
+      if (!popQ || !popEl || !popEl.isConnected) return hidePop();
+      const q = popQ, col = colors(), dpr = window.devicePixelRatio || 1;
+      const w = Math.max(220, numPop.clientWidth - 16), h = 150;
+      if (npCv.width !== Math.round(w * dpr) || npCv.height !== Math.round(h * dpr)) {
+        npCv.width = Math.round(w * dpr);
+        npCv.height = Math.round(h * dpr);
+        npCv.style.width = w + "px";
+        npCv.style.height = h + "px";
+      }
+      const ctx = npCv.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      const { series } = plotHist(ctx, col, { x: 40, y: 8, w: w - 50, h: h - 40 }, q, { xlabels: true, xtitle: true, reflabels: true });
+      const d = S.recs[Math.min(S.cursor, S.recs.length - 1)];
+      numPop.firstChild.innerHTML = `<b>${q.lab}</b>${q.unit ? ` [${q.unit}]` : ""} <span>through t = ${d.t} s: ${qFmt(q, qGet(q, d))}${q.unit ? " " + q.unit : ""}</span>`;
+      npKey.innerHTML = series.slice().reverse().map((sr) => {
+        const at = sr.pts.find(([t]) => t === d.t), v = at ? at[1] : null;
+        return `<span><i style="background:${sr.color}${sr.dash ? ";opacity:.7" : ""}" class="${sr.dash ? "dash" : ""}"></i>${sr.label} <b>${qFmt(q, v)}</b></span>`;
+      }).join("");
+    }
+    readout.addEventListener("pointerover", (e) => {
+      const cell = e.target.closest(".lab-ro");
+      if (cell && cell !== popEl) showPop(cell);
+    });
+    readout.addEventListener("pointerleave", (e) => e.pointerType !== "touch" && hidePop());
+    document.addEventListener("pointerdown", (e) => popQ && !readout.contains(e.target) && hidePop()); // a tap elsewhere closes it
+    readout.addEventListener("focusin", (e) => e.target.closest(".lab-ro") && showPop(e.target.closest(".lab-ro")));
+    readout.addEventListener("focusout", hidePop);
     const cum = (per) => {
       let s = 0;
       return per.map((p) => (s += p.total));
@@ -3746,7 +4089,7 @@
     }
 
     function fitAll() {
-      [tv, hsv, kv, ks, sv, tl, mv, bv, ra, xv, pv, ov, rv].forEach((c) => c.fit());
+      [tv, hsv, kv, ks, sv, tl, mv, bv, ra, xv, pv, ov, rv, nv].forEach((c) => c.fit());
       S.dirty = true;
     }
 
@@ -3818,6 +4161,7 @@
       if (tm) setParam("transportMul", clamp(tm, 0.5, 2), true);
       if (params.get("play") === "1") togglePlay();
       FOLDS.forEach((P) => store.get("fold-" + P.id, true) === false && P.set(false));
+      setNumView(numView);
       if (params.get("full") === "1") fsEnter();
       S.dirty = true;
       requestAnimationFrame(frameLoop);

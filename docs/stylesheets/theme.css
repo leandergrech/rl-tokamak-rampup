@@ -118,10 +118,36 @@ body:has(.rt-lab) .md-grid { max-width: 92rem; }
 .lab-drive { border-top: 1px dashed var(--rt-rule); margin-top: 0.4rem; padding-top: 0.2rem; }
 .lab-readout { display: grid; grid-template-columns: repeat(auto-fill, minmax(7.2rem, 1fr)); gap: 0.25rem 0.5rem; margin-top: 0.45rem; }
 .lab-ro { font-size: 0.6rem; line-height: 1.3; padding: 0.2rem 0.35rem; border-radius: 6px; background: color-mix(in srgb, var(--rt-table-head) 55%, transparent); }
-.lab-ro span { display: block; color: var(--md-default-fg-color--light); }
-.lab-ro b { font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.lab-ro > span { display: block; color: var(--md-default-fg-color--light); }
+.lab-ro b { font-size: 0.78rem; font-variant-numeric: tabular-nums; color: var(--md-default-fg-color); }
 .lab-ro em { font-style: normal; color: var(--md-default-fg-color--light); margin-left: 0.2rem; }
-.lab-ro i { display: block; font-style: normal; color: var(--md-default-fg-color--light); font-size: 0.56rem; }
+/* numbers view: value, trend, three trailing averages and TORAX in small print */
+.lab-ro { outline: none; cursor: default; transition: background 0.12s; }
+.lab-ro:hover, .lab-ro:focus-visible { background: color-mix(in srgb, var(--md-accent-fg-color) 12%, var(--rt-table-head)); }
+.lab-ro .ro-tr { display: inline-block; margin-left: 0.25rem; font-size: 0.5rem; color: var(--md-default-fg-color--light); vertical-align: 0.12rem; }
+.lab-ro .ro-ma { font-size: 0.48rem; line-height: 1.35; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; color: var(--md-default-fg-color); opacity: 0.8; }
+.lab-ro .ro-ma i { font-style: normal; color: var(--md-default-fg-color--light); opacity: 0.85; font-size: 0.4rem; margin: 0 0.08rem 0 0.22rem; }
+.lab-ro .ro-ma i:first-child { margin-left: 0; }
+.lab-ro .ro-tor { font-size: 0.5rem; }
+.lab-ro .ro-tor:empty { display: none; }
+.lab-numkey { display: flex; flex-wrap: wrap; gap: 0.15rem 0.8rem; font-size: 0.52rem; color: var(--md-default-fg-color--light); margin: 0 0 0.3rem; }
+.lab-numkey b { color: var(--md-default-fg-color); font-weight: 600; }
+.lab-numkey i { display: inline-block; width: 1rem; height: 2px; margin-right: 0.25rem; vertical-align: 0.15rem; background: var(--md-accent-fg-color); }
+.lab-numkey i.k-tor { background: repeating-linear-gradient(90deg, var(--md-default-fg-color--light) 0 4px, transparent 4px 7px); }
+.lab-numkey .k-hint { margin-left: auto; font-style: italic; }
+.lab-numkey i.k-ref { background: repeating-linear-gradient(90deg, #e34948 0 2px, transparent 2px 5px); opacity: 0.7; }
+.lab-numplots[hidden], .lab-readout[hidden], .lab-histpop[hidden] { display: none; }
+.lab-viewseg .rt-chip { padding-left: 0.5rem; padding-right: 0.5rem; }
+/* hover a number: its history, in a light card next to it */
+.lab-ctl { position: relative; }
+.lab-histpop { position: absolute; z-index: 25; pointer-events: none; padding: 0.35rem 0.5rem 0.4rem; border-radius: 8px; background: color-mix(in srgb, var(--md-default-bg-color) 94%, transparent); border: 1px solid var(--rt-rule); box-shadow: 0 8px 26px rgba(30, 10, 80, 0.22); backdrop-filter: blur(3px); }
+.lab-histpop-title { font-size: 0.6rem; margin-bottom: 0.15rem; color: var(--md-default-fg-color); }
+.lab-histpop-title span { color: var(--md-default-fg-color--light); font-variant-numeric: tabular-nums; }
+.lab-histpop canvas { display: block; }
+.lab-histpop-key { display: flex; flex-wrap: wrap; gap: 0.1rem 0.7rem; font-size: 0.52rem; color: var(--md-default-fg-color--light); margin-top: 0.1rem; }
+.lab-histpop-key b { color: var(--md-default-fg-color); font-variant-numeric: tabular-nums; }
+.lab-histpop-key i { display: inline-block; width: 0.9rem; height: 2px; margin-right: 0.25rem; vertical-align: 0.15rem; }
+.lab-histpop-key i.dash { background: repeating-linear-gradient(90deg, var(--md-default-fg-color--light) 0 4px, transparent 4px 7px) !important; }
 .lab-scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.5rem; margin-bottom: 0.4rem; }
 .lab-score { border-radius: 10px; padding: 0.4rem 0.6rem; border: 1px solid var(--rt-rule); }
 .lab-score span { display: block; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--md-default-fg-color--light); }
@@ -190,7 +216,6 @@ body:has(.rt-lab) .md-grid { max-width: 92rem; }
 .lab-ctl .lab-readout { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 0; }
 .lab-ctl .lab-ro { padding: 0.18rem 0.35rem; }
 .lab-ctl .lab-ro b { font-size: 0.74rem; }
-.lab-ctl .lab-ro i { font-size: 0.52rem; }
 .lab-side .rt-controls .rt-btn, .lab-side .rt-controls .rt-select { padding-left: 0.5rem; padding-right: 0.5rem; }
 .lab-below { margin-top: 0.8rem; }
 .lab-params-top { display: flex; flex-wrap: wrap; gap: 0.4rem 0.8rem; align-items: center; margin-bottom: 0.4rem; }
@@ -417,7 +442,7 @@ html.lab-fs-lock, html.lab-fs-lock body { overflow: hidden; }
 .fs-body .lab-panel { border: 0; border-radius: 0; background: transparent; }
 .fs-body .lab-heatstrip { border: 0; margin: 0; padding: 0.5rem 0.6rem; }
 .fs-inst .lab-kgrid { grid-template-columns: minmax(0, 1fr); }
-.fs-inst .lab-readout, .fs-inst .lab-ctl .lab-readout { grid-template-columns: repeat(auto-fill, minmax(6.4rem, 1fr)); }
+.fs-inst .lab-readout, .fs-inst .lab-ctl .lab-readout { grid-template-columns: repeat(auto-fill, minmax(8.6rem, 1fr)); }
 .fs-play { grid-area: play; border-top: 1px solid var(--rt-rule); background: color-mix(in srgb, var(--md-default-bg-color) 85%, var(--md-primary-fg-color) 5%); }
 .fs-play .lab-sec { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.8rem; border: 0; margin: 0; padding: 0.35rem 0.8rem; }
 .fs-play .lab-sec-title { display: none; }
@@ -473,3 +498,6 @@ html.lab-fs-lock, html.lab-fs-lock body { overflow: hidden; }
 .fs-land .fs-top .lab-bar { flex-basis: auto; margin-left: auto; }
 .fs-phone .fs-tabs { padding: 0.3rem 0.5rem; }
 .fs-phone .fs-play .lab-sec { padding: 0.25rem 0.5rem; gap: 0.2rem 0.5rem; }
+@media (max-width: 600px) {
+  .lab-ctl .lab-readout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
