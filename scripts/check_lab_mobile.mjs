@@ -69,6 +69,39 @@ const text = (page, sel) => page.$eval(sel, (e) => e.textContent.trim()).catch((
 const cls = (page) => page.$eval(".rt-lab", (e) => e.className);
 const wait = (page, ms) => page.waitForTimeout(ms);
 
+// a finger: touch events through the DevTools protocol, so the browser's own touch pipeline runs (scroll latching,
+// overscroll, pointer events), as on an Android phone
+async function swipe(page, x, y, dx, dy, steps = 10) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+  for (let i = 1; i <= steps; i++) {
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x + (dx * i) / steps, y: y + (dy * i) / steps }] });
+    await page.waitForTimeout(16);
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+  await page.waitForTimeout(400);
+}
+async function setTime(page, t) {
+  await page.focus(".pb-scrub");
+  await page.keyboard.press("Home");
+  for (let i = 0; i < Math.floor(t / 10); i++) await page.keyboard.press("PageUp");
+  for (let i = 0; i < t % 10; i++) await page.keyboard.press("ArrowRight");
+  await page.waitForTimeout(100);
+}
+// WCAG contrast of an element's text (or icon) colour against its own opaque background
+const contrastOf = (page, sel) => page.evaluate((s) => {
+  const e = document.querySelector(s);
+  if (!e) return null;
+  const rgb = (c) => (c.match(/[\d.]+/g) || []).slice(0, 4).map(Number);
+  const lin = (v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const L = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  const cs = getComputedStyle(e), fg = rgb(cs.color), bg = rgb(cs.backgroundColor);
+  if (bg.length === 4 && bg[3] < 1) return null;
+  const a = L(fg), b = L(bg);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}, sel);
+
 async function openLab(page, url) {
   await page.goto(url);
   await page.waitForFunction(() => document.querySelector(".rt-lab") && (document.querySelector(".lab-launch-preset")?.textContent || document.querySelector(".lab-hud .lab-hud-chip")?.textContent));
@@ -163,10 +196,10 @@ async function phoneSuite(browser, base, w, h, scheme) {
   const row = pbItems.every((i) => near(i.cy, pbItems[0].cy, 4));
   check("M4", "one row: play, start, scrubber, time, speed, pin", row && pbItems.length === 6, pbItems.map((i) => i.c.split(" ").pop()).join(" "));
   check("M4", "≤ 56 px tall", play0.h <= 56.5, play0.h.toFixed(0));
-  const labelled = await page.$$eval(".fs-pb button, .fs-pb input", (els) => els.every((e) => (e.getAttribute("aria-label") || "").length > 2));
+  const labelled = await page.$$eval(".fs-pb button, .fs-pb [role=slider]", (els) => els.every((e) => (e.getAttribute("aria-label") || "").length > 2));
   check("M4", "every control has an accessible name", labelled);
   const words = await page.$eval(".fs-pb", (e) => e.innerText.replace(/\s+/g, " ").trim());
-  check("M4", "minimal text: only the time and the speed", /^\d+ s \d(\.\d)?×( \d)?$/.test(words), words);
+  check("M4", "minimal text: only the time and the speed", /^\d+ s ?± \d(\.\d)?×( \d)?$/.test(words), words);
   await page.tap(".pb-play");
   await wait(page, 1500);
   const tPlay = parseInt((await text(page, ".pb-time")) || "0", 10);
@@ -175,11 +208,38 @@ async function phoneSuite(browser, base, w, h, scheme) {
   const tA = parseInt(await text(page, ".pb-time"), 10);
   await wait(page, 600);
   check("M4", "Pause stops it", parseInt(await text(page, ".pb-time"), 10) === tA);
-  const tr = await rect(page, ".pb-range");
-  await page.touchscreen.tap(tr.x + 11 + (tr.w - 22) * 0.5, tr.y + tr.h / 2);
+  const tr = await rect(page, ".pb-scrub");
+  await page.touchscreen.tap(tr.x + 12 + (tr.w - 24) * 0.5, tr.y + tr.h / 2);
   await wait(page, 150);
   const tMid = parseInt(await text(page, ".pb-time"), 10);
-  check("M4", "a tap on the track jumps there (no drag needed)", near(tMid, 75, 8), `${tMid} s at the middle`);
+  check("M4", "a tap on the track jumps there (no drag needed)", near(tMid, 75, 10), `${tMid} s at the middle`);
+  // a tap next to an event tick snaps to it and names it (F09); a drag scrubs
+  // the tick farthest from its neighbours, tapped 3 px beside it
+  const tick = await page.evaluate(() => {
+    const xs = [...document.querySelectorAll(".pb-ticks i")].map((i) => { const r = i.getBoundingClientRect(); return { x: r.x + r.width / 2, t: i.title }; });
+    xs.forEach((a) => (a.gap = Math.min(...xs.filter((b) => b !== a).map((b) => Math.abs(b.x - a.x)), 1e9)));
+    return xs.sort((a, b) => b.gap - a.gap)[0] || null;
+  });
+  if (tick) {
+    await page.touchscreen.tap(tick.x + 3, tr.y + tr.h / 2);
+    await wait(page, 150);
+    const bub = await text(page, ".pb-bubble");
+    check("M4", "a tap near an event tick snaps to it and names it", bub && tick.t.startsWith(bub.split(" · ")[1] || "§") && tick.t.endsWith(`at ${parseInt(bub, 10)} s`), `${bub} | ${tick.t}`);
+  }
+  await swipe(page, tr.x + 12 + (tr.w - 24) * 0.2, tr.y + tr.h / 2, (tr.w - 24) * 0.4, 0, 6);
+  const tDrag = parseInt(await text(page, ".pb-time"), 10);
+  check("M4", "dragging along the track scrubs", near(tDrag, 91, 12), `${tDrag} s after a drag from 20 % to 60 %`);
+  // the time is a button: a stepper of ±1 s and ±10 s (F06)
+  await page.tap(".pb-time");
+  await wait(page, 150);
+  const t0s = parseInt(await text(page, ".pb-time"), 10);
+  await page.tap(".lab-step button:nth-of-type(3)");
+  await wait(page, 150);
+  check("M4", "the time's stepper moves by exactly 1 s", parseInt(await text(page, ".pb-time"), 10) === t0s + 1, `${t0s} → ${await text(page, ".pb-time")}`);
+  check("M7", "stepper buttons ≥ 44 × 44", await page.$$eval(".lab-step button", (b) => b.every((x) => x.getBoundingClientRect().height >= 43.5 && x.getBoundingClientRect().width >= 43.5)));
+  await page.evaluate(() => history.back()); // Back closes the stepper first (F12)
+  await wait(page, 300);
+  check("M12", "Back closes the stepper and stays in the Lab", (await page.$eval(".lab-step", (e) => e.hidden)) && (await cls(page)).includes("lab-fs"));
   const speeds = [];
   for (let i = 0; i < 4; i++) {
     await page.tap(".pb-speed");
@@ -189,6 +249,9 @@ async function phoneSuite(browser, base, w, h, scheme) {
   await page.tap(".pb-pin");
   await wait(page, 100);
   check("M4", "Pin shows the number of pins", (await text(page, ".pb-badge")) === "1");
+  await page.tap(".pb-pin");
+  await wait(page, 100);
+  check("M12", "pinning the same run twice is refused, and says so", (await text(page, ".pb-badge")) === "1" && /already pinned/.test((await text(page, ".lab-toast")) || ""));
   const ticks = await page.$$eval(".pb-ticks i", (t) => t.length);
   check("M4", "event ticks on the track", ticks > 0, `${ticks} ticks`);
 
@@ -199,7 +262,7 @@ async function phoneSuite(browser, base, w, h, scheme) {
     return r.width < 43.5 || r.height < 43.5 ? `${s} ${r.width.toFixed(0)}×${r.height.toFixed(0)}` : null;
   })).filter(Boolean), PRIMARY);
   check("M7", "primary controls ≥ 44 × 44", small.length === 0, small.join(", ") || undefined);
-  check("M7", "the scrubber's track ≥ 32 px tall", tr.h >= 31.5, tr.h.toFixed(0));
+  check("M7", "the time line's touch area ≥ 44 px tall", tr.h >= 43.5, tr.h.toFixed(0));
   const sec = await page.evaluate(() => [...document.querySelectorAll(".fs-stage button, .fs-body .lab-side button, .fs-body .lab-side input[type=range]")].filter((e) => e.offsetParent).map((e) => {
     const r = e.getBoundingClientRect();
     return r.height < 23.5 || r.width < 23.5 ? `${e.className || e.type} ${r.width.toFixed(0)}×${r.height.toFixed(0)}` : null;
@@ -224,16 +287,70 @@ async function phoneSuite(browser, base, w, h, scheme) {
   await page.keyboard.press("Escape");
   await wait(page, 100);
   check("M5", "Esc closes the card and stays in the Lab", (await page.$$('.lab-card:not([hidden])')).length === 0 && (await cls(page)).includes("lab-fs"));
+  await page.tap(".fs-more");
+  await wait(page, 150);
+  await page.evaluate(() => history.back());
+  await wait(page, 300);
+  check("M12", "Back with the menu open closes the menu, not the Lab", (await page.$eval(".fs-menu", (e) => e.hidden)) && (await cls(page)).includes("lab-fs"));
   await page.selectOption(".fs-pick select", "physics|phys_ppo_dr");
   await wait(page, 300);
   check("M5", "the picker switches preset and scenario, and shows both", (await text(page, ".fs-pick-name")) === "Randomised training" && (await text(page, ".fs-pick-scen")) === "physics environment", `${await text(page, ".fs-pick-name")} · ${await text(page, ".fs-pick-scen")}`);
 
   // M13 smooth playback: the script time per frame, with the CPU slowed 4× as for a mid-range phone, during heating
   if (upright && w === 390 && scheme === "light") {
-    await page.evaluate(() => { const r = document.querySelector(".pb-range"); r.value = 98; r.dispatchEvent(new Event("input")); });
+    await setTime(page, 98);
     const fc = await frameCost(ctx, page, ".pb-play", 4);
     check("M13", "playback: median script time per frame < 33 ms with the CPU slowed 4×", fc.med < 33, `median ${fc.med.toFixed(1)} ms, 90th percentile ${fc.p90.toFixed(1)} ms, ${fc.n} frames`, true);
   }
+
+  // real touch on the tab content (the evaluation's F01, F03, F04, F05)
+  const body = await rect(page, ".fs-body");
+  await page.tap('.fs-tabs button[data-tab="controls"]');
+  await wait(page, 200);
+  await page.evaluate(() => (document.querySelector(".fs-body").scrollTop = 0));
+  await swipe(page, body.x + body.w * 0.15, body.y + body.h * 0.8, 0, -body.h * 0.6);
+  const sc1 = await page.evaluate(() => document.querySelector(".fs-body").scrollTop);
+  check("M6", "a finger scrolls the Controls tab", sc1 > 40, `scrolled ${sc1.toFixed(0)} px`);
+  await page.tap('.fs-tabs button[data-tab="setup"]');
+  await wait(page, 200);
+  const sl = await page.evaluate(() => { const i = [...document.querySelectorAll(".fs-body .lab-params input[type=range]")].find((x) => { const r = x.getBoundingClientRect(); return r.top > document.querySelector(".fs-body").getBoundingClientRect().top + 20 && r.bottom < document.querySelector(".fs-pb").getBoundingClientRect().top - 20; }); if (!i) return null; const r = i.getBoundingClientRect(); return { x: r.x + r.width * 0.75, y: r.y + r.height / 2, v: i.value, id: [...document.querySelectorAll("input[type=range]")].indexOf(i) }; });
+  if (sl) {
+    const sb0 = await page.evaluate(() => document.querySelector(".fs-body").scrollTop);
+    await swipe(page, sl.x, sl.y, 0, -120);
+    const after = await page.evaluate((id) => document.querySelectorAll("input[type=range]")[id].value, sl.id);
+    const sb1 = await page.evaluate(() => document.querySelector(".fs-body").scrollTop);
+    check("M7", "a vertical swipe that starts on a slider scrolls and leaves its value alone", after === sl.v && sb1 > sb0 + 20, `value ${sl.v} → ${after}, scrolled ${(sb1 - sb0).toFixed(0)} px`);
+  }
+  await page.tap('.fs-tabs button[data-tab="numbers"]');
+  await wait(page, 200);
+  await page.evaluate(() => { const e = document.querySelector('.lab-ro[data-k="Te0"]'), b = document.querySelector(".fs-body"); b.scrollTop += e.getBoundingClientRect().top - b.getBoundingClientRect().top - 12; });
+  await wait(page, 150);
+  const tile = await rect(page, '.lab-ro[data-k="Te0"] .ro-l');
+  if (tile && inView(tile)) {
+    const url0 = page.url();
+    await page.touchscreen.tap(tile.x + 8, tile.y + tile.h / 2);
+    await wait(page, 300);
+    check("M6", "a tap on a number's name opens its history, not another page", page.url() === url0 && (await page.$eval(".lab-histpop", (e) => !e.hidden)), page.url() === url0 ? "" : page.url());
+    await page.touchscreen.tap(tile.x + 8, tile.y + tile.h / 2);
+    await wait(page, 200);
+    const nb = await rect(page, ".fs-body");
+    await swipe(page, nb.x + nb.w * 0.3, nb.y + nb.h * 0.7, 0, -nb.h * 0.4);
+    check("M6", "swiping through the numbers opens no history", await page.$eval(".lab-histpop", (e) => e.hidden));
+  }
+  await page.tap('.fs-tabs button[data-tab="traces"]');
+  await wait(page, 200);
+  const tBefore = await text(page, ".pb-time"), tv0 = await rect(page, ".fs-body .lab-traces canvas");
+  await swipe(page, tv0.x + tv0.w * 0.5, Math.min(tv0.y + 120, body.y + body.h - 20), 0, -100);
+  check("M6", "a vertical swipe over a plot scrolls without moving the time", (await text(page, ".pb-time")) === tBefore, `${tBefore} → ${await text(page, ".pb-time")}`);
+  await page.tap('.fs-tabs button[data-tab="controls"]');
+
+  // M8 contrast of the filled controls and the status chip (both themes)
+  const lowC = [];
+  for (const [sel, min] of [[".fs-tabs .rt-chip.on", 4.5], [".fs-pb .pb-play", 3], [".fs-stage .lab-hud-chip", 4.5], [".fs-stage .lab-seg .rt-chip.on", 4.5]]) {
+    const c = await contrastOf(page, sel);
+    if (c !== null && c < min) lowC.push(`${sel} ${c.toFixed(2)}:1`);
+  }
+  check("M8", "filled controls and the status chip meet WCAG AA", lowC.length === 0, lowC.join(", ") || undefined);
 
   // M10 status
   check("M10", "the status chip sits on the plasma", inView(await rect(page, ".fs-stage .lab-hud-chip")));
@@ -258,8 +375,7 @@ async function phoneSuite(browser, base, w, h, scheme) {
   check("M8", "text ≥ 12 px in the bars and tabs, ≥ 11 px elsewhere", tiny.length === 0, tiny.slice(0, 5).join("; ") || undefined);
 
   // M12 state survives leaving and entering; leaving pauses
-  await page.evaluate(() => { const r = document.querySelector(".pb-range"); r.value = 80; r.dispatchEvent(new Event("input")); });
-  await wait(page, 100);
+  await setTime(page, 80);
   await page.tap(".fs-close");
   await wait(page, 500);
   const c2 = await cls(page);
@@ -281,13 +397,15 @@ async function phoneSuite(browser, base, w, h, scheme) {
   await wait(page, 400);
   const tKeep2 = parseInt(await text(page, ".pb-time"), 10);
 
-  // M9 rotation keeps the state; layouts switch
+  // M9 rotation keeps the state and the open tab; layouts switch
+  await page.tap('.fs-tabs button[data-tab="numbers"]');
   await page.setViewportSize({ width: h, height: w });
   await wait(page, 500);
   const c3 = await cls(page);
   check("M9", "rotation switches the layout", c3.includes(upright ? "fs-land" : "fs-phone"), c3);
   check("M9", "after rotation the plasma and playback are in view", inView(await rect(page, ".fs-stage .lab-torus .rt-canvas-wrap")) && inView(await rect(page, ".fs-pb")));
   check("M9", "rotation keeps the time and the preset", parseInt(await text(page, ".pb-time"), 10) === tKeep2 && (await text(page, ".fs-pick-name")) === "Randomised training");
+  check("M9", "rotation keeps the open tab", (await page.$eval(".fs-tabs .rt-chip.on", (b) => b.dataset.tab)) === "numbers");
   await shot("4-rotated");
   await page.setViewportSize({ width: w, height: h });
   await wait(page, 400);
@@ -306,7 +424,7 @@ async function phoneSuite(browser, base, w, h, scheme) {
   await page.tap(".md-content " + link);
   await wait(page, 700);
   check("M11", "the link opens the full-screen Lab without reloading", (await cls(page)).includes("lab-fs") && nav0 === (await page.evaluate(() => performance.getEntriesByType("navigation").length + ":" + performance.timeOrigin)));
-  check("M11", "in the link's state", (await text(page, ".fs-pick-name")) === "Heating cut at 105 s" && (await text(page, ".pb-time")) === "106 s", `${await text(page, ".fs-pick-name")} at ${await text(page, ".pb-time")}`);
+  check("M11", "in the link's state", (await text(page, ".fs-pick-name")) === "Heating cut at 105 s" && parseInt(await text(page, ".pb-time"), 10) === 106, `${await text(page, ".fs-pick-name")} at ${await text(page, ".pb-time")}`);
   await page.evaluate(() => history.back());
   await wait(page, 500);
   check("M11", "Back returns to the link in the text", near(await page.evaluate(() => scrollY), yLink, 2) && inView(await rect(page, ".md-content " + link)));
