@@ -568,16 +568,7 @@ html.lab-fs-lock, html.lab-fs-lock body { overflow: hidden; }
 .fs-pb .pb-play .lab-ic { width: 20px; height: 20px; }
 .fs-pb .pb-start .lab-ic { width: 18px; height: 18px; }
 .pb-scrub { flex: 1 1 auto; min-width: 60px; position: relative; height: 44px; display: flex; align-items: center; margin: 0 4px; }
-.pb-ticks { position: absolute; left: 11px; right: 11px; top: 50%; height: 14px; transform: translateY(-50%); pointer-events: none; }
-.pb-ticks i { position: absolute; top: 0; width: 3px; height: 14px; margin-left: -1.5px; border-radius: 2px; opacity: 0.9; }
-.pb-range { -webkit-appearance: none; appearance: none; width: 100%; height: 44px; margin: 0; background: transparent; cursor: pointer; touch-action: none; position: relative; }
-.pb-range::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--md-default-fg-color) 18%, transparent); }
-.pb-range::-moz-range-track { height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--md-default-fg-color) 18%, transparent); }
-.pb-range::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -8px; border-radius: 50%; background: var(--md-accent-fg-color); border: 3px solid var(--md-default-bg-color); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); }
-.pb-range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--md-accent-fg-color); border: 3px solid var(--md-default-bg-color); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); }
-.pb-range:focus-visible { outline: none; }
-.pb-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--md-accent-fg-color) 40%, transparent); }
-.pb-time { flex: none; min-width: 3.3em; font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; color: var(--md-default-fg-color); }
+
 .fs-pb .pb-speed { min-width: 44px; font-variant-numeric: tabular-nums; }
 .pb-badge { position: absolute; top: 4px; right: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; font-size: 11px; line-height: 16px; font-weight: 700; color: #fff; background: var(--md-accent-fg-color); }
 .pb-badge:empty { display: none; }
@@ -592,3 +583,73 @@ html.lab-fs-lock, html.lab-fs-lock body { overflow: hidden; }
 /* the desktop's full-screen top bar and toolbar are not used on a phone (the app bar replaces them) */
 .rt-lab.lab-fs.fs-phone > .lab-bar, .fs-phone .fs-top > .fs-title, .fs-phone .fs-top > .fs-scen, .fs-phone .fs-top > .fs-preset { display: none; }
 .rt-lab.lab-fs > .lab-launch { display: none; }
+
+/* ---- evaluation round 1 (HMI-MOBILE-SPEC.md §7) */
+/* F07: filled accent controls and the status chips meet WCAG AA (≥ 4.5:1) in both themes */
+:root { --rt-accent-fill: #c42f82; --rt-on-accent: #ffffff; }
+[data-md-color-scheme="slate"] { --rt-accent-fill: #ff5fb8; --rt-on-accent: #160a26; }
+.rt-btn.rt-primary, .rt-chip.lab-preset.on, .rt-chip.lab-eqbtn.on, .lab-seg .rt-chip.on, .lab-tool[aria-pressed="true"],
+.fs-tabs .rt-chip.on, .lab-launch-go, .fs-pb .pb-play, .pb-badge, .lab-t:hover, .lab-toast-act { background: var(--rt-accent-fill) !important; border-color: var(--rt-accent-fill) !important; color: var(--rt-on-accent) !important; }
+/* F01: on a phone the controls scroll with the tab, not inside a box of their own */
+.fs-phone .lab-side, .fs-phone .fs-body .lab-side { position: static; max-height: none; overflow: visible; overscroll-behavior: auto; }
+.fs-phone .fs-body canvas { touch-action: pan-y; }
+/* F06, F08, F09, F21: the time line */
+.pb-scrub { flex: 1 1 auto; min-width: 60px; position: relative; height: 44px; margin: 0 4px; cursor: pointer; touch-action: none; outline: none; --pb: 0; }
+.pb-track { position: absolute; left: 12px; right: 12px; top: 50%; height: 6px; margin-top: -3px; border-radius: 3px; background: color-mix(in srgb, var(--md-default-fg-color) 38%, transparent); overflow: hidden; }
+.pb-fill { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--pb) * 100%); background: var(--rt-accent-fill); }
+.pb-ticks { position: absolute; inset: 0; pointer-events: none; }
+.pb-ticks i { position: absolute; top: 50%; width: 3px; height: 16px; margin: -8px 0 0 -1.5px; border-radius: 2px; box-shadow: 0 0 0 1px var(--md-default-bg-color); }
+.pb-thumb { position: absolute; top: 50%; left: calc(12px + var(--pb) * (100% - 24px)); width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--rt-accent-fill); border: 3px solid var(--md-default-bg-color); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); pointer-events: none; }
+.pb-scrub:focus-visible .pb-thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--md-accent-fg-color) 45%, transparent); }
+.pb-bubble { position: absolute; bottom: 46px; transform: translateX(-50%); white-space: nowrap; max-width: 80vw; overflow: hidden; text-overflow: ellipsis; padding: 4px 8px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--md-default-bg-color); background: var(--md-default-fg-color); pointer-events: none; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
+.pb-bubble[hidden] { display: none; }
+.fs-pb .pb-time { flex: none; min-width: 52px; padding: 0 4px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pb-pm { margin-left: 2px; font-size: 12px; color: var(--md-default-fg-color--light); }
+/* the stepper (time and slider values) */
+.lab-step { position: absolute; z-index: 70; display: flex; align-items: center; gap: 4px; padding: 6px; border-radius: 12px; background: var(--md-default-bg-color); border: 1px solid var(--rt-rule); box-shadow: 0 10px 30px rgba(30, 10, 80, 0.28); }
+.lab-step[hidden] { display: none; }
+.lab-step button { min-width: 44px; height: 44px; padding: 0 8px; border: 1px solid var(--rt-rule); border-radius: 10px; background: transparent; color: var(--md-default-fg-color); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.lab-step button:active { background: color-mix(in srgb, var(--md-accent-fg-color) 18%, transparent); }
+.lab-step output { min-width: 64px; text-align: center; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fs-phone .rt-ctl-val { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; min-height: 32px; display: inline-flex; align-items: center; justify-content: flex-end; }
+/* the toast */
+.lab-toast { position: absolute; left: 50%; bottom: 72px; transform: translateX(-50%); z-index: 80; display: flex; align-items: center; gap: 12px; max-width: calc(100% - 24px); padding: 10px 14px; border-radius: 10px; font-size: 14px; color: var(--md-default-bg-color); background: var(--md-default-fg-color); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); }
+.lab-toast[hidden] { display: none; }
+.lab-toast { pointer-events: none; } /* never blocks the content under it */
+.lab-toast-act { pointer-events: auto; }
+.rt-lab:not(.lab-fs) .lab-toast { position: fixed; bottom: 24px; }
+.lab-toast-act { min-height: 36px; padding: 0 12px; border: 0; border-radius: 8px; font: inherit; font-weight: 700; cursor: pointer; }
+/* F15: limits next to the status chip; F26: the what-if tags can be reset */
+.lab-hud-alarm { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.lab-hud-alarm:empty { display: none; }
+.lab-hud-alarm span { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; color: #fff; background: #c72f2e; white-space: nowrap; }
+.lab-hud-alarm span.warn { background: #9a6500; }
+.lab-hud-tags { pointer-events: auto; }
+.lab-hud-reset { font: inherit; font-size: 11px; font-weight: 700; min-height: 24px; padding: 0 10px; border-radius: 999px; border: 1px solid #b07d1a; background: var(--md-default-bg-color); color: #8a5a00; cursor: pointer; }
+[data-md-color-scheme="slate"] .lab-hud-reset { color: #f3c45c; }
+/* F16, F25: two columns of numbers on a phone, legible averages, the key reduced to the hint */
+.fs-phone .lab-ctl .lab-readout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fs-phone .lab-ro .ro-ma { font-size: 11px; }
+.fs-phone .lab-ro .ro-ma i { font-size: 10px; }
+.fs-phone .lab-ro .ro-tor, .fs-phone .lab-ro > span { font-size: 12px; }
+.fs-phone .lab-numkey > span:not(.k-hint) { display: none; }
+.fs-phone .lab-numkey[data-view="plots"] > span { display: inline; }
+.fs-phone .lab-numkey .k-hint { margin-left: 0; }
+/* F18: the tab strip fades at an edge with more tabs behind it */
+.fs-phone .fs-tabs.more-r { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
+.fs-phone .fs-tabs.more-l { -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%); mask-image: linear-gradient(90deg, transparent, #000 15%); }
+.fs-phone .fs-tabs.more-l.more-r { -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+/* F19: the narration says it expands */
+.fs-phone .lab-narr { position: relative; cursor: pointer; }
+.fs-phone .lab-narr.more:not(.open)::after { content: "more ▾"; position: absolute; right: 8px; bottom: 4px; padding-left: 16px; font-size: 12px; font-weight: 600; color: var(--md-default-fg-color--light); background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--rt-table-head) 65%, var(--md-default-bg-color)) 14px); }
+/* F20: toggles that are off stay legible (outline, not faded) */
+.fs-phone .fs-stage .rt-chip:not(.on) { opacity: 1; border-style: dashed; }
+/* F10: the heating strip's heading, only in its own tab */
+.lab-heat-title { display: none; }
+.fs-phone .fs-body .lab-heat-title { display: block; margin: 0 0 6px; }
+/* F12: the story's time chips are comfortable to tap */
+.fs-phone .lab-card .lab-t { min-height: 32px; padding: 0 10px; }
+/* F23: the poster says it is a preview */
+.lab-launch-cap { position: absolute; left: 12px; bottom: 8px; font-size: 12px; color: var(--md-default-fg-color--light); }
+/* F24: the menu fits a phone on its side */
+.fs-land .fs-mi { min-height: 44px; font-size: 14px; }

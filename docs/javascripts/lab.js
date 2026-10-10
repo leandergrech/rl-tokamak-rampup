@@ -1167,6 +1167,7 @@
     let LAB = {}, PROF = {};
     // small viewports (phones, upright or on their side): the Lab is used in full screen only; inline it is a
     // launch card (HMI-MOBILE-SPEC.md, M1)
+    const TOUCH_DEV = !!(window.matchMedia && matchMedia("(hover: none)").matches);
     const SMALL = () => innerWidth < 760 || (!!window.matchMedia && matchMedia("(pointer: coarse)").matches && Math.min(innerWidth, innerHeight) < 500);
     // the two scenarios: the benchmark (Gym-TORAX 1.0, 151 steps) and the physics environment (TORAX 1.4, 150 steps)
     const PHYS = () => S.scen === "physics";
@@ -1434,10 +1435,7 @@
     spd.addEventListener("change", () => (S.speed = +spd.value));
     tRow.appendChild(spd);
     button(tRow, "Pin", () => pinRun(), "rt-btn").title = "Keep this run as a grey line while you try something else (up to three)";
-    const clearBtn = button(tRow, "Clear pins", () => {
-      S.pins = [];
-      S.dirty = true;
-    }, "rt-btn");
+    const clearBtn = button(tRow, "Clear pins", () => clearPins(), "rt-btn");
     clearBtn.title = "Remove the pinned runs from every plot";
     const tSl = slider(sPlay, "time", 0, 151, 1, 0, (v) => v + " s", (v) => {
       S.cursor = Math.min(v, S.recs.length - 1);
@@ -1555,8 +1553,21 @@
     // the status of the shot, over the plasma: phase and confinement, who drives, the key numbers
     const hud = el("div", "lab-hud");
     tv.c.parentElement.appendChild(hud);
-    const hudChip = el("span", "lab-hud-chip"), hudText = el("div", "lab-hud-text"), hudTags = el("div", "lab-hud-tags");
-    hud.append(hudChip, hudText, hudTags);
+    const hudChip = el("span", "lab-hud-chip"), hudText = el("div", "lab-hud-text"), hudTags = el("div", "lab-hud-tags"), hudAlarm = el("span", "lab-hud-alarm");
+    hud.append(hudChip, hudAlarm, hudText, hudTags);
+    hudTags.addEventListener("click", (e) => {
+      if (!e.target.closest(".lab-hud-reset")) return;
+      const before = { as: { ...S.as }, tune: { ...S.tune } };
+      resetParams();
+      Object.assign(S.tune, tune0());
+      if (S.live) resim();
+      toast("Back to the calibrated plasma and the trained controller", "Undo", () => {
+        Object.keys(before.as).forEach((k) => (S.as[k] = before.as[k]));
+        PARAMS.forEach((q) => (PUI[q.k] || []).forEach((sl) => sl.set(S.as[q.k])));
+        Object.assign(S.tune, before.tune);
+        resim();
+      });
+    });
     // one line on what is happening at the cursor
     const narr = el("div", "lab-narr");
     narr.setAttribute("aria-live", "polite");
@@ -1565,6 +1576,7 @@
     // the two heating systems at human scale: frequency as colour and wavelength, power as brightness and height
     const hsBox = el("div", "lab-heatstrip");
     pT.body.appendChild(hsBox);
+    hsBox.appendChild(el("div", "lab-sec-title lab-heat-title", "Heating at human scale: the microwave, the beam and its light, at the cursor"));
     const hsv = canvas(hsBox, 104);
     note(hsBox, "Heating at human scale. Wavelengths are compressed (10× the frequency draws 1.8× shorter) and the light is slowed about 10¹¹×; ECRH's cyan is a false colour, the beam's red Balmer-α light is real. Taller and brighter: more power. The atoms fly at 3 % of light speed, drawn faster than that.");
     note(pT.body, "Drag to rotate; hover any part for its name and live values (tap on a phone). <b>About</b>, top right, explains the colours.");
@@ -1572,8 +1584,8 @@
     const lCv = canvas(lPoster, 220);
     lCv.maxDpr = 2;
     const lTorus = makeTorus(lCv, { topPad: 8 });
-    const lChip = el("span", "lab-hud-chip lab-launch-chip");
-    lPoster.appendChild(lChip);
+    const lChip = el("span", "lab-hud-chip lab-launch-chip"), lCap = el("span", "lab-launch-cap");
+    lPoster.append(lChip, lCap);
     let lVisible = true;
     if (window.IntersectionObserver) new IntersectionObserver((es) => (lVisible = es[0].isIntersecting)).observe(lPoster);
     // ---- numbers at the cursor
@@ -1707,6 +1719,25 @@
     note(pDz.body, "The benchmark and audited rewards are fixed; this one is yours. Its return appears in the side pane and as the third bar and curve of the reward panel.");
 
 
+    // ---- a toast: one line at the bottom, an optional action (Undo), gone after 5 s
+    const toastEl = el("div", "lab-toast");
+    toastEl.setAttribute("role", "status");
+    toastEl.hidden = true;
+    root.appendChild(toastEl);
+    let toastT = 0;
+    function toast(msg, action, fn) {
+      clearTimeout(toastT);
+      toastEl.innerHTML = `<span>${msg}</span>`;
+      if (action) {
+        const b = el("button", "lab-toast-act", action);
+        b.type = "button";
+        b.addEventListener("click", () => ((toastEl.hidden = true), fn()));
+        toastEl.appendChild(b);
+      }
+      toastEl.hidden = false;
+      toastT = setTimeout(() => (toastEl.hidden = true), action ? 6000 : 3000);
+    }
+
     // ================================================ toolbar and information cards (top right)
     // Story folds the story above; the other buttons open one card at a time. Keys: ? About, L labels, S scoreboard,
     // F full screen, Esc closes.
@@ -1759,6 +1790,7 @@
       for (const k in cards) if (tools[k]) tools[k].setAttribute("aria-pressed", String(k === openCard));
       if (openCard === "scores" && SB.scen !== S.scen && !SB.running) runScoreboard();
       tools.story.setAttribute("aria-pressed", String(isFull() ? openCard === "fsstory" : !story.hidden));
+      if (typeof syncOverlayHistory === "function") syncOverlayHistory();
     }
     function setStory(on) {
       story.hidden = !on;
@@ -1787,6 +1819,12 @@
     const fsTop = el("div", "fs-top"), fsSide = el("div", "fs-side"), fsStage = el("div", "fs-stage"), fsInst = el("div", "fs-inst"), fsPlay = el("div", "fs-play");
     const fsTabs = el("div", "fs-tabs"), fsBody = el("div", "fs-body");
     fsTabs.setAttribute("role", "tablist");
+    // fades at the strip's edges while more tabs are behind them (F18)
+    const tabFade = () => {
+      fsTabs.classList.toggle("more-l", fsTabs.scrollLeft > 4);
+      fsTabs.classList.toggle("more-r", fsTabs.scrollLeft + fsTabs.clientWidth < fsTabs.scrollWidth - 4);
+    };
+    fsTabs.addEventListener("scroll", tabFade, { passive: true });
     fsInst.append(fsTabs, fsBody);
     fs.append(fsTop, fsSide, fsStage, fsInst, fsPlay);
     const fsScen = el("div", "lab-seg fs-scen");
@@ -1843,8 +1881,10 @@
     mMenu.hidden = true;
     function toggleMenu(force) {
       const on = force === undefined ? mMenu.hidden : force;
+      const was = !mMenu.hidden;
       mMenu.hidden = !on;
       mMore.setAttribute("aria-expanded", String(on));
+      if (was !== on) syncOverlayHistory();
       if (!on) return;
       showCard(null);
       const other = S.scen === "physics" ? "benchmark" : "physics";
@@ -1854,7 +1894,7 @@
         ["Acronyms and symbols", () => showCard("acr")],
         ["About the plasma view", () => showCard("about")],
         ["Scoreboard: every preset", () => showCard("scores")],
-        [`Clear pins${S.pins.length ? ` (${S.pins.length})` : ""}`, () => ((S.pins = []), (S.dirty = true)), !S.pins.length],
+        [`Clear pins${S.pins.length ? ` (${S.pins.length})` : ""}`, () => clearPins(), !S.pins.length],
         [other === "physics" ? "Switch to the physics environment" : "Switch to the benchmark", () => setScenario(other)],
       ];
       mMenu.innerHTML = "";
@@ -1891,21 +1931,78 @@
       playBtn.textContent = "Play";
       S.dirty = true;
     }, true);
+    // the time line: our own slider (a native one cannot jump on a tap on every phone). A tap jumps, snapping to an
+    // event tick within 6 px and naming it; a drag scrubs; dragging with the finger lifted above the bar scrubs
+    // five times finer; arrows step 1 s, Page Up/Down 10 s.
     const pbScrub = el("div", "pb-scrub");
-    const pbRange = document.createElement("input");
-    Object.assign(pbRange, { type: "range", min: 0, max: 151, step: 1, value: 0 });
-    pbRange.className = "pb-range";
-    pbRange.setAttribute("aria-label", "Time in the episode");
-    const pbTicks = el("span", "pb-ticks");
+    pbScrub.setAttribute("role", "slider");
+    pbScrub.tabIndex = 0;
+    pbScrub.setAttribute("aria-label", "Time in the episode");
+    pbScrub.setAttribute("aria-valuemin", "0");
+    const pbTrack = el("span", "pb-track"), pbFill = el("span", "pb-fill"), pbTicks = el("span", "pb-ticks"), pbThumb = el("span", "pb-thumb"), pbBubble = el("span", "pb-bubble");
     pbTicks.setAttribute("aria-hidden", "true");
-    pbScrub.append(pbTicks, pbRange);
-    pbRange.addEventListener("input", () => {
-      S.cursor = Math.min(+pbRange.value, S.recs.length - 1);
+    pbBubble.hidden = true;
+    pbTrack.appendChild(pbFill);
+    pbScrub.append(pbTrack, pbTicks, pbThumb, pbBubble);
+    const pbRange = pbScrub; // the time control (kept under this name for the slider gesture guard)
+    let pbEvents = [], pbDrag = null, pbBubbleT = 0;
+    const PAD = 12; // the thumb's radius: the track runs from PAD to width - PAD
+    const pbX2t = (x) => { const r = pbScrub.getBoundingClientRect(); return clamp(((x - r.left - PAD) / (r.width - 2 * PAD)) * HOR(), 0, S.recs.length - 1); };
+    const pbT2x = (t) => { const r = pbScrub.getBoundingClientRect(); return r.left + PAD + (t / HOR()) * (r.width - 2 * PAD); };
+    function pbSet(t, bubble) {
+      S.cursor = clamp(Math.round(t), 0, S.recs.length - 1);
       S.playing = false;
       playBtn.textContent = "Play";
       S.dirty = true;
+      if (bubble !== undefined) pbShowBubble(bubble);
+    }
+    function pbShowBubble(text) {
+      clearTimeout(pbBubbleT);
+      pbBubble.textContent = text;
+      pbBubble.hidden = false;
+      pbBubbleT = setTimeout(() => (pbBubble.hidden = true), 1600);
+    }
+    const pbNear = (x, px) => {
+      let best = null;
+      for (const e of pbEvents) {
+        const d = Math.abs(pbT2x(e.t) - x);
+        if (d <= px && (!best || d < best.d)) best = { d, e };
+      }
+      return best && best.e;
+    };
+    const pbLabel = (t) => { const ev = pbEvents.filter((e) => e.t === t).map((e) => e.title); return `${t} s` + (ev.length ? ` · ${ev.join(", ")}` : ""); };
+    pbScrub.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      pbScrub.setPointerCapture(e.pointerId);
+      const ev = pbNear(e.clientX, 6), t = ev ? ev.t : pbX2t(e.clientX);
+      pbDrag = { id: e.pointerId, x0: e.clientX, t0: t, fine: false, fx: 0, ft: 0 };
+      pbSet(t, pbLabel(Math.round(t)));
     });
-    const pbTime = el("span", "pb-time");
+    pbScrub.addEventListener("pointermove", (e) => {
+      if (!pbDrag || e.pointerId !== pbDrag.id) return;
+      const r = pbScrub.getBoundingClientRect(), fine = e.clientY < r.top - 40;
+      if (fine && !pbDrag.fine) Object.assign(pbDrag, { fine: true, fx: e.clientX, ft: S.cursor });
+      if (!fine) pbDrag.fine = false;
+      const t = pbDrag.fine ? pbDrag.ft + ((e.clientX - pbDrag.fx) / (r.width - 2 * PAD)) * HOR() * 0.2 : pbX2t(e.clientX);
+      const ev = !pbDrag.fine && pbNear(e.clientX, 5);
+      const tt = ev ? ev.t : Math.round(t);
+      pbSet(tt, pbLabel(tt) + (pbDrag.fine ? " · fine" : ""));
+    });
+    const pbUp = () => (pbDrag = null);
+    pbScrub.addEventListener("pointerup", pbUp);
+    pbScrub.addEventListener("pointercancel", pbUp);
+    pbScrub.addEventListener("keydown", (e) => {
+      const d = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1, PageUp: 10, PageDown: -10 }[e.key];
+      if (d === undefined && e.key !== "Home" && e.key !== "End") return;
+      e.preventDefault();
+      e.stopPropagation();
+      const t = e.key === "Home" ? 0 : e.key === "End" ? S.recs.length - 1 : S.cursor + d;
+      pbSet(t, pbLabel(clamp(t, 0, S.recs.length - 1)));
+    });
+    // the time: tap for a stepper (±1 s, ±10 s), for an exact second
+    const pbTime = el("button", "fs-ib pb-time");
+    pbTime.type = "button";
+    pbTime.addEventListener("click", () => openStepper(pbTime, { get: () => S.cursor, set: (t) => pbSet(t), small: 1, big: 10, fmt: (v) => `${v} s`, fmtStep: (d) => `${d} s`, label: "time" }));
     const SPEEDS = [0.5, 1, 2, 4];
     const pbSpeed = el("button", "fs-ib pb-speed", "1×");
     pbSpeed.type = "button";
@@ -1929,10 +2026,15 @@
         const lab = drive ? (on ? "Pause the run" : "Run: you drive") : on ? "Pause" : end ? "Play again from the start" : "Play";
         pbPlay.title = lab;
         pbPlay.setAttribute("aria-label", lab);
-        pbRange.max = HOR();
-        if (document.activeElement !== pbRange) pbRange.value = S.cursor;
-        pbRange.setAttribute("aria-valuetext", `t = ${S.cursor} s`);
-        pbTime.textContent = `${S.cursor} s`;
+        const frac = S.cursor / HOR();
+        pbScrub.style.setProperty("--pb", frac.toFixed(4));
+        pbScrub.setAttribute("aria-valuemax", String(HOR()));
+        pbScrub.setAttribute("aria-valuenow", String(S.cursor));
+        pbScrub.setAttribute("aria-valuetext", pbLabel(S.cursor));
+        pbTime.innerHTML = `${S.cursor} s<span class="pb-pm">±</span>`;
+        pbTime.title = "Step the time by 1 s or 10 s";
+        pbTime.setAttribute("aria-label", `t = ${S.cursor} s; step the time`);
+        if (!pbBubble.hidden) pbBubble.style.left = `calc(${PAD}px + ${frac.toFixed(4)} * (100% - ${2 * PAD}px))`;
         pbSpeed.textContent = `${S.speed}×`;
         pbSpeed.title = `Playback speed ${S.speed}× (tap to change)`;
         pbSpeed.setAttribute("aria-label", pbSpeed.title);
@@ -1942,9 +2044,103 @@
       const tk = `${S.recsVersion}|${S.recs.length}|${S.scen}|${HOR()}`;
       if (tk !== pbTickKey) {
         pbTickKey = tk;
-        pbTicks.innerHTML = eventsOf().list.map((e) => `<i style="left:${((100 * e.t) / HOR()).toFixed(2)}%;background:${TONE_COLOR[e.tone]}" title="${e.title} at ${e.t} s"></i>`).join("");
+        pbEvents = eventsOf().list;
+        pbTicks.innerHTML = pbEvents.map((e) => `<i style="left:calc(${PAD}px + ${(e.t / HOR()).toFixed(4)} * (100% - ${2 * PAD}px));background:${TICK_COLOR[e.kind] || TONE_COLOR[e.tone]}" title="${e.title} at ${e.t} s"></i>`).join("");
       }
     }
+
+    // ---- a stepper popover for exact values (the time; any slider's value on a phone)
+    const stepEl = el("div", "lab-step");
+    stepEl.setAttribute("role", "group");
+    stepEl.hidden = true;
+    root.appendChild(stepEl);
+    let stepCfg = null;
+    function openStepper(anchor, cfg) {
+      if (stepCfg && stepCfg.anchor === anchor && !stepEl.hidden) return closeStepper();
+      stepCfg = { ...cfg, anchor };
+      stepEl.setAttribute("aria-label", `Step the ${cfg.label}`);
+      const b = (txt, d, lab) => `<button type="button" data-d="${d}" aria-label="${lab}">${txt}</button>`;
+      stepEl.innerHTML = b("−" + cfg.fmtStep(cfg.big), -cfg.big, `minus ${cfg.fmtStep(cfg.big)}`) + b("−" + cfg.fmtStep(cfg.small), -cfg.small, `minus ${cfg.fmtStep(cfg.small)}`) +
+        `<output></output>` + b("+" + cfg.fmtStep(cfg.small), cfg.small, `plus ${cfg.fmtStep(cfg.small)}`) + b("+" + cfg.fmtStep(cfg.big), cfg.big, `plus ${cfg.fmtStep(cfg.big)}`);
+      stepEl.hidden = false;
+      syncOverlayHistory();
+      stepShow();
+      const rr = root.getBoundingClientRect(), ar = anchor.getBoundingClientRect(), sw = stepEl.offsetWidth, sh = stepEl.offsetHeight;
+      stepEl.style.left = clamp(ar.left + ar.width / 2 - sw / 2 - rr.left, 6, rr.width - sw - 6) + "px";
+      const above = ar.top - rr.top - sh - 8;
+      stepEl.style.top = (above > 4 ? above : ar.bottom - rr.top + 8) + "px";
+    }
+    function stepShow() {
+      if (stepCfg) stepEl.querySelector("output").textContent = stepCfg.fmt(stepCfg.get());
+    }
+    function closeStepper() {
+      if (stepEl.hidden) return;
+      stepEl.hidden = true;
+      stepCfg = null;
+      syncOverlayHistory();
+    }
+    stepEl.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-d]");
+      if (!b || !stepCfg) return;
+      stepCfg.set(stepCfg.get() + +b.dataset.d);
+      stepShow();
+      requestAnimationFrame(stepShow);
+    });
+    document.addEventListener("pointerdown", (e) => !stepEl.hidden && !stepEl.contains(e.target) && !(stepCfg && stepCfg.anchor.contains(e.target)) && closeStepper(), true);
+    // on a phone, a slider's value is a button that opens the stepper (fine steps; the slider stays for coarse moves)
+    root.addEventListener("click", (e) => {
+      const v = e.target.closest(".rt-ctl-val");
+      if (!v || !phoneUI()) return;
+      const inp = v.parentElement.querySelector('input[type="range"]');
+      if (!inp) return;
+      const st = +inp.step || 1, dec = (String(inp.step).split(".")[1] || "").length;
+      openStepper(v, {
+        label: (v.parentElement.querySelector(".rt-ctl-label") || {}).textContent || "value",
+        get: () => +inp.value,
+        set: (x) => {
+          inp.value = clamp(+x.toFixed(dec), +inp.min, +inp.max);
+          slideCommit = true;
+          inp.dispatchEvent(new Event("input", { bubbles: true }));
+          slideCommit = false;
+        },
+        small: st, big: st * 10, fmt: () => v.textContent, fmtStep: (d) => (+d.toFixed(dec)).toString(),
+      });
+    });
+
+    // ---- sliders on touch (F03): a swipe that starts on a slider scrolls; the value changes only on a sideways drag
+    // of the thumb or a tap. Input events are held back (in the capture phase) until the gesture is clear; a scroll
+    // puts the slider back silently.
+    let slideGest = null, slideCommit = false;
+    root.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "touch" || !(e.target instanceof HTMLInputElement) || e.target.type !== "range") return;
+      slideGest = { input: e.target, x: e.clientX, y: e.clientY, v0: e.target.value, mode: null };
+    }, true);
+    root.addEventListener("pointermove", (e) => {
+      const g = slideGest;
+      if (!g || g.mode) return;
+      const dx = e.clientX - g.x, dy = e.clientY - g.y;
+      if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
+        g.mode = "slide";
+        slideCommit = true;
+        g.input.dispatchEvent(new Event("input", { bubbles: true }));
+        slideCommit = false;
+      } else if (Math.abs(dy) > 6) g.mode = "scroll";
+    }, true);
+    const slideEnd = (e) => {
+      const g = slideGest;
+      slideGest = null;
+      if (!g) return;
+      if (e.type === "pointerup" && !g.mode && Math.hypot(e.clientX - g.x, e.clientY - g.y) < 8 && g.input.value !== g.v0) {
+        slideCommit = true; // a tap on the track: a deliberate jump
+        g.input.dispatchEvent(new Event("input", { bubbles: true }));
+        slideCommit = false;
+      } else if (g.mode !== "slide") g.input.value = g.v0;
+    };
+    window.addEventListener("pointerup", slideEnd, true);
+    window.addEventListener("pointercancel", slideEnd, true);
+    root.addEventListener("input", (e) => {
+      if (slideGest && e.target === slideGest.input && slideGest.mode !== "slide" && !slideCommit) e.stopPropagation();
+    }, true);
 
     // ---- history: entering pushes an entry, so the system Back gesture leaves the Lab, not the page (M2)
     let fsPushed = false, fsScrollY = 0, fsThenHash = null, fsScrollMode = "auto";
@@ -1956,8 +2152,46 @@
       fsExit();
     });
     window.addEventListener("popstate", () => {
-      if (isFull() && !(history.state && history.state.labFs)) fsExit(true);
+      if (isFull() && !(history.state && history.state.labFs)) return fsExit(true);
+      // Back with a card, the menu or a stepper open closes it first (a phone convention)
+      if (isFull() && !(history.state && history.state.labOv) && (openCard || !mMenu.hidden || !stepEl.hidden)) {
+        ovFromPop = true;
+        toggleMenu(false);
+        showCard(null);
+        closeStepper();
+        ovFromPop = false;
+      }
     });
+    // one history entry while any overlay is open on a phone; closing the last one takes it off again
+    let ovFromPop = false, ovQueued = false;
+    function syncOverlayHistory() {
+      if (ovQueued) return;
+      ovQueued = true;
+      queueMicrotask(() => {
+        ovQueued = false;
+        if (!phoneUI()) return;
+        const open = !!openCard || !mMenu.hidden || !stepEl.hidden, onOv = !!(history.state && history.state.labOv);
+        if (open && !onOv) history.pushState({ ...(history.state || {}), labOv: true }, "");
+        else if (!open && onOv && !ovFromPop) history.back();
+      });
+    }
+    // on a phone a tap outside an open card closes it, and does nothing else
+    let swallowClick = false;
+    root.addEventListener("pointerdown", (e) => {
+      if (!phoneUI() || !openCard) return;
+      if (e.target.closest(".lab-card, .fs-menu, .fs-more, .lab-step")) return;
+      e.stopPropagation();
+      e.preventDefault();
+      swallowClick = true;
+      showCard(null);
+    }, true);
+    root.addEventListener("click", (e) => {
+      if (!swallowClick) return;
+      swallowClick = false;
+      e.stopPropagation();
+      e.preventDefault();
+    }, true);
+    story.addEventListener("click", (e) => e.target.closest(".lab-t") && phoneUI() && showCard(null));
     function fsSync() {
       for (const k in fsScenBtns) fsScenBtns[k].classList.toggle("on", k === S.scen);
       const opt = (k, lab) => `<option value="${k}">${lab}</option>`;
@@ -1972,7 +2206,7 @@
     const FS_ITEMS = [
       { id: "controls", lab: "Controls", node: () => side, phone: true },
       { id: "numbers", lab: "Numbers", P: () => pN },
-      { id: "heat", lab: "Heating", node: () => hsBox, phone: true },
+      { id: "heat", lab: "Heating waves", node: () => hsBox, phone: true },
       { id: "knobs", lab: "Knobs", P: () => pK },
       { id: "traces", lab: "Traces", P: () => pX },
       { id: "profiles", lab: "Profiles", P: () => pP },
@@ -1993,7 +2227,7 @@
       [...home.entries()].reverse().forEach(([node, [parent, next]]) => (parent ? parent.insertBefore(node, next) : node.remove()));
       home.clear();
     }
-    let fsMode = null, fsSaved = null, tvH0 = tv.h;
+    let fsMode = null, fsSaved = null, tvH0 = tv.h, fsTab = null;
     const fsItems = () => FS_ITEMS.filter((it) => (fsMode !== "desk" || !it.phone) && (it.id !== "heat" || layers.heatstrip));
     const itemNode = (it) => (it.P ? it.P().p : it.node());
     function fsLayout(force) {
@@ -2028,7 +2262,8 @@
         }
         story.hidden = false;
         pT.set(true);
-        fsShowTab(store.get("fs-tab-" + mode, mode === "desk" ? "numbers" : "controls"));
+        // a rotation keeps the open tab; a new session opens on the tab last used in this orientation
+        fsShowTab(fsTab || store.get("fs-tab-" + mode, mode === "desk" ? "numbers" : "controls"));
       }
       requestAnimationFrame(fsFit);
     }
@@ -2051,6 +2286,8 @@
       });
       fsBody.scrollTop = 0;
       store.set("fs-tab-" + fsMode, cur.id);
+      fsTab = cur.id;
+      requestAnimationFrame(tabFade);
       if (cur.id === "heat") hsv.fit();
       if (cur.id === "controls") (sv.fit(), tl.fit());
       S.dirty = true;
@@ -2098,8 +2335,9 @@
       S.running = false;
       playBtn.textContent = "Play";
       runBtn.textContent = "Run";
-      if (!fromPop && fsPushed && history.state && history.state.labFs) return history.back();
+      if (!fromPop && fsPushed && history.state && history.state.labFs) return history.state.labOv ? history.go(-2) : history.back();
       fsPushed = false;
+      fsTab = null;
       toggleMenu(false);
       showCard(null);
       // back into the page in one step: the placeholder goes as the Lab returns, before anything forces a layout
@@ -2126,6 +2364,7 @@
       // ends asynchronously) and one frame; scroll anchoring stays off until then
       const done = () => requestAnimationFrame(() => {
         fitAll();
+        applyMode();
         history.scrollRestoration = fsScrollMode;
         if (fsThenHash) {
           const target = document.getElementById(fsThenHash.slice(1));
@@ -2223,6 +2462,7 @@
       `<li><b>Callouts</b> pin events to the part where they happen; a <b>red pulsing edge</b> means a limit is violated, and the view flashes red when one is crossed during playback.</li>` +
       `<li>The <b>narration</b> under the view says what is happening and who is turning the knobs.</li></ul>` +
       `<h4>Numbers at the cursor</h4><p>Big: the value at the cursor. Small print: the averages over the last 5, 20 and 60 s (muted while a window has not filled yet; for Q, the gain over the window), and TORAX's value at the same time. Hover or tap a number for its history with TORAX and your pins; <b>Numbers | Plots</b> switches to one small plot per quantity.</p>` +
+      `<h4>On a phone</h4><p>The playback bar: play, back to the start, the time line (tap to jump; a tap next to a tick snaps to that event and names it; drag to scrub, and lift your finger above the bar while dragging to scrub five times finer), the time (tap it to step by 1 s or 10 s), the speed and pin. Tap a slider's value to step it exactly. Back closes a card or the menu, then the Lab.</p>` +
       `<h4>Keys</h4><p><kbd>Space</kbd> play or pause · <kbd>←</kbd> <kbd>→</kbd> step 1 s (with <kbd>Shift</kbd> 10 s) · <kbd>F</kbd> full screen · <kbd>L</kbd> part names · <kbd>S</kbd> scoreboard · <kbd>?</kbd> this card · <kbd>Esc</kbd> close</p>` +
       `<p class="lab-card-more"><a href="#model-card">Model card</a>: what the reduced model is, how it was calibrated against TORAX and where it is wrong.</p>`;
 
@@ -2298,7 +2538,7 @@
     function drawScoreboard(status) {
       const C = sbCols();
       sbHead.innerHTML = `<p>Each cell is one ${HOR()} s episode on the Lab: <b>${C.ret}</b>, with <b>${C.lab}</b> set as in the column and every other parameter at its calibrated value. ` +
-        `Controllers run <b>live</b>, reading the Lab's plasma; schedules replay their knobs. Small print: seconds paid as H-mode. Click a cell to open that run.</p>` +
+        `Controllers run <b>live</b>, reading the Lab's plasma; schedules replay their knobs. Small print: seconds paid as H-mode. ${TOUCH_DEV ? "Tap" : "Click"} a cell to open that run.</p>` +
         `<p class="lab-sb-status">${status || (SB.rows.length ? `Done in ${(SB.secs || 0).toFixed(1)} s, in your browser. The best preset in each column is outlined.` : "")}</p>`;
       if (!SB.rows.length) return (sbTable.innerHTML = "");
       const cols = C.vals.map((_, j) => SB.rows.map((r) => r.cells[j]).filter((c) => c && !c.endT).map((c) => c.ret));
@@ -2388,6 +2628,8 @@
       return EVC;
     }
     const TONE_COLOR = { event: "#2a78d6", warn: "#c98500", bad: "#e34948", ok: "#1baf7a", idle: "#8a84a8" };
+    // the scrubber's ticks: heating orange, H-mode green, q_min < 1 amber, limits and losses red, the rest grey
+    const TICK_COLOR = { heat: "#eb6834", cut: "#eb6834", lh: "#1baf7a", ped: "#1baf7a", q1: "#eda100", fgw: "#e34948", hl: "#e34948", exploit: "#e34948", end: "#e34948", flat: "#8a84a8", saw: "#8a84a8" };
     function statusAt(d) {
       // the chip over the plasma: phase of the shot and confinement as the reward sees it
       const end = PHYS() && physEnd();
@@ -2401,6 +2643,9 @@
       const st = gated ? (d.psolPlh >= 1 ? ["paid as H-mode", "#1baf7a"] : ["paid as H-mode, P_SOL < P_LH", "#e34948"]) : d.hped > 0.5 ? ["pedestal up", "#c98500"] : ["L-mode", "#6b6390"];
       return { text: `${phase} · ${st[0]}`, color: st[1] };
     }
+    // chip fills dark enough for white 11 px text (≥ 4.5:1)
+    const CHIP_FILL = { "#1baf7a": "#11845b", "#c98500": "#9a6500", "#e34948": "#c72f2e" };
+    const chipFill = (c) => CHIP_FILL[c] || c;
     let hudKey = "";
     function drawHud() {
       const d = S.recs[S.cursor] || S.recs[0];
@@ -2412,12 +2657,18 @@
       if (S.as.pedMode !== pedMode0()) tags.unshift("pedestal: power-triggered");
       if (S.as.sawtooth) tags.unshift("sawtooth model on");
       if (S.live && tuneModified()) tags.push("controller retuned");
-      const key = `${st.text}|${S.label}|${who}|${d.t}|${S.scen}|${tags.join(",")}`;
+      // limits, at a glance next to the chip (ISA-101: abnormal states visible without reading)
+      const alarms = [];
+      if (d.fgw > 1) alarms.push(["bad", `f_GW ${d.fgw.toFixed(2)} > 1`]);
+      if (d.qmin < 1) alarms.push(["warn", `q_min ${d.qmin.toFixed(2)} < 1`]);
+      if (PHYS() && d.t <= 100 && (d.li < 0.65 || d.li > 1.2)) alarms.push(["bad", `l_i ${d.li.toFixed(2)} outside 0.65–1.2`]);
+      const key = `${st.text}|${S.label}|${who}|${d.t}|${S.scen}|${tags.join(",")}|${alarms.map((a) => a[1]).join(",")}`;
       if (key === hudKey) return;
       hudKey = key;
-      hudTags.innerHTML = tags.map((t) => `<span>⚙ ${t}</span>`).join("");
+      hudAlarm.innerHTML = alarms.map(([k, t]) => `<span class="${k}">${t}</span>`).join("");
+      hudTags.innerHTML = tags.map((t) => `<span>⚙ ${t}</span>`).join("") + (tags.length ? `<button type="button" class="lab-hud-reset">reset</button>` : "");
       hudChip.textContent = st.text;
-      hudChip.style.background = st.color;
+      hudChip.style.background = chipFill(st.color);
       hudText.innerHTML = `<b>${S.label}</b> <span>· ${who} · ${PHYS() ? "physics environment" : "benchmark"}</span><br>` +
         `<span>t = ${d.t} s · I_p ${d.Ip.toFixed(2)} MA · T_e(0) ${d.Te0.toFixed(1)} keV · q_min ${d.qmin.toFixed(2)} · Q ${d.Q < 100 ? d.Q.toFixed(2) : d.Q.toFixed(0)}</span>`;
     }
@@ -2432,8 +2683,8 @@
       const end = PHYS() ? physEnd() : null;
       if (end && i > end.t) return ["bad", `<b>The physics environment ended this episode at ${end.t} s</b> (${end.why}). From there on you see the Lab carrying on, for reference.`];
       if (i === 0 && you && S.mode === "drive")
-        return ["idle", `t = 0: a ${d.Ip.toFixed(0)} MA ohmic plasma. <b>You drive</b>: set the I_p ramp, NBI and ECRH in the side pane, then press <b>Run</b> (space) or <b>Step 1 s</b>. Each second earns the reward of that step.`];
-      if (i === 0) return ["idle", `t = 0: a ${d.Ip.toFixed(0)} MA ohmic plasma, T_e(0) ${d.Te0.toFixed(1)} keV, q_min ${d.qmin.toFixed(1)}. Press <b>Play</b> (space) to run the ${HOR()} s ramp-up, or drag the time.`];
+        return ["idle", `t = 0: a ${d.Ip.toFixed(0)} MA ohmic plasma. <b>You drive</b>: set the I_p ramp, NBI and ECRH in ${SIDE()}, then press <b>${phoneUI() ? "▶" : "Run"}</b>${TOUCH ? "" : " (space)"} or <b>Step 1 s</b>. Each second earns the reward of that step.`];
+      if (i === 0) return ["idle", `t = 0: a ${d.Ip.toFixed(0)} MA ohmic plasma, T_e(0) ${d.Te0.toFixed(1)} keV, q_min ${d.qmin.toFixed(1)}. Press <b>${phoneUI() ? "▶" : "Play"}</b>${TOUCH ? "" : " (space)"} to run the ${HOR()} s ramp-up, or ${TOUCH ? "tap the time line" : "drag the time"}.`];
       const ev = eventsOf().list.filter((e) => e.t <= i && i < e.t + 4).pop();
       if (ev) return [ev.tone, `<b>${ev.title}</b>${ev.t < i ? ` (${i - ev.t} s ago)` : ""}: ${ev.text}.${act}`];
       let tone = "ok", msg;
@@ -2464,6 +2715,7 @@
       if (key === narrKey) return;
       narrKey = key;
       narr.innerHTML = `<i class="lab-dot" style="background:${TONE_COLOR[tone]}"></i><span>${msg}</span>`;
+      if (phoneUI()) requestAnimationFrame(() => { const sp = narr.querySelector("span"); narr.classList.toggle("more", !!sp && sp.scrollHeight > sp.clientHeight + 1); });
     }
     // the callouts at the cursor: events of the last eight seconds, the latest two
     function calloutsAt(i) {
@@ -2832,13 +3084,30 @@
       }
       S.dirty = true;
     }
-    const PIN_COLORS = ["#8f7fe0", "#9aa0a6", "#d47fb0"];
+    // pin colours: none of them the current run's pink
+    const PIN_COLORS = ["#8f7fe0", "#9aa0a6", "#b08d57"];
     function pinRun() {
-      if (S.pins.length >= 3) S.pins.shift();
-      const tags = [S.live ? "live" : "", S.live && tuneModified() ? "tuned" : "", asModified() ? "modified plasma" : ""].filter(Boolean);
-      S.pins.push({ label: S.label + (tags.length ? ` (${tags.join(", ")})` : ""), recs: S.recs.slice() });
+      // the label says what differs from the calibrated plasma and the trained controller
+      const diffs = PARAMS.filter((q) => (!q.scen || q.scen === S.scen) && Math.abs(S.as[q.k] - defOf(q)) > 1e-9).map((q) => `${q.label} ${q.f(S.as[q.k])}`);
+      if (S.as.pedMode !== pedMode0()) diffs.unshift("pedestal power-triggered");
+      if (S.as.sawtooth) diffs.unshift("sawteeth");
+      const tags = [S.live ? "live" : "", S.live && tuneModified() ? "retuned" : "", ...diffs].filter(Boolean);
+      const label = S.label + (tags.length ? ` (${tags.join(", ")})` : "");
+      const key = `${S.recsVersion}|${S.recs.length}|${label}`;
+      if (S.pins.some((p) => p.key === key)) return toast("This run is already pinned");
+      let note = "";
+      if (S.pins.length >= 3) note = `; pin 1 (${S.pins.shift().label}) was replaced`;
+      S.pins.push({ label, key, recs: S.recs.slice() });
       S.pins.forEach((p, i) => (p.color = PIN_COLORS[i]));
+      toast(`Pinned: ${label}${note}`);
       S.dirty = true;
+    }
+    function clearPins() {
+      if (!S.pins.length) return;
+      const kept = S.pins.slice();
+      S.pins = [];
+      S.dirty = true;
+      toast(`${kept.length} pin${kept.length > 1 ? "s" : ""} cleared`, "Undo", () => ((S.pins = kept), (S.dirty = true)));
     }
 
     // ------------------------------------------------ drawing
@@ -2971,6 +3240,7 @@
         const g = qTorax(q, d.t);
         tor.textContent = g === null ? "" : `TORAX ${qFmt(q, g)}`;
       }
+      numKey.dataset.view = numView;
       numKey.innerHTML = numView === "plots"
         ? `<span><i class="k-run"></i>this run</span>${S.torax ? `<span><i class="k-tor"></i>TORAX</span>` : ""}${S.pins.map((p, j) => `<span title="${p.label}"><i style="background:${p.color}"></i>pin ${j + 1}</span>`).join("")}<span><i class="k-ref"></i>limit or reference</span><span class="k-hint">${TOUCH ? "tap or drag to move the time" : "click or drag to move the time; hover for values"}</span>`
         : `<span><b>big</b>: the value at t = ${d.t} s</span><span><b>5s 20s 60s</b>: trailing averages</span>${S.torax ? `<span><b>TORAX</b>: its value at the same time</span>` : ""}<span class="k-hint">${TOUCH ? "tap" : "hover"} a number for its history</span>`;
@@ -3165,6 +3435,7 @@
       showPopAt(c.q, cell, cell.getBoundingClientRect());
     }
     function showPopAt(q, anchor, cr) {
+      popScroll = scrollPos();
       popQ = q;
       popEl = anchor;
       popRect = cr;
@@ -3177,7 +3448,8 @@
       if (left < 4) left = clamp(cr.left - pr.left, 4, pr.width - pw - 4);
       numPop.style.left = left + "px";
       // below the anchor's top if it fits on the screen, otherwise above its bottom
-      const ph = numPop.offsetHeight || 230, top = cr.top + ph > innerHeight - 8 ? cr.bottom - ph : cr.top - 10;
+      const pbTop = isFull() && fsMode !== "desk" ? pb.getBoundingClientRect().top : innerHeight;
+      const ph = numPop.offsetHeight || 230, top = cr.top + ph > pbTop - 8 ? Math.min(cr.bottom, pbTop - 8) - ph : cr.top - 10;
       numPop.style.top = Math.max(4, top - pr.top) + "px";
       drawPop();
     }
@@ -3208,20 +3480,30 @@
       }).join("");
     }
     const TOUCH = !!(window.matchMedia && window.matchMedia("(hover: none)").matches);
+    const phoneUI = () => isFull() && fsMode !== "desk";
+    const SIDE = () => (phoneUI() ? "the Controls tab" : "the side pane");
+    // touch: a tap (not a swipe) on a tile toggles its history; the label's equation link is not followed (the
+    // panel's ∑ equations has them); a mouse opens it on hover
     readout.addEventListener("click", (e) => {
-      const a = e.target.closest("a"), cell = e.target.closest(".lab-ro");
-      if (TOUCH && a && cell && popEl !== cell) {
-        e.preventDefault();
-        showPop(cell);
-      }
+      const cell = e.target.closest(".lab-ro");
+      if (!TOUCH || !cell) return;
+      e.preventDefault();
+      if (popEl === cell) hidePop();
+      else showPop(cell);
     });
     readout.addEventListener("pointerover", (e) => {
+      if (e.pointerType === "touch") return;
       const cell = e.target.closest(".lab-ro");
       if (cell && cell !== popEl) showPop(cell);
     });
     readout.addEventListener("pointerleave", (e) => e.pointerType !== "touch" && hidePop());
-    document.addEventListener("pointerdown", (e) => popQ && !readout.contains(e.target) && e.target !== sv.c && hidePop()); // a tap elsewhere closes it
-    readout.addEventListener("focusin", (e) => e.target.closest(".lab-ro") && showPop(e.target.closest(".lab-ro")));
+    document.addEventListener("pointerdown", (e) => popQ && !readout.contains(e.target) && e.target !== sv.c && e.target !== bv.c && hidePop()); // a tap elsewhere closes it
+    // on touch, scrolling the content closes the history (it would stay where the tile was); a focus nudge of a few
+    // pixels (a tapped tile scrolled into view) does not
+    const scrollPos = () => window.scrollY + (isFull() ? fsBody.scrollTop : 0);
+    let popScroll = 0;
+    window.addEventListener("scroll", () => popQ && TOUCH && Math.abs(scrollPos() - popScroll) > 12 && hidePop(), true);
+    readout.addEventListener("focusin", (e) => !TOUCH && e.target.closest(".lab-ro") && showPop(e.target.closest(".lab-ro")));
     readout.addEventListener("focusout", hidePop);
     const cum = (per) => {
       let s = 0;
@@ -3331,17 +3613,32 @@
       S.dirty = true;
       return true;
     }
-    let scrubbing = false;
+    // a mouse scrubs on press and drag; a finger only on a sideways drag (a vertical one scrolls the page) or a tap,
+    // and not at all on the sparklines and power bars, where a tap opens the history
+    let scrubbing = false, touchScrub = null;
     for (const cv of [xv, ks, mv, ra, bv, sv]) {
       cv.c.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "touch") return (touchScrub = cv === sv || cv === bv ? null : { cv, x: e.clientX, y: e.clientY, ev: e, mode: null });
         if (scrubFrom(e, cv, true)) {
           scrubbing = cv;
           if (cv === sv) hidePop();
         }
       });
       cv.c.addEventListener("pointermove", (e) => {
-        if (scrubbing === cv) scrubFrom(e, cv);
+        if (scrubbing === cv) return scrubFrom(e, cv);
+        const t = touchScrub;
+        if (!t || t.cv !== cv || t.mode === "scroll") return;
+        const dx = e.clientX - t.x, dy = e.clientY - t.y;
+        if (!t.mode && Math.abs(dy) > 8 && Math.abs(dy) >= Math.abs(dx)) t.mode = "scroll";
+        else if (!t.mode && Math.abs(dx) > 8) t.mode = scrubFrom(t.ev, cv, true) ? "scrub" : "scroll";
+        if (t.mode === "scrub") scrubFrom(e, cv);
       });
+      cv.c.addEventListener("pointerup", (e) => {
+        const t = touchScrub;
+        if (t && t.cv === cv && !t.mode && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 8) scrubFrom(e, cv, true);
+        touchScrub = null;
+      });
+      cv.c.addEventListener("pointercancel", () => (touchScrub = null));
     }
     window.addEventListener("pointerup", () => (scrubbing = false));
 
@@ -3525,7 +3822,7 @@
       ctx.fillStyle = col.muted;
       ctx.font = FONT_SMALL;
       ctx.textAlign = "right";
-      ctx.fillText(`t = ${d.t} s: f_GW ${d.fgw.toFixed(2)}, q95 ${d.q95.toFixed(2)}, β_N ${d.betaN.toFixed(2)}`, box.x + box.w, box.y - 6 - 14);
+      ctx.fillText(`t = ${d.t} s: f_GW ${d.fgw.toFixed(2)}, q95 ${d.q95.toFixed(2)}, β_N ${d.betaN.toFixed(2)}`, box.x + box.w - 4, box.y + box.h - 22);
       ctx.textAlign = "left";
       legend(ctx, col, leg, box.x, box.y + box.h + 34, box.w);
     }
@@ -3929,16 +4226,20 @@
       const p = presetOf(S.key) || {}, c = CTRL[S.ctrl] || CTRL.feedback;
       let txt;
       if (S.ctrl === "open") txt = "A schedule: every knob is a function of time alone, fixed before the shot. Change the plasma parameters and the knobs stay where they are; only the plasma changes.";
-      else if (S.ctrl === "human") txt = "You are the feedback controller: you read the plasma on this page and set the knobs once per second, from the side pane.";
+      else if (S.ctrl === "human") txt = `You are the feedback controller: you read the plasma on this page and set the knobs once per second, from ${SIDE()}.`;
       else if (S.live) {
         const reads = isPI(S.key) ? "j(0), the central current density, against a rising target" : `${nInputs()} numbers describing the plasma`;
         txt = `<b>${S.label}, closed loop on the Lab:</b> every second it reads ${reads} from this plasma and sets the knobs from it, so they follow whatever the Lab does, including your changes to its parameters and gains. Dashed: what it did on TORAX.` +
           (isPI(S.key) ? " Its heating still follows the clock: PI is feedback on I_p only." : "");
       } else
         txt = `<b>${S.label}:</b> the knobs it set on TORAX, while reading TORAX's plasma, replayed here without feedback.` +
-          (p.live ? " Switch the side pane to <i>live on the Lab</i>, or move one of its gains, to let it read this plasma instead." : "");
+          (p.live ? ` Switch ${SIDE()} to <i>live on the Lab</i>, or move one of its gains, to let it read this plasma instead.` : "");
       kBanner.innerHTML = `<span class="lab-cls ${c.cls}">${c.tag}</span>${txt}` + (S.liveNote ? ` <em>(${S.liveNote})</em>` : "");
-      // side pane: what is loaded, and the controls that apply to it
+      syncSide();
+    }
+    // the side pane (the Controls tab on a phone): what is loaded, and the controls that apply to it
+    function syncSide() {
+      const p = presetOf(S.key) || {}, c = CTRL[S.ctrl] || CTRL.feedback;
       sideHead.innerHTML = `<span class="lab-cls ${c.cls}">${c.tag}</span><b>${S.label}</b>` + (S.live ? ` <span class="lab-live">live</span>` : "");
       liveBtns.rec.classList.toggle("on", !S.live);
       liveBtns.live.classList.toggle("on", S.live);
@@ -4074,14 +4375,16 @@
       .concat([{ k: "li", lab: "l_i(3)", yr: [0.4, 1.4], thr: 0.65, ok: (v, d) => d.t > 100 || (v >= 0.65 && v <= 1.2), f: (v) => v.toFixed(2) }]);
     const sparkRows = () => (PHYS() ? SPARK_PHYS : SPARK_BENCH);
     // hover a sparkline row: the same history popup as the numbers panel
-    sv.c.addEventListener("pointermove", (e) => {
-      if (scrubbing === sv) return;
+    const sparkPop = (e) => {
       const r = sv.c.getBoundingClientRect(), rows = sparkRows(), rh = (sv.h - 4) / rows.length;
       const i = clamp(Math.floor((e.clientY - r.top - 2) / rh), 0, rows.length - 1);
       const q = QTY().find((x) => x.k === rows[i].k);
       if (!q) return hidePop();
       if (popQ !== q || popEl !== sv.c) showPopAt(q, sv.c, { left: r.left, right: r.right, top: r.top + 2 + i * rh, bottom: r.top + 2 + (i + 1) * rh });
-    });
+      else if (e.type === "click") hidePop();
+    };
+    sv.c.addEventListener("pointermove", (e) => e.pointerType !== "touch" && scrubbing !== sv && sparkPop(e));
+    sv.c.addEventListener("click", (e) => TOUCH && sparkPop(e));
     sv.c.addEventListener("pointerleave", (e) => e.pointerType !== "touch" && hidePop());
     sv.c.style.cursor = "help";
     sv.c.title = "";
@@ -4362,8 +4665,7 @@
       ctx.restore();
     }
     // hover a bar segment: its history in the shared popup (with its share of the bar in the title)
-    bv.c.addEventListener("pointermove", (e) => {
-      if (scrubbing === bv) return;
+    const balPop = (e) => {
       const r = bv.c.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
       const seg = balSegs.find((g) => x >= g.x && x <= g.x + g.w && y >= g.y && y <= g.y + g.h);
       if (!seg) return popEl === bv.c && hidePop();
@@ -4372,7 +4674,10 @@
       const total = balSegs.filter((g) => g.y === seg.y).reduce((a, g) => a + Math.max(0, g.part[0]), 0);
       const qq = { ...q, note: `${((100 * v) / Math.max(total, 1e-9)).toFixed(0)} % of the bar` };
       if (popEl !== bv.c || !popQ || popQ.k !== q.k) showPopAt(qq, bv.c, { left: r.left + seg.x, right: r.left + seg.x + seg.w, top: r.top + seg.y, bottom: r.top + seg.y + seg.h });
-    });
+      else if (e.type === "click") hidePop();
+    };
+    bv.c.addEventListener("pointermove", (e) => e.pointerType !== "touch" && scrubbing !== bv && balPop(e));
+    bv.c.addEventListener("click", (e) => TOUCH && balPop(e));
     bv.c.addEventListener("pointerleave", (e) => e.pointerType !== "touch" && popEl === bv.c && hidePop());
 
     // ------------------------------------------------ reward through the episode (stacked terms)
@@ -4445,7 +4750,7 @@
       if (pK.open) {
         updateKnobBanner();
         drawKnobStrips();
-      }
+      } else syncSide();
       drawSpark();
       if (popQ) drawPop();
       drawTimeline();
@@ -4515,9 +4820,10 @@
           // inline on a phone: only the preview, a frame from the episode (the flat-top once played to it), at 15 fps
           if (lVisible && frameNo % 4 === 0) {
             const at = S.cursor > 0 ? S.cursor : Math.min(110, S.recs.length - 1);
+            if (lCap.textContent !== `preview at t = ${at} s`) lCap.textContent = `preview at t = ${at} s`;
             drawTorus(lTorus, at, { preview: true, labels: false });
             const st = statusAt(S.recs[at]);
-            if (lChip.textContent !== st.text) (lChip.textContent = st.text), (lChip.style.background = st.color);
+            if (lChip.textContent !== st.text) (lChip.textContent = st.text), (lChip.style.background = chipFill(st.color));
           }
           requestAnimationFrame(frameLoop);
           return;
@@ -4563,6 +4869,7 @@
       const tm = +q.get("transport");
       if (tm) setParam("transportMul", clamp(tm, 0.5, 2), true);
       if (q.get("play") === "1" && !S.playing) togglePlay();
+      fsTab = tb && TAB_EQ[tb] ? "profiles" : null; // ?tab=T: the profiles, the instrument the link is about
       S.dirty = true;
     }
 
