@@ -82,6 +82,17 @@ async function swipe(page, x, y, dx, dy, steps = 10) {
   await cdp.detach();
   await page.waitForTimeout(400);
 }
+async function touchPath(page, pts) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: pts[0][0], y: pts[0][1] }] });
+  for (const [x, y] of pts.slice(1)) {
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y }] });
+    await page.waitForTimeout(16);
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+  await page.waitForTimeout(400);
+}
 async function setTime(page, t) {
   await page.focus(".pb-scrub");
   await page.keyboard.press("Home");
@@ -229,6 +240,12 @@ async function phoneSuite(browser, base, w, h, scheme) {
   await swipe(page, tr.x + 12 + (tr.w - 24) * 0.2, tr.y + tr.h / 2, (tr.w - 24) * 0.4, 0, 6);
   const tDrag = parseInt(await text(page, ".pb-time"), 10);
   check("M4", "dragging along the track scrubs", near(tDrag, 91, 12), `${tDrag} s after a drag from 20 % to 60 %`);
+  if (tick) {
+    await touchPath(page, [[tr.x + 12, tr.y + tr.h / 2], [tick.x - 20, tr.y + tr.h / 2], [tick.x + 3, tr.y + tr.h / 2]]);
+    const tEnd = parseInt(await text(page, ".pb-time"), 10), tTick = parseInt(tick.t.match(/at (\d+) s$/)[1], 10);
+    const tExp = Math.round(((tick.x + 3 - tr.x - 12) / (tr.w - 24)) * 151);
+    check("M4", "a drag ends where the finger is, not on a nearby tick", near(tEnd, tExp, 1) && (tEnd !== tTick || tExp === tTick), `${tEnd} s (finger at ${tExp} s, tick at ${tTick} s)`);
+  }
   // the time is a button: a stepper of ±1 s and ±10 s (F06)
   await wait(page, 300);
   await page.tap(".pb-time");
@@ -324,6 +341,13 @@ async function phoneSuite(browser, base, w, h, scheme) {
     const after = await page.evaluate((id) => document.querySelectorAll("input[type=range]")[id].value, sl.id);
     const sb1 = await page.evaluate(() => document.querySelector(".fs-body").scrollTop);
     check("M7", "a vertical swipe that starts on a slider scrolls and leaves its value alone", after === sl.v && sb1 > sb0 + 20, `value ${sl.v} → ${after}, scrolled ${(sb1 - sb0).toFixed(0)} px`);
+    const sl2 = await page.evaluate((id) => { const i = document.querySelectorAll("input[type=range]")[id]; i.scrollIntoView({ block: "center" }); const r = i.getBoundingClientRect(); return { x: r.x + r.width * 0.3, y: r.y + r.height / 2, v: i.value }; }, sl.id);
+    await wait(page, 200);
+    const path = [[sl2.x, sl2.y], [sl2.x + 5, sl2.y], [sl2.x + 9, sl2.y - 2]];
+    for (let k = 1; k <= 8; k++) path.push([sl2.x + 9, sl2.y - 2 - 15 * k]);
+    await touchPath(page, path);
+    const after2 = await page.evaluate((id) => document.querySelectorAll("input[type=range]")[id].value, sl.id);
+    check("M7", "a swipe that starts slightly sideways on a slider still leaves its value alone", after2 === sl2.v, `value ${sl2.v} → ${after2}`);
   }
   await page.tap('.fs-tabs button[data-tab="numbers"]');
   await wait(page, 200);
@@ -347,6 +371,25 @@ async function phoneSuite(browser, base, w, h, scheme) {
   await swipe(page, tv0.x + tv0.w * 0.5, Math.min(tv0.y + 120, body.y + body.h - 20), 0, -100);
   check("M6", "a vertical swipe over a plot scrolls without moving the time", (await text(page, ".pb-time")) === tBefore, `${tBefore} → ${await text(page, ".pb-time")}`);
   await page.tap('.fs-tabs button[data-tab="controls"]');
+
+  // the what-if reset puts the controller's sliders back as well (evaluation round 2, N1)
+  const kp = await page.evaluate(() => { const l = [...document.querySelectorAll(".fs-body .lab-tune .rt-ctl")].find((c) => /k_p/.test(c.textContent)); if (!l) return null; const v = l.querySelector(".rt-ctl-val"); v.scrollIntoView({ block: "center" }); const r = v.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+  if (kp) {
+    await wait(page, 200);
+    await page.touchscreen.tap(kp.x, kp.y);
+    await wait(page, 200);
+    await page.tap(".lab-step button:nth-of-type(4)");
+    await wait(page, 300);
+    await page.keyboard.press("Escape");
+    const kpv = () => page.evaluate(() => [...document.querySelectorAll(".fs-body .lab-tune .rt-ctl")].find((c) => /k_p/.test(c.textContent)).querySelector(".rt-ctl-val").textContent);
+    const raised = await kpv();
+    const reset = await page.$(".lab-hud-reset");
+    if (reset) {
+      await page.tap(".lab-hud-reset");
+      await wait(page, 300);
+    }
+    check("M12", "the stepper sets a gain, and the what-if reset puts its slider back", raised !== "1.00×" && !!reset && (await kpv()) === "1.00×", `k_p ${raised} → ${await kpv()}`);
+  }
 
   // M8 contrast of the filled controls and the status chip (both themes)
   const lowC = [];
@@ -443,6 +486,21 @@ async function phoneSuite(browser, base, w, h, scheme) {
     await wait(page, 500);
     check("M11", "…and Back shows the page behind it", !(await cls(page)).includes("lab-fs") && (await page.evaluate(() => location.search.includes("preset=phys_pi"))));
   }
+
+  // with a card open, ✕ leaves in one tap (round 2, N9)
+  if (!(await cls(page)).includes("lab-fs")) {
+    await page.goto(lab);
+    await page.waitForFunction(() => document.querySelector(".lab-launch-preset")?.textContent);
+    await page.tap(".lab-launch-go");
+    await wait(page, 400);
+  }
+  await page.tap(".fs-more");
+  await wait(page, 150);
+  await page.tap(".fs-mi:nth-child(1)");
+  await wait(page, 200);
+  await page.tap(".fs-close");
+  await wait(page, 600);
+  check("M2", "with a card open, ✕ leaves the Lab in one tap", !(await cls(page)).includes("lab-fs"));
 
   check("—", "no script errors", errors.length === 0, errors.slice(0, 2).join(" | ") || undefined);
   await ctx.close();
