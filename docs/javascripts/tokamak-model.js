@@ -514,7 +514,7 @@
         per.push({ total: cfg.endPenalty, fusion: 0, h98: 0, qmin: 0, q95: 0, penalty: cfg.endPenalty });
         endT = d.t;
         why = d.fgw > cfg.endFgw ? `Greenwald fraction ${d.fgw.toFixed(2)} > ${cfg.endFgw}`
-          : liOut ? `l_i ${d.li.toFixed(2)} outside [${cfg.liMin}, ${cfg.liMax}] at t = ${d.t} s` : `q95 ${d.q95.toFixed(2)} < ${cfg.endQ95}`;
+          : liOut ? `l_i ${d.li.toFixed(3)} outside [${cfg.liMin}, ${cfg.liMax}] at t = ${d.t} s` : `q95 ${d.q95.toFixed(2)} < ${cfg.endQ95}`;
         break;
       }
       const tr = rewardTerms(d, cfg);

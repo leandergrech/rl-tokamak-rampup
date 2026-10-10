@@ -17,6 +17,7 @@ const M = require("../docs/javascripts/tokamak-model.js");
 const C = require("../docs/javascripts/lab-control.js");
 
 const LAB = JSON.parse(fs.readFileSync("docs/assets/widgets/lab.json", "utf8"));
+const PHYS_STEPS = 150; // the physics environment's episodes are 150 one-second steps (the benchmark's 151)
 const DIR = "docs/assets/widgets/policies";
 let failed = 0;
 const ok = (cond, msg) => {
@@ -82,7 +83,7 @@ for (const s of specs) {
   const recs = M.runEpisode(over, (t, last) => {
     if (t === 0) ctrl.reset();
     return ctrl.act(last);
-  });
+  }, phys ? PHYS_STEPS : 151);
   if (phys) {
     const sp = M.scoreEpisode(recs, PHY);
     console.log(`     ${s.key}: live on the Lab: physics ${sp.ret.toFixed(2)}${sp.why ? " (ended: " + sp.why + ")" : ""}, I_p end ${recs[recs.length - 1].Ip.toFixed(1)} MA${rec ? ` | TORAX ${rec.benchmark.toFixed(2)}` : ""}`);
@@ -118,9 +119,9 @@ if (process.argv.includes("--robustness")) {
   const plive = (key) => (key === "phys_pi" ? C.piController(null, C.PHYSICS_PI) : specs.find((s) => s.key === key) && C.learnedController(specs.find((s) => s.key === key)));
   for (const [key, e] of Object.entries(LAB).filter(([k]) => k.startsWith("phys_"))) {
     const acts = e.actions.Ip.map((ip, t) => ({ Ip: ip * 1e6, nbi: e.actions.nbi[t] * 1e6, ecrh: e.actions.ecrh[t] * 1e6 }));
-    const rec = F.map((f) => score(M.runEpisode({ ...M.PHYSICS, plhMul: f }, (t) => acts[Math.min(t, acts.length - 1)]), PHY));
+    const rec = F.map((f) => score(M.runEpisode({ ...M.PHYSICS, plhMul: f }, (t) => acts[Math.min(t, acts.length - 1)], PHYS_STEPS), PHY));
     const ctrl = plive(key);
-    const lv = ctrl ? F.map((f) => score(M.runEpisode({ ...M.PHYSICS, plhMul: f }, (t, last) => (t === 0 && ctrl.reset(), ctrl.act(last))), PHY)) : null;
+    const lv = ctrl ? F.map((f) => score(M.runEpisode({ ...M.PHYSICS, plhMul: f }, (t, last) => (t === 0 && ctrl.reset(), ctrl.act(last)), PHYS_STEPS), PHY)) : null;
     prow.push(`| ${e.label} | ${rec.map((v) => v.toFixed(2)).join(" | ")} | ${lv ? lv.map((v) => v.toFixed(2)).join(" | ") : "– | – | – | –"} |`);
   }
   console.log(`\n| Physics episode | recorded knobs, threshold × ${F.join(" | × ")} | live controller, × ${F.join(" | × ")} |\n|---|${"---|".repeat(8)}`);
