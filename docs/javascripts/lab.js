@@ -8,7 +8,7 @@
   "use strict";
   const RT = window.RT, M = window.RTModel;
   if (!RT || !M) return;
-  const { colors, el, controls, slider, button, chip, note, canvas, frame, line, hline, player, getJSON, FONT, FONT_SMALL } = RT;
+  const { colors, el, controls, slider, button, chip, note, canvas, frame, line, hline, player, getJSON, FONT, FONT_SMALL, isDark } = RT;
   const RC = window.RTControl;
   const SCRIPT_URL = document.currentScript ? document.currentScript.src : location.href;
   const SITE_ROOT = new URL("../", SCRIPT_URL);
@@ -225,41 +225,189 @@
     const n = arr.length - 1, t = clamp(x, 0, 1) * n, i = Math.min(n - 1, Math.floor(t));
     return arr[i] + (arr[i + 1] - arr[i]) * (t - i);
   }
+  // ------------------------------------------------------------------ heating, drawn at human scale
+  // ECRH is a wave: 170 GHz microwaves (lambda = c / f = 1.76 mm), drawn 400x longer (0.7 m on the machine) and
+  // slowed about 1e11x (to 1.2 cycles a second). NBI is not a wave but a beam of fast atoms: 1 MeV deuterium at
+  // about 9,800 km/s, drawn slowed about 3e6x (3 m/s). Colours follow frequency on one log scale (SPECTRUM);
+  // invisible bands get false colours, the visible band its real ones.
+  const C_LIGHT = 2.998e8;
+  const HEAT = {
+    ecrh: { f: 170e9, lamDraw: 0.7, fDraw: 1.2 },
+    nbi: { E: 1.0, v: 9.8e6, vDraw: 3.0 },
+    dalpha: { lam: 656.1e-9 },
+  };
+  // frequency bands, log10(f / Hz): [from, to, label, colour at the band's start, colour at its end]
+  const SPECTRUM = [
+    [7, 9, "radio", [120, 128, 150], [110, 150, 190]],
+    [9, 11.48, "microwave", [70, 170, 235], [80, 225, 255]],
+    [11.48, 14.6, "infrared", [150, 60, 90], [200, 30, 40]],
+    [14.6, 14.88, "visible", null, null],
+    [14.88, 16, "ultraviolet", [150, 80, 220], [120, 90, 160]],
+  ];
+  // the colour of visible light of a given wavelength [nm] (piecewise fit to the CIE colours)
+  function visibleRGB(nm) {
+    const [r, g, b] = nm < 440 ? [(440 - nm) / 60, 0, 1] : nm < 490 ? [0, (nm - 440) / 50, 1] : nm < 510 ? [0, 1, (510 - nm) / 20]
+      : nm < 580 ? [(nm - 510) / 70, 1, 0] : nm < 645 ? [1, (645 - nm) / 65, 0] : [1, 0, 0];
+    const edge = nm < 420 ? 0.3 + (0.7 * (nm - 380)) / 40 : nm > 700 ? 0.3 + (0.7 * (780 - nm)) / 80 : 1;
+    return [r, g, b].map((v) => Math.round(255 * Math.pow(clamp(v * edge, 0, 1), 0.8)));
+  }
+  function specRGB(logf) {
+    for (const [a, b, , c0, c1] of SPECTRUM) {
+      if (logf < a || logf > b) continue;
+      if (!c0) return visibleRGB((C_LIGHT / Math.pow(10, logf)) * 1e9);
+      const u = (logf - a) / (b - a);
+      return c0.map((v, k) => Math.round(v + (c1[k] - v) * u));
+    }
+    return [128, 128, 128];
+  }
+  const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  const EC_RGB = specRGB(Math.log10(HEAT.ecrh.f)), DA_RGB = specRGB(Math.log10(C_LIGHT / HEAT.dalpha.lam)), NBI_RGB = [255, 150, 50];
+  const REDUCED_MOTION = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+  function pointInPoly(x, y, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i], [xj, yj] = poly[j];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  function distPoly(x, y, pts) {
+    let best = Infinity;
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, ay] = pts[i - 1], [bx, by] = pts[i];
+      const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1;
+      const u = clamp(((x - ax) * dx + (y - ay) * dy) / L2, 0, 1);
+      best = Math.min(best, Math.hypot(x - ax - u * dx, y - ay - u * dy));
+    }
+    return best;
+  }
+  function wrapText(ctx, text, maxW) {
+    const words = String(text).split(" "), lines = [];
+    let cur = "";
+    for (const w of words) {
+      const t = cur ? cur + " " + w : w;
+      if (ctx.measureText(t).width > maxW && cur) {
+        lines.push(cur);
+        cur = w;
+      } else cur = t;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
   function makeTorus(cv, opts) {
     const view = { yaw: opts.yaw !== undefined ? opts.yaw : 0.55, el: 0.42, phase: 0 };
-    let dragging = null;
+    let dragging = null, last = null;
     cv.c.style.touchAction = "pan-y";
     cv.c.style.cursor = "grab";
     cv.c.addEventListener("pointerdown", (e) => {
-      dragging = { x: e.clientX, yaw: view.yaw, el: view.el, y: e.clientY };
+      dragging = { x: e.clientX, yaw: view.yaw, el: view.el, y: e.clientY, moved: 0 };
       cv.c.style.cursor = "grabbing";
     });
-    window.addEventListener("pointerup", () => {
+    window.addEventListener("pointerup", (e) => {
+      if (dragging && dragging.moved < 4 && e.target === cv.c) hover(e); // a tap: explain what is under it
       dragging = null;
       cv.c.style.cursor = "grab";
     });
     cv.c.addEventListener("pointermove", (e) => {
-      if (!dragging) return;
+      if (!dragging) return hover(e);
+      dragging.moved = Math.max(dragging.moved, Math.hypot(e.clientX - dragging.x, e.clientY - dragging.y));
+      cv.hideTip();
       view.yaw = dragging.yaw - (e.clientX - dragging.x) * 0.01;
       view.el = clamp(dragging.el + (e.clientY - dragging.y) * 0.004, 0.12, 1.2);
       if (opts.onChange) opts.onChange();
     });
+    cv.c.addEventListener("pointerleave", () => cv.hideTip());
+
+    // ---- hover: what is under the pointer, with its live values
+    function hover(e) {
+      if (!last) return;
+      const r = cv.c.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+      const hit = hitTest(x, y);
+      const html = hit && ((opts.describe && opts.describe(hit, last.S)) || describe(hit, last.S));
+      if (html) cv.showTip(x, y, html);
+      else cv.hideTip();
+    }
+    function rhoAt(x, y, phi) {
+      const ring = (rho) => Array.from({ length: 49 }, (_, m) => last.P(surfPoint(rho, (m / 48) * 2 * Math.PI, phi)));
+      if (!pointInPoly(x, y, ring(1))) return null;
+      let lo = 0, hi = 1;
+      for (let i = 0; i < 12; i++) {
+        const mid = (lo + hi) / 2;
+        if (pointInPoly(x, y, ring(mid))) hi = mid;
+        else lo = mid;
+      }
+      return hi;
+    }
+    function hitTest(x, y) {
+      let best = null;
+      const near = (pri) => {
+        for (const h of last.hits) {
+          if (h.pri !== pri) continue;
+          const d = h.pt ? Math.hypot(x - h.pt[0], y - h.pt[1]) : h.poly ? distPoly(x, y, h.poly) : h.box && x >= h.box[0] && x <= h.box[2] && y >= h.box[1] && y <= h.box[3] ? 0 : Infinity;
+          if (d <= h.r && (!best || d / h.r < best.score)) best = { ...h, score: d / h.r };
+        }
+        return best;
+      };
+      if (near(0)) return best;
+      for (const phi of last.cuts) {
+        const rho = rhoAt(x, y, phi);
+        if (rho !== null) return { kind: "plasma", rho };
+      }
+      return near(1);
+    }
+    const fmt = (v, n) => (v === undefined || v === null || !isFinite(v) ? "–" : Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(n));
+    function describe(hit, S) {
+      const at = (arr, rho) => (arr ? interp(arr, rho) : null);
+      switch (hit.kind) {
+        case "plasma": {
+          const pr = S.prof || {};
+          const rows = [["T_e", at(pr.Te, hit.rho), 1, "keV"], ["j", at(pr.j, hit.rho), 2, "MA/m²"], ["q", at(S.q, hit.rho), 2, ""], ["n_e", at(pr.n, hit.rho), 2, "× 10²⁰ m⁻³"]]
+            .filter((r) => r[1] !== null).map(([k, v, n, u]) => `${k} <b>${fmt(v, n)}</b> ${u}`);
+          if (!pr.Te && S.val) rows.unshift(`${COLOR_BY[S.colorBy || "Te"].label} <b>${fmt(at(S.val, hit.rho), 2)}</b>`);
+          const where = hit.rho > 0.97 ? "the plasma edge (last closed flux surface)" : hit.rho < 0.06 ? "the magnetic axis" : `the flux surface at ρ̂ = ${hit.rho.toFixed(2)}`;
+          return `<b>Plasma</b>, ${where}<br>${rows.join(" · ")}<br><span class="rt-dim">A cut through the torus: each ring is a nested flux surface, coloured by the profile you chose.</span>`;
+        }
+        case "q1":
+          return `<b>The q = 1 surface</b> at ρ̂ ≈ ${hit.rho.toFixed(2)}<br>Inside it a field line closes on itself after a single turn the long way round. Real plasmas then crash periodically (sawteeth); a hybrid scenario keeps q_min just above 1.`;
+        case "cs":
+          return `<b>Central solenoid</b><br>A transformer: changing its current induces the plasma current. Flux used so far: <b>${fmt(S.flux, 0)} Wb</b> (the blue fill), out of a budget that ends the pulse when it runs out.`;
+        case "coils":
+          return `<b>Toroidal field coils</b> (18)<br>Superconducting coils for the 5.3 T field the long way round. The plasma current adds the field the short way round; together they twist the field lines.`;
+        case "ecrh":
+        case "launcher":
+          return `<b>ECRH: ${fmt(S.ecrh, 1)} MW of 170 GHz microwaves</b> (λ = 1.76 mm) from gyrotrons, aimed by a steerable mirror in the launcher.<br>` +
+            `Electrons gyrate round the field lines at 28 GHz per tesla; where that matches the wave they absorb it, so the power lands in a thin layer and drives current there (ECCD).<br>` +
+            `<span class="rt-dim">Drawn 400× longer and slowed about 10¹¹×; amplitude and brightness grow with the power. Microwaves are invisible: the cyan is a false colour (see the strip under the plasma).</span>`;
+        case "dep":
+          return `<b>ECRH absorbed at ρ̂ = ${fmt(S.ecrhLoc, 2)}</b><br>${fmt(S.ecrh, 1)} MW heats the electrons in a narrow layer here. The glow grows with the power.`;
+        case "nbi":
+        case "injector":
+          return `<b>NBI: ${fmt(S.nbi, 1)} MW of 1 MeV deuterium atoms</b> from two injectors.<br>Neutral, so the magnetic field cannot turn them away; in the plasma they are ionised, caught by the field and slow down, heating it and driving current. Fewer survive the deeper they go, and fewer still in a denser plasma.<br>` +
+            `<span class="rt-dim">Not a laser or a wave: drawn as atoms, slowed about 3 × 10⁶× (they fly at 9,800 km/s); more atoms, more power. The red glow is real light: Balmer-α (656 nm) from beam atoms excited in the plasma.</span>`;
+        default:
+          return null;
+      }
+    }
 
     function draw(S) {
-      // S: {q:[], val:[], colorBy, nbi, ecrh, ecrhLoc, Ip, coils, beams, lines, labels, flash, title, hmode, flux}
+      // S: {q:[], val:[], colorBy, nbi, ecrh, ecrhLoc, Ip, coils, beams, lines, labels, flash, title, hmode, flux,
+      //     prof, ne20, spectrum, callouts:[{anchor, title, text, color}], alarm (0..1), overlay, badge}
       const col = colors();
       const { ctx, w, h } = cv;
       ctx.clearRect(0, 0, w, h);
+      const tnow = REDUCED_MOTION ? 0.4 : performance.now() / 1000;
       const ce = Math.cos(view.el), se = Math.sin(view.el), cy0 = Math.cos(view.yaw), sy0 = Math.sin(view.yaw);
       const ext = S.coils ? 10.6 : 8.9;
       const zext = S.coils ? 5.6 : 3.8;
       const sc = Math.min((w * 0.94) / (2 * ext), (h * 0.9) / (2 * (ext * se + zext * ce)));
-      const cx = w / 2, cy = h / 2 + (S.coils ? 0 : 6);
+      const cx = w / 2, cy = h / 2 + (S.coils ? 0 : 6) + (opts.topPad || 0);
       const P = (p) => {
         const xr = p[0] * cy0 - p[1] * sy0, yr = p[0] * sy0 + p[1] * cy0;
         return [cx + sc * xr, cy - sc * (yr * se + p[2] * ce), yr * ce - p[2] * se];
       };
-      const prims = [];
+      const prims = [], hits = [], anchors = {};
       const phiFront = -Math.PI / 2 - view.yaw;
       const cutHalf = Math.PI / 4.2;
       const inCut = (phi) => {
@@ -269,6 +417,19 @@
       const qAt = (rho) => Math.max(0.2, interp(S.q, rho));
       const cm = COLOR_BY[S.colorBy || "Te"];
       const colAt = (rho, a) => cmap(cm.map, cm.norm(interp(S.val, rho)), a);
+      const rational = (qv) => {
+        for (let x = 0; x <= 1; x += 0.005)
+          if ((qAt(x) - qv) * (qAt(Math.min(1, x + 0.005)) - qv) <= 0 && qAt(x) !== qAt(x + 0.005)) return x > 0.005 ? x : null;
+        return null;
+      };
+      const phiR = phiFront + cutHalf; // the right-hand cut face: anchors for callouts
+      anchors.edge = P(surfPoint(1, 0.35, phiR));
+      anchors.core = P(surfPoint(0, 0, phiR));
+      const rq1 = rational(1);
+      if (rq1 !== null) {
+        anchors.q1 = P(surfPoint(rq1, -0.6, phiR));
+        hits.push({ kind: "q1", pt: anchors.q1, r: 9, pri: 0, rho: rq1 });
+      }
       // --- plasma outer surface mesh (translucent), outside the cut
       const NT = 72, NP = 26;
       for (let i = 0; i < NT; i++) {
@@ -312,23 +473,30 @@
             ctx.fillStyle = colAt(rho - 0.5 / NR, 0.95);
             ctx.fill();
           }
+          const edgePath = () => {
+            ctx.beginPath();
+            for (let m = 0; m <= 48; m++) {
+              const pt = P(surfPoint(1, (m / 48) * 2 * Math.PI, phi));
+              m ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]);
+            }
+          };
           ctx.strokeStyle = col.muted;
           ctx.lineWidth = 1;
-          ctx.beginPath();
-          for (let m = 0; m <= 48; m++) {
-            const pt = P(surfPoint(1, (m / 48) * 2 * Math.PI, phi));
-            m ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]);
-          }
+          edgePath();
           ctx.stroke();
+          if (S.alarm) {
+            // a limit is violated: the plasma edge pulses red
+            ctx.save();
+            ctx.strokeStyle = `rgba(235,60,60,${(0.45 + 0.4 * Math.sin(tnow * 7)) * S.alarm})`;
+            ctx.lineWidth = 3.5;
+            edgePath();
+            ctx.stroke();
+            ctx.restore();
+          }
           // rational surfaces
           for (const [qv, color, lab] of [[1, "#ff3b3b", "q = 1"], [2, "rgba(255,255,255,0.75)", "q = 2"]]) {
-            let rq = null;
-            for (let x = 0; x <= 1; x += 0.005)
-              if ((qAt(x) - qv) * (qAt(Math.min(1, x + 0.005)) - qv) <= 0 && qAt(x) !== qAt(x + 0.005)) {
-                rq = x;
-                break;
-              }
-            if (rq === null || rq <= 0.005) continue;
+            const rq = rational(qv);
+            if (rq === null) continue;
             ctx.save();
             ctx.strokeStyle = color;
             ctx.lineWidth = qv === 1 ? 2.2 : 1.2;
@@ -396,6 +564,8 @@
       // --- central solenoid
       const csR = 1.35, csH = S.coils ? 4.6 : 3.6;
       const csTop = P([0, 0, csH]), csBot = P([0, 0, -csH]);
+      anchors.cs = [csTop[0], csTop[1] + 8];
+      hits.push({ kind: "cs", box: [csTop[0] - sc * csR, csTop[1] - sc * csR * se, csTop[0] + sc * csR, csBot[1] + sc * csR * se], r: 1, pri: 1 });
       prims.push([0, () => {
         const rx = sc * csR, ry = sc * csR * se;
         ctx.fillStyle = col.panel;
@@ -435,10 +605,12 @@
         for (let k = 0; k < 18; k++) {
           const phi = (k / 18) * 2 * Math.PI + 0.09;
           let prev = null;
+          const poly = [];
           for (let m = 0; m <= 40; m++) {
             const th = (m / 40) * 2 * Math.PI;
             const Rr = 7.2 + 3.6 * Math.cos(th + 0.25 * Math.sin(th)) - (Math.cos(th) < 0 ? 0.6 * Math.cos(th) : 0);
             const pt = P([Rr * Math.cos(phi), Rr * Math.sin(phi), 5.2 * Math.sin(th)]);
+            poly.push(pt);
             if (prev) {
               const a = prev, b = pt;
               prims.push([(a[2] + b[2]) / 2, () => {
@@ -454,67 +626,179 @@
             }
             prev = pt;
           }
+          hits.push({ kind: "coils", poly, r: 5, pri: 1 });
         }
       }
-      // --- NBI (tangential beam) and ECRH (ray from an upper launcher)
+      // --- heating: NBI (a tangential beam of fast atoms) and ECRH (a microwave beam from an upper launcher)
       if (S.beams !== false) {
         if (S.nbi > 0.05) {
-          const phiB = phiFront + Math.PI * 0.62, Rt = 5.3;
-          const dir = [-Math.sin(phiB), Math.cos(phiB)];
+          const Pn = clamp(S.nbi / 33, 0, 1.5);
+          const phiB = phiFront + Math.PI * 0.62, Rt = 5.3, zB = -0.3;
+          const dir = [-Math.sin(phiB), Math.cos(phiB)], rad = [Math.cos(phiB), Math.sin(phiB)];
           const tan = [Rt * Math.cos(phiB), Rt * Math.sin(phiB)];
-          const n = 30;
+          const at3 = (s, u = 0, v = 0) => [tan[0] + dir[0] * s + rad[0] * u, tan[1] + dir[1] * s + rad[1] * u, zB + v];
+          const s0 = -9.6, s1 = 4.5;
+          const sIn = -Math.sqrt((GEO.R0 + GEO.a) ** 2 - Rt * Rt); // where the beam crosses the plasma edge
+          // fraction of atoms not yet ionised: a picture of beam stopping, faster in a denser plasma
+          const lam = 3.0 / clamp(S.ne20 || 0.9, 0.25, 1.6);
+          const surv = (s) => (s < sIn ? 1 : Math.exp(-(s - sIn) / lam));
+          const n = 36;
+          const axis = [];
+          for (let i = 0; i <= n; i++) axis.push(P(at3(s0 + ((s1 - s0) * i) / n)));
           for (let i = 0; i < n; i++) {
-            const s0 = -9 + (i / n) * 9, s1 = -9 + ((i + 1) / n) * 9;
-            const a = P([tan[0] + dir[0] * s0, tan[1] + dir[1] * s0, -0.3]), b = P([tan[0] + dir[0] * s1, tan[1] + dir[1] * s1, -0.3]);
-            const fade = i > n * 0.55 ? 1 - (i - n * 0.55) / (n * 0.45) : 1;
-            prims.push([(a[2] + b[2]) / 2 - 0.1, () => {
-              ctx.strokeStyle = `rgba(255,140,40,${0.85 * fade})`;
-              ctx.lineWidth = 1.5 + (S.nbi / 33) * 6;
+            const sm = s0 + ((s1 - s0) * (i + 0.5)) / n, a = axis[i], b = axis[i + 1], f = surv(sm);
+            // drawn a little in front of its true depth, so the translucent plasma surface does not hide it
+            prims.push([(a[2] + b[2]) / 2 - 2.5, () => {
+              ctx.strokeStyle = rgba(NBI_RGB, (0.14 + 0.18 * Math.min(1, Pn)) * f); // the beam's envelope
+              ctx.lineWidth = sc * (0.3 + 0.25 * Pn);
+              ctx.beginPath();
+              ctx.moveTo(a[0], a[1]);
+              ctx.lineTo(b[0], b[1]);
+              ctx.stroke();
+              if (sm > sIn) {
+                ctx.strokeStyle = rgba(DA_RGB, 0.5 * Math.min(1, Pn) * f); // Balmer-alpha light where it meets the plasma
+                ctx.lineWidth = sc * (0.16 + 0.12 * Pn);
+                ctx.beginPath();
+                ctx.moveTo(a[0], a[1]);
+                ctx.lineTo(b[0], b[1]);
+                ctx.stroke();
+              }
+            }]);
+          }
+          // the atoms: more of them for more power; each fades as it is ionised
+          const N = Math.round(10 + 46 * Math.min(1, Pn)), span = s1 - s0, vD = HEAT.nbi.vDraw;
+          for (let k = 0; k < N; k++) {
+            const r1 = Math.sin(k * 12.9898) * 43758.5453, r2 = Math.sin(k * 78.233) * 12345.678;
+            const u = (r1 - Math.floor(r1) - 0.5) * 0.42, v = (r2 - Math.floor(r2) - 0.5) * 0.42;
+            const s = s0 + ((((tnow * vD + (k * span) / N + (r2 - Math.floor(r2)) * 0.4) % span) + span) % span);
+            const f = surv(s);
+            if (f < 0.04) continue;
+            const a = P(at3(s - 0.55, u, v)), b = P(at3(s, u, v));
+            prims.push([b[2] - 2.6, () => {
+              const g = ctx.createLinearGradient(a[0], a[1], b[0], b[1]);
+              g.addColorStop(0, rgba(NBI_RGB, 0));
+              g.addColorStop(1, rgba(NBI_RGB, 0.9 * f));
+              ctx.strokeStyle = g;
+              ctx.lineWidth = 2;
               ctx.lineCap = "round";
               ctx.beginPath();
               ctx.moveTo(a[0], a[1]);
               ctx.lineTo(b[0], b[1]);
               ctx.stroke();
               ctx.lineCap = "butt";
+              ctx.fillStyle = `rgba(255,244,214,${f})`;
+              ctx.beginPath();
+              ctx.arc(b[0], b[1], 2.2, 0, 2 * Math.PI);
+              ctx.fill();
             }]);
           }
-          if (S.labels !== false) {
-            const pl = P([tan[0] - dir[0] * 8.6, tan[1] - dir[1] * 8.6, -0.3]);
-            prims.push([-99, () => {
-              ctx.fillStyle = "rgb(235,120,30)";
+          const inj = P(at3(s0)), entry = P(at3(sIn));
+          anchors.nbi = entry;
+          hits.push({ kind: "nbi", poly: axis.slice(0, Math.round(n * 0.85)), r: 9, pri: 0 });
+          hits.push({ kind: "injector", pt: inj, r: 12, pri: 0 });
+          prims.push([inj[2] - 0.2, () => {
+            ctx.fillStyle = col.panel;
+            ctx.strokeStyle = col.muted;
+            ctx.lineWidth = 1;
+            roundRect(ctx, inj[0] - 9, inj[1] - 6, 18, 12, 3);
+            ctx.fill();
+            ctx.stroke();
+            if (S.labels !== false) {
               ctx.font = FONT_SMALL;
-              ctx.fillText(`NBI ${S.nbi.toFixed(0)} MW`, pl[0] - 20, pl[1] + 14);
-            }]);
-          }
+              const lx = clamp(inj[0] - 22, 4, w - ctx.measureText("1 MeV D atoms").width - 6), ly = clamp(inj[1] + 20, 14, h - 18);
+              ctx.fillStyle = "rgb(225,115,25)";
+              ctx.fillText(`NBI ${S.nbi.toFixed(0)} MW`, lx, ly);
+              ctx.fillStyle = col.muted;
+              if (w >= 480) ctx.fillText("1 MeV D atoms", lx, ly + 13);
+            }
+          }]);
         }
         if (S.ecrh > 0.05) {
-          const phi = phiFront + cutHalf;
-          const target = surfPoint(Math.max(0.02, S.ecrhLoc || 0.35), 1.05, phi);
-          const launch = [ (GEO.R0 + 1.3) * Math.cos(phi), (GEO.R0 + 1.3) * Math.sin(phi), 4.6 ];
-          const a = P(launch), b = P(target);
+          const Pn = clamp(S.ecrh / 20, 0, 1.5);
+          const phi = phiR;
+          const T3 = surfPoint(Math.max(0.02, S.ecrhLoc || 0.35), 1.05, phi);
+          const L3 = [(GEO.R0 + 1.3) * Math.cos(phi), (GEO.R0 + 1.3) * Math.sin(phi), 4.6];
+          const len = Math.hypot(T3[0] - L3[0], T3[1] - L3[1], T3[2] - L3[2]);
+          const n = 160, pts = [];
+          for (let i = 0; i <= n; i++) {
+            const u = i / n;
+            pts.push(P([L3[0] + (T3[0] - L3[0]) * u, L3[1] + (T3[1] - L3[1]) * u, L3[2] + (T3[2] - L3[2]) * u]));
+          }
+          const a = pts[0], b = pts[n];
+          anchors.ecrh = pts[Math.round(n * 0.3)];
+          anchors.dep = b;
+          hits.push({ kind: "ecrh", poly: pts, r: 9, pri: 0 });
+          hits.push({ kind: "dep", pt: b, r: 11, pri: 0 });
+          hits.push({ kind: "launcher", pt: a, r: 12, pri: 0 });
           prims.push([-50, () => {
             ctx.save();
-            ctx.strokeStyle = "rgba(80,220,255,0.9)";
-            ctx.lineWidth = 1 + (S.ecrh / 20) * 2.5;
+            const k = (2 * Math.PI) / HEAT.ecrh.lamDraw, om = 2 * Math.PI * HEAT.ecrh.fDraw;
+            const absorbed = (u) => (u < 0.8 ? 1 : Math.exp(-(((u - 0.8) / 0.11) ** 2)));
+            const amp = sc * (0.12 + 0.24 * Math.sqrt(Math.min(Pn, 1.2))); // field amplitude ~ sqrt(power)
+            const nrm = (i) => {
+              const p0 = pts[Math.max(0, i - 1)], p1 = pts[Math.min(n, i + 1)], dx = p1[0] - p0[0], dy = p1[1] - p0[1], L = Math.hypot(dx, dy) || 1;
+              return [-dy / L, dx / L];
+            };
+            // the beam's envelope (a focused Gaussian beam)
+            ctx.lineCap = "round";
+            for (const [wd, al] of [[2.6, 0.07], [1.4, 0.12]]) {
+              ctx.strokeStyle = rgba(EC_RGB, al * (0.5 + Pn));
+              ctx.lineWidth = amp * wd + 4;
+              ctx.beginPath();
+              pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
+              ctx.stroke();
+            }
+            // the wave: the electric field oscillating across the beam, travelling into the plasma
+            ctx.strokeStyle = rgba(EC_RGB, 0.5 + 0.5 * Math.min(1, Pn));
+            ctx.lineWidth = 1.4 + 1.0 * Math.min(1, Pn);
             ctx.beginPath();
-            const n = 60, dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1;
             for (let i = 0; i <= n; i++) {
-              const t = i / n, wig = Math.sin(t * 40 - view.phase * 6) * 3 * (1 - t);
-              const x = a[0] + dx * t - (dy / L) * wig, y = a[1] + dy * t + (dx / L) * wig;
+              const u = i / n, ph = k * u * len - om * tnow, A = amp * absorbed(u) * Math.sin(ph), [nx, ny] = nrm(i);
+              const x = pts[i][0] + nx * A, y = pts[i][1] + ny * A;
               i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
             }
             ctx.stroke();
-            const g = ctx.createRadialGradient(b[0], b[1], 0, b[0], b[1], 12);
-            g.addColorStop(0, "rgba(160,240,255,0.95)");
-            g.addColorStop(1, "rgba(160,240,255,0)");
+            // wavefronts: one bright bar per wavelength, at each crest
+            ctx.strokeStyle = rgba(EC_RGB, 0.5 + 0.45 * Math.min(1, Pn));
+            ctx.lineWidth = 1.4;
+            const m0 = Math.ceil((-om * tnow) / (2 * Math.PI)), m1 = Math.floor((k * len - om * tnow) / (2 * Math.PI));
+            for (let m = m0; m <= m1; m++) {
+              const u = (2 * Math.PI * m + om * tnow) / (k * len);
+              if (u < 0 || u > 1) continue;
+              const i = Math.round(u * n), A = (amp + 3) * absorbed(u), [nx, ny] = nrm(i);
+              if (A < 1.5) continue;
+              ctx.globalAlpha = absorbed(u);
+              ctx.beginPath();
+              ctx.moveTo(pts[i][0] - nx * A, pts[i][1] - ny * A);
+              ctx.lineTo(pts[i][0] + nx * A, pts[i][1] + ny * A);
+              ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+            ctx.lineCap = "butt";
+            // where it is absorbed: a glow that grows with the power and pulses with the wave
+            const rg = sc * (0.25 + 0.3 * Math.min(1, Pn)) * (1 + 0.12 * Math.sin(om * tnow));
+            const g = ctx.createRadialGradient(b[0], b[1], 0, b[0], b[1], rg);
+            g.addColorStop(0, "rgba(235,250,255,0.95)");
+            g.addColorStop(0.35, rgba(EC_RGB, 0.6));
+            g.addColorStop(1, rgba(EC_RGB, 0));
             ctx.fillStyle = g;
             ctx.beginPath();
-            ctx.arc(b[0], b[1], 12, 0, 2 * Math.PI);
+            ctx.arc(b[0], b[1], rg, 0, 2 * Math.PI);
             ctx.fill();
+            // the launcher: a mirror in an upper port
+            ctx.fillStyle = col.panel;
+            ctx.strokeStyle = col.muted;
+            ctx.lineWidth = 1;
+            roundRect(ctx, a[0] - 8, a[1] - 7, 16, 10, 2);
+            ctx.fill();
+            ctx.stroke();
             if (S.labels !== false) {
-              ctx.fillStyle = "rgb(40,170,210)";
               ctx.font = FONT_SMALL;
-              ctx.fillText(`ECRH ${S.ecrh.toFixed(0)} MW`, a[0] + 6, a[1] - 4);
+              const lx = clamp(a[0] + 12, 4, w - ctx.measureText("170 GHz microwaves").width - 6);
+              ctx.fillStyle = isDark() ? rgba(EC_RGB, 1) : `rgb(${EC_RGB.map((v) => Math.round(v * 0.55))})`;
+              ctx.fillText(`ECRH ${S.ecrh.toFixed(0)} MW`, lx, a[1] - 6);
+              ctx.fillStyle = col.muted;
+              if (w >= 480) ctx.fillText("170 GHz microwaves", lx, a[1] + 7);
             }
             ctx.restore();
           }]);
@@ -530,6 +814,14 @@
       }
       prims.sort((x, y) => y[0] - x[0]);
       for (const [, f] of prims) f();
+      // --- a limit was just crossed: the view flashes red at its edges
+      if (S.redFlash > 0) {
+        const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.75);
+        g.addColorStop(0, "rgba(227,73,72,0)");
+        g.addColorStop(1, `rgba(227,73,72,${0.45 * S.redFlash})`);
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+      }
       // --- overlays
       ctx.font = FONT_SMALL;
       ctx.fillStyle = col.muted;
@@ -562,6 +854,53 @@
         ctx.fillStyle = "#fff";
         ctx.fillText(S.badge.text, w - tw - 3, by0 + 15);
       }
+      // --- callouts: what just happened, pinned to the part where it happens
+      if (S.callouts && S.callouts.length) {
+        ctx.font = FONT_SMALL;
+        // stacked up from the bottom-left corner, over the left cut face (the right one shows the same profile),
+        // each with a leader line to its part
+        let yNext = h - 34;
+        S.callouts.slice(-2).reverse().forEach((c) => {
+          const an = anchors[c.anchor] || anchors.edge;
+          const lines = wrapText(ctx, c.text || "", 190);
+          const lw = Math.max(0, ...lines.map((l) => ctx.measureText(l).width));
+          ctx.font = "600 " + FONT_SMALL;
+          const tw = Math.max(ctx.measureText(c.title).width, lw);
+          const bwc = tw + 16, bh = 18 + 13 * lines.length;
+          const bx2 = 8, by2 = Math.max(6, yNext - bh);
+          yNext = by2 - 6;
+          const color = c.color || col.accent;
+          ctx.save();
+          ctx.globalAlpha = c.alpha === undefined ? 1 : c.alpha;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.moveTo(an[0], an[1]);
+          ctx.lineTo(clamp(an[0], bx2, bx2 + bwc), clamp(an[1], by2, by2 + bh));
+          ctx.stroke();
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(an[0], an[1], 3.5, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.fillStyle = col.panel;
+          ctx.globalAlpha *= 0.94;
+          roundRect(ctx, bx2, by2, bwc, bh, 7);
+          ctx.fill();
+          ctx.globalAlpha = c.alpha === undefined ? 1 : c.alpha;
+          ctx.strokeStyle = color;
+          ctx.stroke();
+          ctx.fillStyle = color;
+          ctx.fillRect(bx2, by2 + 4, 3, bh - 8);
+          ctx.font = "600 " + FONT_SMALL;
+          ctx.fillStyle = color;
+          ctx.fillText(c.title, bx2 + 9, by2 + 14);
+          ctx.font = FONT_SMALL;
+          ctx.fillStyle = col.fg;
+          lines.forEach((l, i) => ctx.fillText(l, bx2 + 9, by2 + 28 + 13 * i));
+          ctx.restore();
+        });
+      }
+      last = { S, P, cuts: [phiFront - cutHalf, phiFront + cutHalf], hits };
     }
     return { draw, view };
   }
