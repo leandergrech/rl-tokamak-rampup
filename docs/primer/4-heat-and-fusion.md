@@ -53,7 +53,7 @@ A 0-D power balance makes the consequence visible. Losses follow IPB98 × H98; h
 
     - **Heating buys temperature, but with diminishing returns** (stiffness; τ_E ∝ P^−0.69), and early heating also changes the current profile ([How the current gets in](3-current-diffusion.md)).
     - **Q rewards a small denominator.** Any policy that keeps the core hot with less injected power is paid more, and under a scheduled pedestal "less" can mean zero. This is the loophole PPO, SAC and MBPO found ([Limitations](../05-limitations.md#the-q-loophole-found-by-rl)).
-    - **The H-mode gate is a temperature threshold**, not the physics of H-mode. In the Lab, the badge on the plasma view turns red when the reward counts a state as H-mode while P_SOL < P_LH.
+    - **The H-mode gate is a temperature threshold**, not the physics of H-mode. In the Lab, the status chip over the plasma turns red when the reward counts a state as H-mode while P_SOL < P_LH.
 
 ??? question "Check yourself"
 
